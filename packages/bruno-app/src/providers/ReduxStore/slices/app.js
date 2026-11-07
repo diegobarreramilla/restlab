@@ -82,7 +82,7 @@ const initialState = {
       models: {},
       defaultModel: '',
       autocomplete: {
-        enabled: true,
+        enabled: false,
         model: '',
         triggerMode: 'debounced'
       },

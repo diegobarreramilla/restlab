@@ -61,8 +61,9 @@ const getAutocompletePrefs = () => getAiPrefs().autocomplete || {};
 const isAutocompleteEnabled = () => {
   const ai = getAiPrefs();
   const ac = ai.autocomplete || {};
-  // master AI switch must be on; autocomplete is opt-in but defaults to true.
-  return Boolean(ai.enabled) && ac.enabled !== false;
+  // The master AI switch must be on, and autocomplete is a separate opt-in because it sends
+  // the script being typed to the provider as the user types.
+  return Boolean(ai.enabled) && ac.enabled === true;
 };
 
 const hasApiKey = (providerId) => aiKeyStore.hasKey(providerId);

@@ -26,7 +26,7 @@ Método: se buscó en `bruno-electron/src` y `bruno-app/src` (sin pruebas) todo 
 | Qué | Dónde | Cómo se activa |
 |---|---|---|
 | Anuncios de Bruno (`appinfo.usebruno.com`) | `bruno-electron/src/ipc/notifications.js` | Preferencias > General > Privacy. Con la opción apagada no sale ninguna petición (cubierto por `notifications.spec.js`) |
-| Proveedores de IA (OpenAI, Anthropic, endpoints compatibles) | `bruno-electron/src/ipc/ai/providers.js` | Requiere `ai.enabled` y una clave propia. Las pruebas de claves y los chats ocurren solo por acción del usuario |
+| Proveedores de IA (OpenAI, Anthropic, endpoints compatibles) | `bruno-electron/src/ipc/ai/providers.js` | Requiere `ai.enabled` y una clave propia. Las pruebas de claves y los chats ocurren solo por acción del usuario. El autocompletado de scripts, que envía el código mientras se escribe, es una activación aparte (`ai.autocomplete.enabled`) y también está apagado por defecto |
 
 ## 4. Eliminadas
 

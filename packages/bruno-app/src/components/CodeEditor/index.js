@@ -388,7 +388,7 @@ class CodeEditor extends React.Component {
         scriptType: this.props.scriptType,
         isEnabled: () => {
           const ai = this.props.aiPreferences;
-          return Boolean(ai?.enabled) && ai?.autocomplete?.enabled !== false;
+          return Boolean(ai?.enabled) && ai?.autocomplete?.enabled === true;
         },
         getTriggerMode: () => this.props.aiPreferences?.autocomplete?.triggerMode || 'debounced',
         getContext: () => buildAutocompleteContext({

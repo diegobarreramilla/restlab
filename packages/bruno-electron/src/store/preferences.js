@@ -92,7 +92,7 @@ const defaultPreferences = {
     defaultModel: '',
     openaiCompatibleEndpoints: [],
     autocomplete: {
-      enabled: true,
+      enabled: false,
       model: '',
       triggerMode: 'debounced'
     },

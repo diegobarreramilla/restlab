@@ -102,7 +102,7 @@ const AI = () => {
       defaultModel: get(preferences, 'ai.defaultModel', ''),
       openaiCompatibleEndpoints: get(preferences, 'ai.openaiCompatibleEndpoints', []),
       autocomplete: {
-        enabled: get(preferences, 'ai.autocomplete.enabled', true),
+        enabled: get(preferences, 'ai.autocomplete.enabled', false),
         model: get(preferences, 'ai.autocomplete.model', ''),
         triggerMode: get(preferences, 'ai.autocomplete.triggerMode', 'debounced')
       },
@@ -131,7 +131,7 @@ const AI = () => {
             defaultModel: values.defaultModel || '',
             openaiCompatibleEndpoints: values.openaiCompatibleEndpoints || [],
             autocomplete: {
-              enabled: values.autocomplete?.enabled !== false,
+              enabled: values.autocomplete?.enabled === true,
               model: values.autocomplete?.model || '',
               triggerMode: values.autocomplete?.triggerMode || 'debounced'
             },
@@ -489,7 +489,7 @@ const AI = () => {
         <div className="ai-tab-panel" role="tabpanel">
           <AutocompletePane
             aiEnabled={formik.values.enabled}
-            enabled={formik.values.autocomplete?.enabled !== false}
+            enabled={formik.values.autocomplete?.enabled === true}
             model={formik.values.autocomplete?.model || ''}
             triggerMode={formik.values.autocomplete?.triggerMode || 'debounced'}
             availableModels={usableModels}
