@@ -381,7 +381,7 @@ describe('api spec ipc handlers', () => {
       const denied = Object.assign(new Error(message), { code });
       const rm = jest.spyOn(fs.promises, 'rm').mockRejectedValueOnce(denied);
 
-      await expect(invoke(specPath, workspacePath)).rejects.toThrow('Bruno does not have permission to delete this file.');
+      await expect(invoke(specPath, workspacePath)).rejects.toThrow('RestLab does not have permission to delete this file.');
 
       expect(readSpecs(workspacePath)).toHaveLength(1);
       rm.mockRestore();

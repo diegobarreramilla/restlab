@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const { preferencesUtil } = require('../../store/preferences');
 const { buildRouteMapFromMockResponses, countRouteResponses } = require('./mock-response-routes');
 const { buildRequestContext, evaluateResponseCandidates } = require('./mock-rule-matcher');
+const { APP_NAME } = require('../../branding');
 const DEFAULT_GATEWAY_PORT = 4000;
 
 const MAX_LOG_ENTRIES = 500;
@@ -147,7 +148,7 @@ const assertIsolatedPortAvailable = async (requestedPort, mockServerUid) => {
 
   if (!result.available) {
     if (result.reason === 'bruno' || result.reason === 'bruno-config') {
-      throw new Error(`Port ${port} is already used by another mock server in Bruno.`);
+      throw new Error(`Port ${port} is already used by another mock server in ${APP_NAME}.`);
     }
 
     if (result.reason === 'system') {

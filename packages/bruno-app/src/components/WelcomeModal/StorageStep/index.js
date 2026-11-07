@@ -1,12 +1,13 @@
 import React from 'react';
 import StyledWrapper from './StyledWrapper';
+import { APP_NAME } from 'utils/branding';
 
 const StorageStep = ({ collectionLocation, onBrowse }) => (
   <StyledWrapper className="step-body">
     <div className="step-label">Storage</div>
     <div className="step-title">Where should we store your collections?</div>
     <div className="step-description">
-      Bruno saves collections as plain files on your filesystem, perfect for version control with Git.
+      {APP_NAME} saves collections as plain files on your filesystem, perfect for version control with Git.
     </div>
 
     <div className="location-input-group">

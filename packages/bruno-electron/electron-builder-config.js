@@ -1,10 +1,11 @@
 require('dotenv').config({ path: process.env.DOTENV_PATH });
 
 const isBenchmark = process.env.BRUNO_BENCHMARK === 'true';
+const { APP_NAME } = require('./src/branding');
 
 const config = {
   appId: 'com.usebruno.app',
-  productName: isBenchmark ? 'Bruno Benchmark' : 'Bruno',
+  productName: isBenchmark ? `${APP_NAME} Benchmark` : APP_NAME,
   extraMetadata: {
     brunoBuild: {
       benchmark: isBenchmark,

@@ -3,6 +3,7 @@ const os = require('os');
 const { BrowserWindow } = require('electron');
 const { version } = require('../../package.json');
 const aboutBruno = require('./about-bruno');
+const { APP_NAME } = require('../branding');
 
 const template = [
   {
@@ -96,7 +97,7 @@ const template = [
     role: 'help',
     submenu: [
       {
-        label: 'About Bruno',
+        label: `About ${APP_NAME}`,
         click: () => {
           const aboutWindow = new BrowserWindow({
             width: 350,

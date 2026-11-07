@@ -18,6 +18,7 @@ import { DEFAULT_COLLECTION_FORMAT } from 'utils/common/constants';
 import StyledWrapper from './StyledWrapper';
 import get from 'lodash/get';
 import Button from 'ui/Button';
+import { APP_NAME } from 'utils/branding';
 
 const CreateCollection = ({ onClose, defaultLocation: propDefaultLocation, initialCollectionName = '' }) => {
   const inputRef = useRef();
@@ -153,7 +154,7 @@ const CreateCollection = ({ onClose, defaultLocation: propDefaultLocation, initi
                 Location
                 <Help>
                   <p>
-                    Bruno stores your collections on your computer's filesystem.
+                    {APP_NAME} stores your collections on your computer's filesystem.
                   </p>
                   <p className="mt-2">
                     Choose the location where you want to store this collection.

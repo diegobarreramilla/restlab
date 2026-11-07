@@ -10,6 +10,7 @@ import ToggleSwitch from 'components/ToggleSwitch';
 import ActionIcon from 'ui/ActionIcon';
 import StyledWrapper from './StyledWrapper';
 import { formatSize } from 'utils/common';
+import { APP_NAME } from 'utils/branding';
 
 const Cache = () => {
   const preferences = useSelector((state) => state.app.preferences);
@@ -81,7 +82,7 @@ const Cache = () => {
         <div className="cache-item-body">
           <div className="cache-item-body-text">
             <p className="cache-item-description">
-              Loads your workspace faster by caching opened collections. Bruno refreshes the cache when your collection
+              Loads your workspace faster by caching opened collections. {APP_NAME} refreshes the cache when your collection
               changes. Clearing it won't affect your original files.
             </p>
             <p className="cache-item-size">

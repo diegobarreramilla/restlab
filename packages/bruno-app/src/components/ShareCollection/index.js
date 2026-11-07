@@ -10,6 +10,7 @@ import { transformCollectionToSaveToExportAsFile } from 'utils/collections/index
 import { useSelector } from 'react-redux';
 import { findCollectionByUid, areItemsLoading } from 'utils/collections/index';
 import toast from 'react-hot-toast';
+import { APP_NAME } from 'utils/branding';
 
 const EXPORT_FORMATS = {
   ZIP: 'zip',
@@ -117,7 +118,7 @@ const ShareCollection = ({ onClose, collectionUid }) => {
       <Modal size="lg" title="Share Collection" handleCancel={onClose} hideFooter>
         <StyledWrapper className="flex flex-col">
           <p className="text-sm mb-4">
-            Bruno uses{' '}
+            {APP_NAME} uses{' '}
             <a
               href="https://opencollection.com"
               target="_blank"
@@ -153,7 +154,7 @@ const ShareCollection = ({ onClose, collectionUid }) => {
                 </div>
                 <div className="feature-item">
                   <IconCheck size={14} className="checkmark" />
-                  <span>Extract and open directly in Bruno</span>
+                  <span>Extract and open directly in {APP_NAME}</span>
                 </div>
               </div>
               <p className="best-for">Best for: Team collaboration, version control, publishing</p>

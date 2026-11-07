@@ -54,7 +54,7 @@ export default defineConfig({
     }
   },
   html: {
-    title: 'Bruno'
+    title: 'RestLab'
   },
   tools: {
     rspack: {

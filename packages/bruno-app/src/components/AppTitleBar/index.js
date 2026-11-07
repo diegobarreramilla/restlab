@@ -12,7 +12,7 @@ import { sortWorkspaces, toggleWorkspacePin } from 'utils/workspaces';
 import { focusTab } from 'providers/ReduxStore/slices/tabs';
 import get from 'lodash/get';
 
-import Bruno from 'components/Bruno';
+import BrandLogo from 'components/BrandLogo';
 import MenuDropdown from 'ui/MenuDropdown';
 import ActionIcon from 'ui/ActionIcon';
 import IconSidebarToggle from 'components/Icons/IconSidebarToggle';
@@ -26,6 +26,7 @@ import ResponseLayoutToggle from 'components/ResponsePane/ResponseLayoutToggle';
 import OfflineBadge from 'components/OfflineBadge';
 import { isMacOS, isWindowsOS, isLinuxOS } from 'utils/common/platform';
 import classNames from 'classnames';
+import { APP_NAME } from 'utils/branding';
 
 const getOsClass = () => {
   if (isMacOS()) return 'os-mac';
@@ -296,10 +297,10 @@ const AppTitleBar = () => {
           </MenuDropdown>
         </div>
 
-        {/* Center section: Bruno logo + text */}
+        {/* Center section: brand logo + name */}
         <div className="titlebar-center">
-          <Bruno width={18} />
-          <span className="bruno-text">Bruno</span>
+          <BrandLogo width={18} />
+          <span className="bruno-text">{APP_NAME}</span>
         </div>
 
         {/* Right section: Action buttons */}

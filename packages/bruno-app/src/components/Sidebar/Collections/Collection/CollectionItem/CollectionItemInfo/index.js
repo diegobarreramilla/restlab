@@ -2,6 +2,7 @@ import React from 'react';
 import Modal from 'components/Modal';
 import Help from 'components/Help';
 import { getItemTypeLabel } from 'utils/collections';
+import { APP_NAME } from 'utils/branding';
 
 const CollectionItemInfo = ({ item, onClose }) => {
   const { name, filename, type } = item;
@@ -39,7 +40,7 @@ const CollectionItemInfo = ({ item, onClose }) => {
                 ) : (
                   <Help width="300">
                     <p>
-                      Bruno saves each request as a file in your collection's folder.
+                      {APP_NAME} saves each request as a file in your collection's folder.
                     </p>
                   </Help>
                 )}

@@ -9,6 +9,7 @@ import ConfirmCollectionCloseDrafts from './ConfirmCollectionCloseDrafts';
 import StyledWrapper from './StyledWrapper';
 import { clearSidebarSelection } from 'providers/ReduxStore/slices/collections';
 import Portal from 'ui/Portal';
+import { APP_NAME } from 'utils/branding';
 
 const RemoveCollections = ({ onClose, collectionUid, collectionUids }) => {
   const dispatch = useDispatch();
@@ -85,7 +86,7 @@ const RemoveCollections = ({ onClose, collectionUid, collectionUids }) => {
           <p className="mb-4">
             {isMultiple
               ? `Are you sure you want to close all ${collections.length} collections from this workspace?`
-              : 'Are you sure you want to close the following collection in Bruno?'}
+              : `Are you sure you want to close the following collection in ${APP_NAME}?`}
           </p>
 
           <div className="collections-list-container">

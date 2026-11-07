@@ -1,3 +1,4 @@
+import { APP_NAME } from 'utils/branding';
 const inputsConfig = [
   {
     key: 'authorizationUrl',
@@ -23,7 +24,7 @@ const inputsConfig = [
   {
     key: 'state',
     label: 'State',
-    tooltip: 'If left empty, Bruno automatically generates a secure random value to help protect against CSRF attacks.'
+    tooltip: `If left empty, ${APP_NAME} automatically generates a secure random value to help protect against CSRF attacks.`
   }
 ];
 

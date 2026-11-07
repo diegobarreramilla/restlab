@@ -1,4 +1,5 @@
 import { isLinuxOS, isMacOS } from 'utils/common/platform';
+import { APP_NAME } from 'utils/branding';
 
 export const KEY_BINDING_SECTIONS = [
   {
@@ -82,7 +83,7 @@ export const KEY_BINDING_SECTIONS = [
     heading: 'Others',
     bindings: {
       openPreferences: { mac: 'command+bind+,', windows: 'ctrl+bind+,', name: 'Open Preferences' }, // D
-      closeBruno: { mac: 'command+bind+q', windows: 'ctrl+bind+shift+bind+q', name: 'Close Bruno' } // D
+      closeBruno: { mac: 'command+bind+q', windows: 'ctrl+bind+shift+bind+q', name: `Close ${APP_NAME}` } // D
     }
   }
 ];

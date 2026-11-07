@@ -27,6 +27,7 @@ import RequestNameSourceOption from 'components/Sidebar/ImportSettings/RequestNa
 import ImportOptionsMenu from 'components/Sidebar/ImportSettings/ImportOptionsMenu';
 import { showImportIssuesToast } from 'components/Toast/ImportIssuesToast';
 import { DEFAULT_COLLECTION_FORMAT } from 'utils/common/constants';
+import { APP_NAME } from 'utils/branding';
 
 // Extract collection name from raw data
 const getCollectionName = (format, rawData) => {
@@ -238,7 +239,7 @@ const ImportCollectionLocation = ({ onClose, handleSubmit, rawData, format, sour
               <label htmlFor="collectionLocation" className="font-medium mt-4 flex items-center">
                 Location
                 <Help>
-                  <p>Bruno stores your collections on your computer's filesystem.</p>
+                  <p>{APP_NAME} stores your collections on your computer's filesystem.</p>
                   <p className="mt-2">Choose the location where you want to store this collection.</p>
                 </Help>
               </label>

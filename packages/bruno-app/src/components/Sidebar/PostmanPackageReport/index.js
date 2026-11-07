@@ -18,6 +18,7 @@ import Button from 'ui/Button';
 import { saveCollectionSecurityConfig } from 'providers/ReduxStore/slices/collections/actions';
 import { findCollectionByPathname } from 'utils/collections';
 import StyledWrapper from './StyledWrapper';
+import { APP_NAME } from 'utils/branding';
 
 const PackageList = ({ items }) => (
   <ul className="pkg-list">
@@ -272,11 +273,11 @@ const PostmanPackageReport = ({ report, collectionPath, onClose }) => {
           <div className="pkg-section pkg-section-danger">
             <div className="pkg-section-head">
               <IconBan size={14} strokeWidth={1.75} />
-              <span className="pkg-section-title">Not supported in Bruno</span>
+              <span className="pkg-section-title">Not supported in {APP_NAME}</span>
               <span className="pkg-section-count">{unsupported.length}</span>
             </div>
             <p className="pkg-section-help">
-              Postman-specific packages without a Bruno equivalent. Scripts that call these will
+              Postman-specific packages without a {APP_NAME} equivalent. Scripts that call these will
               fail at runtime.
             </p>
             <PackageList items={unsupported} />

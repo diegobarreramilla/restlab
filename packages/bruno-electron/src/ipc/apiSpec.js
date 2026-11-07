@@ -18,6 +18,7 @@ const LastOpenedWorkspaces = require('../store/last-opened-workspaces');
 const { defaultWorkspaceManager } = require('../store/default-workspace');
 const path = require('path');
 const fs = require('fs');
+const { APP_NAME } = require('../branding');
 
 const MAX_FILENAME_LENGTH = 255;
 
@@ -100,7 +101,7 @@ const toDeleteError = (error) => {
     return new Error('The file is in use by another program. Close it and try again.');
   }
   if (error.code === 'EPERM' || error.code === 'EACCES') {
-    return new Error('Bruno does not have permission to delete this file.');
+    return new Error(`${APP_NAME} does not have permission to delete this file.`);
   }
   return error;
 };

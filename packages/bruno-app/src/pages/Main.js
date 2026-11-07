@@ -23,6 +23,7 @@ import '@fontsource/inter/700.css';
 import '@fontsource/inter/800.css';
 import '@fontsource/inter/900.css';
 import { setupPolyfills } from 'utils/common/setupPolyfills';
+import { APP_NAME } from 'utils/branding';
 setupPolyfills();
 
 function Main({ children }) {
@@ -32,7 +33,7 @@ function Main({ children }) {
         <strong class="font-bold">ERROR:</strong>
         <span className="block inline ml-1">"ipcRenderer" not found in window object.</span>
         <div>
-          You most likely opened Bruno inside your web browser. Bruno only works within Electron, you can start Electron
+          You most likely opened {APP_NAME} inside your web browser. {APP_NAME} only works within Electron, you can start Electron
           in an adjacent terminal using "npm run dev:electron".
         </div>
       </div>

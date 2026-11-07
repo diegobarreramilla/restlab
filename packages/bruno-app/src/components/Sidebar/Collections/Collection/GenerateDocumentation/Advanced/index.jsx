@@ -5,6 +5,7 @@ import ToggleSwitch from 'components/ToggleSwitch';
 import RadioButton from 'components/RadioButton';
 import IncludeExcludeTags from 'components/IncludeExcludeTags';
 import StyledWrapper from './StyledWrapper';
+import { APP_NAME } from 'utils/branding';
 
 const TAGS_HINT = 'Tags are labels on requests and folders (e.g. smoke, WIP), and a request also matches its folders\' tags. Manage them in Request › Settings and Folder › Settings';
 
@@ -105,7 +106,7 @@ const Advanced = ({
                     <ToggleSwitch isOn={includeGitLink} handleToggle={onGitLinkToggle} size="xs" />
                   </label>
                 </div>
-                <p className="adv-desc">Adds the repository link so readers can clone your collection in Bruno.</p>
+                <p className="adv-desc">Adds the repository link so readers can clone your collection in {APP_NAME}.</p>
               </section>
             )}
           </div>

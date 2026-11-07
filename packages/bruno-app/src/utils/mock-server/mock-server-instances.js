@@ -11,6 +11,7 @@ import {
   stopMockServer,
   upsertMockServerInstance
 } from 'providers/ReduxStore/slices/mock-server/index';
+import { APP_NAME } from 'utils/branding';
 
 export const DEFAULT_MOCK_SERVER_PORT = 4000;
 export const MOCK_SERVER_PORT_MIN = 1;
@@ -462,7 +463,7 @@ export const getMockServerPortError = (portCheck, port) => {
   }
 
   if (portCheck.reason === 'bruno' || portCheck.reason === 'bruno-config') {
-    return `Port ${normalizedPort} is already used by another mock server in Bruno.`;
+    return `Port ${normalizedPort} is already used by another mock server in ${APP_NAME}.`;
   }
 
   return 'Port must be between 1 and 65535.';

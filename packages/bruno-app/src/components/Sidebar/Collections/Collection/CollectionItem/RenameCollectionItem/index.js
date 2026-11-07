@@ -16,6 +16,7 @@ import Portal from 'components/Portal';
 import Dropdown from 'components/Dropdown';
 import StyledWrapper from './StyledWrapper';
 import Button from 'ui/Button';
+import { APP_NAME } from 'utils/branding';
 
 const RenameCollectionItem = ({ collectionUid, item, onClose }) => {
   const dispatch = useDispatch();
@@ -150,7 +151,7 @@ const RenameCollectionItem = ({ collectionUid, item, onClose }) => {
                     ) : (
                       <Help width="300">
                         <p>
-                          Bruno saves each request as a file in your collection's folder.
+                          {APP_NAME} saves each request as a file in your collection's folder.
                         </p>
                         <p className="mt-2">
                           You can choose a file name different from your request's name or one compatible with filesystem rules.

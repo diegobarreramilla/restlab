@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import get from 'lodash/get';
 import toast from 'react-hot-toast';
-import Bruno from 'components/Bruno';
+import BrandLogo from 'components/BrandLogo';
 import Button from 'ui/Button';
 import { useTheme } from 'providers/Theme';
 import { browseDirectory } from 'providers/ReduxStore/slices/collections/actions';
@@ -12,6 +12,7 @@ import ThemeStep from './ThemeStep';
 import StorageStep from './StorageStep';
 import GetStartedStep from './GetStartedStep';
 import StyledWrapper from './StyledWrapper';
+import { APP_NAME } from 'utils/branding';
 
 const TOTAL_STEPS = 4;
 
@@ -104,10 +105,10 @@ const WelcomeModal = ({ onDismiss, onImportCollection, onCreateCollection, onOpe
       <div className="welcome-card">
         <div className="welcome-header">
           <div className="logo-container">
-            <Bruno width={48} />
+            <BrandLogo width={48} />
           </div>
           <h1 className="welcome-heading">
-            {step === 1 ? 'Welcome to Bruno' : step === 4 ? 'Ready to go!' : 'Set up Bruno'}
+            {step === 1 ? `Welcome to ${APP_NAME}` : step === 4 ? 'Ready to go!' : `Set up ${APP_NAME}`}
           </h1>
           {step === 1 && (
             <p className="welcome-tagline">
