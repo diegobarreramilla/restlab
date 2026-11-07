@@ -25,7 +25,17 @@ const SENSITIVE_HEADER_PATTERNS = [
   /access[_-]?token/i,
   /auth[_-]?token/i,
   /secret/i,
-  /password/i
+  /password/i,
+  /passwd/i,
+  /(^|[-_])pwd($|[-_])/i,
+  // Whole-word `auth` (X-Auth, auth_header) without catching `author` or `authority`.
+  /(^|[-_])auth($|[-_])/i,
+  /jwt/i,
+  /session/i,
+  /signature/i,
+  /credential/i,
+  /private[_-]?key/i,
+  /bearer/i
 ];
 
 const REDACTED_VALUE = '<redacted>';
@@ -75,6 +85,80 @@ const buildRedactionPolicy = (security) => {
 };
 
 const DEFAULT_POLICY = buildRedactionPolicy(null);
+
+// --- Secrets that the name-based rules cannot see -------------------------
+
+// Credentials have recognizable shapes even under an ordinary name (a JWT in a `data` field, a key
+// pasted into a note). The patterns are prefix-anchored to keep false positives low.
+const SECRET_VALUE_PATTERNS = [
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g,
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g,
+  /\bsk-[A-Za-z0-9_-]{16,}/g,
+  /\b[sr]k_(?:live|test)_[A-Za-z0-9]{16,}/g,
+  /\bgh[pousr]_[A-Za-z0-9]{20,}/g,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}/g,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
+  /\bxox[baprs]-[A-Za-z0-9-]{10,}/g,
+  /\bAIza[0-9A-Za-z_-]{35}/g
+];
+
+// Capitalized and digit-bearing on purpose, so prose such as "Basic authentication" is left alone.
+const AUTH_SCHEME_PATTERN = /\b(Bearer|Basic)\s+(?=[A-Za-z0-9._~+/=-]*[0-9+/=._~-])[A-Za-z0-9._~+/=-]{12,}/g;
+
+const scrubSecretValues = (text) => {
+  if (typeof text !== 'string' || !text) return text;
+  let out = text;
+  for (const pattern of SECRET_VALUE_PATTERNS) {
+    out = out.replace(pattern, REDACTED_VALUE);
+  }
+  return out.replace(AUTH_SCHEME_PATTERN, `$1 ${REDACTED_VALUE}`);
+};
+
+const SENSITIVE_WORD = '(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|credential|private[_-]?key|signature|session|jwt|bearer)';
+const KEY_VALUE_PATTERN = new RegExp(`(\\b[\\w.-]*${SENSITIVE_WORD}[\\w.-]*["']?\\s*[:=]\\s*["']?)([^\\s"'&,;<>]+)`, 'gi');
+const XML_ELEMENT_PATTERN = new RegExp(`(<([\\w:.-]*${SENSITIVE_WORD}[\\w:.-]*)(?:\\s[^>]*)?>)([^<]+)(</\\2>)`, 'gi');
+
+const isVariableReference = (value) => String(value).trim().startsWith('{{');
+
+// Free-form text (text, XML, SPARQL, GraphQL queries) has no structure to read key names from, so
+// mask credential-shaped values and the values that follow a sensitive word.
+const redactFreeText = (text, policy) => {
+  if (!policy.redactBody || typeof text !== 'string' || !text) return text;
+
+  return scrubSecretValues(text)
+    .replace(XML_ELEMENT_PATTERN, (match, open, _tag, content, close) =>
+      (isVariableReference(content) ? match : `${open}${REDACTED_VALUE}${close}`))
+    .replace(KEY_VALUE_PATTERN, (match, prefix, value) =>
+      (isVariableReference(value) || value === REDACTED_VALUE ? match : `${prefix}${REDACTED_VALUE}`));
+};
+
+// The URL carries credentials that the separate parameter lists never see: the query string and
+// user:password@host. `{{variable}}` references stay, because they point at a secret without holding it.
+const redactUrl = (url, policy) => {
+  if (!policy.redactHeaders || typeof url !== 'string' || !url) return url;
+
+  const withoutPassword = url.replace(/^([a-z][a-z0-9+.-]*:\/\/[^/?#@\s:]+:)[^/?#@\s]*@/i, `$1${REDACTED_VALUE}@`);
+
+  const hashIndex = withoutPassword.indexOf('#');
+  const beforeHash = hashIndex === -1 ? withoutPassword : withoutPassword.slice(0, hashIndex);
+  const hash = hashIndex === -1 ? '' : withoutPassword.slice(hashIndex);
+
+  const queryIndex = beforeHash.indexOf('?');
+  const base = queryIndex === -1 ? beforeHash : beforeHash.slice(0, queryIndex);
+  const query = queryIndex === -1 ? '' : beforeHash.slice(queryIndex + 1);
+
+  const maskQueryPair = (pair) => {
+    const equalsIndex = pair.indexOf('=');
+    if (equalsIndex === -1) return scrubSecretValues(pair);
+    const name = pair.slice(0, equalsIndex);
+    const value = pair.slice(equalsIndex + 1);
+    if (policy.isSensitiveHeader(name) && !isVariableReference(value)) return `${name}=${REDACTED_VALUE}`;
+    return `${name}=${scrubSecretValues(value)}`;
+  };
+
+  const maskedQuery = queryIndex === -1 ? '' : `?${query.split('&').map(maskQueryPair).join('&')}`;
+  return `${scrubSecretValues(base)}${maskedQuery}${scrubSecretValues(hash)}`;
+};
 
 // --- Response body shape redaction ---------------------------------------
 
@@ -186,7 +270,7 @@ const redactJsonBodyValues = (data, policy, depth = 0, maxDepth = 8) => {
     }
     return out;
   }
-  return data;
+  return typeof data === 'string' ? scrubSecretValues(data) : data;
 };
 
 const redactJsonBodyString = (raw, policy = DEFAULT_POLICY) => {
@@ -196,9 +280,8 @@ const redactJsonBodyString = (raw, policy = DEFAULT_POLICY) => {
     const parsed = JSON.parse(raw);
     return JSON.stringify(redactJsonBodyValues(parsed, policy), null, 2);
   } catch {
-    // Not parseable JSON — return as-is. The renderer-side patterns + variable
-    // redaction are the main line of defense for arbitrary text bodies.
-    return raw;
+    // Not parseable JSON, so treat it as free text.
+    return redactFreeText(raw, policy);
   }
 };
 
@@ -227,12 +310,18 @@ const formatRequestContext = (ctx, opts = {}) => {
   } = opts;
   if (!ctx) return '';
   const policy = buildRedactionPolicy(security);
-  const maskHeader = (name, value) => (policy.redactHeaders && policy.isSensitiveHeader(name) ? REDACTED_VALUE : (value ?? ''));
-  const maskFormField = (name, value) => (policy.redactBody && policy.isSensitiveKey(name) ? REDACTED_VALUE : (value ?? ''));
+  const maskHeader = (name, value) => {
+    if (!policy.redactHeaders) return value ?? '';
+    return policy.isSensitiveHeader(name) ? REDACTED_VALUE : scrubSecretValues(value ?? '');
+  };
+  const maskFormField = (name, value) => {
+    if (!policy.redactBody) return value ?? '';
+    return policy.isSensitiveKey(name) ? REDACTED_VALUE : scrubSecretValues(value ?? '');
+  };
   const parts = [];
 
   if (ctx.url || ctx.method) {
-    parts.push(`**Request:** ${ctx.method || 'GET'} ${ctx.url || ''}`);
+    parts.push(`**Request:** ${ctx.method || 'GET'} ${redactUrl(ctx.url || '', policy)}`);
   }
 
   const headers = (ctx.headers || []).filter((h) => h?.enabled && h?.name);
@@ -258,9 +347,9 @@ const formatRequestContext = (ctx, opts = {}) => {
       // `refresh_token`. Redact by key so the model sees the structure but
       // not the secret values.
       case 'json': content = redactJsonBodyString(body.json || '', policy); break;
-      case 'text': content = body.text || ''; break;
-      case 'xml': content = body.xml || ''; break;
-      case 'sparql': content = body.sparql || ''; break;
+      case 'text': content = redactFreeText(body.text || '', policy); break;
+      case 'xml': content = redactFreeText(body.xml || '', policy); break;
+      case 'sparql': content = redactFreeText(body.sparql || '', policy); break;
       case 'formUrlEncoded': {
         const items = (body.formUrlEncoded || []).filter((p) => p.enabled);
         content = items.map((p) => `  ${p.name}: ${maskFormField(p.name, p.value)}`).join('\n');
@@ -272,7 +361,7 @@ const formatRequestContext = (ctx, opts = {}) => {
         break;
       }
       case 'graphql':
-        content = body.graphql?.query || '';
+        content = redactFreeText(body.graphql?.query || '', policy);
         if (body.graphql?.variables) {
           // GraphQL variables are stored as a JSON string in Bruno — same
           // key-based redaction applies.
@@ -294,7 +383,7 @@ const formatRequestContext = (ctx, opts = {}) => {
   }
 
   if (includeDocs && ctx.docs && typeof ctx.docs === 'string' && ctx.docs.trim()) {
-    parts.push(`**Documentation:**\n${ctx.docs.trim()}`);
+    parts.push(`**Documentation:**\n${policy.redactBody ? scrubSecretValues(ctx.docs.trim()) : ctx.docs.trim()}`);
   }
 
   return parts.join('\n\n');
@@ -466,6 +555,7 @@ module.exports = {
   REDACTION_NOTICE,
   isSensitiveName,
   maskValue,
+  scrubSecretValues,
   buildRedactionPolicy,
   // response shape
   redactResponseValues,

@@ -114,6 +114,15 @@ const SENSITIVE_NAME_PATTERNS = [
   /auth[_-]?token/i,
   /secret/i,
   /password/i,
+  /passwd/i,
+  /(^|[-_])pwd($|[-_])/i,
+  /(^|[-_])auth($|[-_])/i,
+  /jwt/i,
+  /session/i,
+  /signature/i,
+  /credential/i,
+  /private[_-]?key/i,
+  /bearer/i,
   /^authorization$/i,
   /^cookie$/i
 ];
