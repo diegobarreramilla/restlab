@@ -53,6 +53,7 @@ La dirección de retorno por defecto es `http://127.0.0.1:47831/oauth2/callback`
 
 - `bruno-requests` (paquete compartido) solo contiene ayudantes de autenticación (digest, NTLM, EdgeGrid, OAuth2), el cliente HTTP y WebSocket, y el envío de peticiones desde scripts. Vault (`node-vault.ts`) y el archivo PAC de proxy (`pac-resolver.ts`) contactan solo la dirección que el usuario configura. Los hosts `*.usebruno.com` que aparecen ahí son datos de prueba.
 - El servidor mock escucha solo en `127.0.0.1` (`mock-server.js`).
+- El aviso "Offline mode" no hace ninguna petición. En Linux lee `/proc/net/route` y `/proc/net/ipv6_route` cada 3 segundos para saber si existe una ruta por defecto (`ipc/network-status.js`), porque `navigator.onLine` sigue en verdadero con interfaces de Docker activas.
 
 ## Pendiente de verificar
 
