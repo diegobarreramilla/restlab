@@ -34,12 +34,16 @@ Método: se buscó en `bruno-electron/src` y `bruno-app/src` (sin pruebas) todo 
 |---|---|
 | Contador anónimo de visitas con PostHog (`useTelemetry`) y permiso `*.posthog.com` en la CSP | `feat(privacy): remove PostHog telemetry...` |
 | Componente `GoldenEdition` (anuncio de pago que enviaba eventos a PostHog) | mismo commit |
+| Retorno OAuth2 por la página de Bruno (`https://oauth.usebruno.com/callback`) | `feat(oauth2): use a local callback server...` |
 
-## 5. Pendiente de decisión
+## 5. Comportamiento actual de OAuth2
 
-| Qué | Dónde | Situación |
-|---|---|---|
-| Retorno OAuth2 `https://oauth.usebruno.com/callback` | `bruno-electron/src/utils/oauth2.js` (3 usos) y los placeholders de `OAuth2/AuthorizationCode` e `Implicit` | Es la dirección de retorno por defecto cuando el usuario no pone una. Con la ventana integrada la app intercepta la redirección. Con el navegador del sistema, el código de autorización pasa por una página alojada por Bruno antes de volver a la app por `bruno://` |
+La dirección de retorno por defecto es `http://127.0.0.1:47831/oauth2/callback` (`DEFAULT_OAUTH2_CALLBACK_URL` en `bruno-electron/src/utils/oauth2-loopback-server.js`). El usuario la registra una vez en su proveedor.
+
+- **Ventana integrada:** la app intercepta la redirección. Si la interceptación fallara, la petición iría a esa dirección local, no a un servidor externo.
+- **Navegador del sistema:** la app abre un servidor temporal que escucha solo en `127.0.0.1`, recibe la respuesta, valida el `state` y se cierra al terminar, al cancelar o a los 5 minutos. Si el puerto está ocupado, el error indica cómo usar otra dirección.
+- **Dirección personalizada que no es local:** se comporta como antes (la página del usuario redirige a `bruno://app/oauth2/callback`).
+- **Límite conocido:** el servidor temporal solo atiende direcciones `http://127.0.0.1:<puerto>`; `localhost` no se trata como local.
 
 ## Comprobado y sin hallazgos
 
