@@ -1,5 +1,11 @@
 const { shell } = require('electron');
-const { registerOauth2AuthorizationRequest, rejectOauth2AuthorizationRequest } = require('../../utils/oauth2-protocol-handler');
+const {
+  registerOauth2AuthorizationRequest,
+  rejectOauth2AuthorizationRequest,
+  isOauth2AuthorizationRequestInProgress,
+  handleOauth2ProtocolUrl
+} = require('../../utils/oauth2-protocol-handler');
+const { parseLoopbackCallbackUrl, startOauth2LoopbackServer } = require('../../utils/oauth2-loopback-server');
 
 const authorizeUserInSystemBrowser = ({ authorizeUrl, callbackUrl, grantType = 'authorization_code', expectedState = null }) => {
   return new Promise((resolve, reject) => {
@@ -37,8 +43,17 @@ const authorizeUserInSystemBrowser = ({ authorizeUrl, callbackUrl, grantType = '
 
     debugInfo.data.push(authorizationRequest);
 
+    let loopbackServer = null;
+    const closeLoopbackServer = () => {
+      if (loopbackServer) {
+        loopbackServer.close();
+        loopbackServer = null;
+      }
+    };
+
     const wrappedResolve = (value) => {
       clearTimeout(timeout);
+      closeLoopbackServer();
       if (grantType === 'implicit') {
         resolve({ implicitTokens: value, debugInfo });
       } else {
@@ -48,15 +63,35 @@ const authorizeUserInSystemBrowser = ({ authorizeUrl, callbackUrl, grantType = '
 
     const wrappedReject = (error) => {
       clearTimeout(timeout);
+      closeLoopbackServer();
       reject(error);
     };
 
     registerOauth2AuthorizationRequest(wrappedResolve, wrappedReject, debugInfo, expectedState);
 
-    // Open system browser
-    shell.openExternal(modifiedAuthorizeUrl).catch((error) => {
-      rejectOauth2AuthorizationRequest(error);
-    });
+    const openSystemBrowser = () => {
+      shell.openExternal(modifiedAuthorizeUrl).catch((error) => {
+        rejectOauth2AuthorizationRequest(error);
+      });
+    };
+
+    if (!parseLoopbackCallbackUrl(callbackUrl)) {
+      openSystemBrowser();
+      return;
+    }
+
+    // A loopback callback URL is served by the app itself, so the response stays on this machine.
+    startOauth2LoopbackServer({ callbackUrl, onCallback: handleOauth2ProtocolUrl })
+      .then((server) => {
+        // The request may have been cancelled or timed out while the server was starting.
+        if (!isOauth2AuthorizationRequestInProgress()) {
+          server.close();
+          return;
+        }
+        loopbackServer = server;
+        openSystemBrowser();
+      })
+      .catch((error) => rejectOauth2AuthorizationRequest(error));
   });
 };
 

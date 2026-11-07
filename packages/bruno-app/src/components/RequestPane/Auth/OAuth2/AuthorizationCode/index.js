@@ -165,7 +165,7 @@ const OAuth2AuthorizationCode = ({ save, item = {}, request, handleRun, updateAu
               onRun={handleRun}
               collection={collection}
               item={item}
-              placeholder={useSystemBrowser ? 'https://oauth.usebruno.com/callback' : undefined}
+              placeholder={useSystemBrowser ? 'http://127.0.0.1:47831/oauth2/callback' : undefined}
               readOnly={readOnly}
               isCompact
             />
