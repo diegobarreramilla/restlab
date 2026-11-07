@@ -48,7 +48,12 @@ const useOpenAPISyncPolling = () => {
       dispatch(checkActiveWorkspaceCollectionsForUpdates());
     }, POLL_INTERVAL);
 
+    // A check that failed while offline would otherwise wait for the next interval.
+    const checkOnReconnect = () => dispatch(checkActiveWorkspaceCollectionsForUpdates());
+    window.addEventListener('online', checkOnReconnect);
+
     return () => {
+      window.removeEventListener('online', checkOnReconnect);
       clearTimeout(initialTimeout);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);

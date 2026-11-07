@@ -19,7 +19,7 @@ Método: se buscó en `bruno-electron/src` y `bruno-app/src` (sin pruebas) todo 
 
 | Qué | Dónde | Comportamiento |
 |---|---|---|
-| Sincronización con OpenAPI | `bruno-app/src/providers/App/useOpenAPISyncPolling.js` | Si una colección tiene `sourceUrl` y `autoCheck` no es `false`, consulta esa URL a los 10 s del arranque y cada 5 min. El destino es la URL que el usuario configuró, nunca un servidor del proyecto |
+| Sincronización con OpenAPI | `bruno-app/src/providers/App/useOpenAPISyncPolling.js` | Si una colección tiene `sourceUrl` y `autoCheck` no es `false`, consulta esa URL a los 10 s del arranque y cada 5 min. También reintenta una vez cuando vuelve la conexión. El destino es la URL que el usuario configuró, nunca un servidor del proyecto |
 
 ## 3. Opcionales, apagadas por defecto
 
