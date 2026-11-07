@@ -132,6 +132,22 @@ const redactFreeText = (text, policy) => {
       (isVariableReference(value) || value === REDACTED_VALUE ? match : `${prefix}${REDACTED_VALUE}`));
 };
 
+// A quoted literal assigned to a sensitive-looking name: `apiKey = 'abc'`, `"password": "hunter2"`.
+// Code that only reads a value (`const token = await getToken()`) has no literal and stays as it is.
+const CODE_LITERAL_PATTERN = new RegExp(`(\\b[\\w.$-]*${SENSITIVE_WORD}[\\w.$-]*["']?\\s*[:=]\\s*)(["'\`])([^"'\`\\n]{4,}?)\\2`, 'gi');
+
+// Scripts, tests, docs and app code go to the model as context, and users paste credentials into
+// them too. Mask credential-shaped values and string literals assigned to sensitive names, and
+// leave the rest of the code intact so the model can still work with it.
+const redactCodeContent = (text, security = null) => {
+  const policy = buildRedactionPolicy(security);
+  if (!policy.redactBody || typeof text !== 'string' || !text) return text;
+
+  return scrubSecretValues(text)
+    .replace(CODE_LITERAL_PATTERN, (match, prefix, quote, value) =>
+      (isVariableReference(value) || value === REDACTED_VALUE ? match : `${prefix}${quote}${REDACTED_VALUE}${quote}`));
+};
+
 // The URL carries credentials that the separate parameter lists never see: the query string and
 // user:password@host. `{{variable}}` references stay, because they point at a secret without holding it.
 const redactUrl = (url, policy) => {
@@ -499,12 +515,13 @@ const methodOf = (r) => String(r?.method || (r?.type === 'app' ? 'APP' : 'GET'))
 
 const labelOf = (r) => (r?.folderPath ? `${r.folderPath}/${r.name || ''}` : r?.name || '');
 
-const formatRequestsList = (requests) => {
+const formatRequestsList = (requests, opts = {}) => {
   if (!Array.isArray(requests) || !requests.length) return '';
+  const policy = buildRedactionPolicy(opts.security);
   const total = requests.length;
   const preview = requests.slice(0, REQUESTS_PREVIEW_LIMIT);
   const lines = preview.map((r) => {
-    const url = r.url ? ` — ${r.url}` : '';
+    const url = r.url ? ` — ${redactUrl(r.url, policy)}` : '';
     return `  ${methodOf(r)} ${labelOf(r)}${url}`;
   });
   const trailer = total > preview.length
@@ -529,14 +546,15 @@ const searchRequests = (requests, rawQuery, limit = REQUESTS_SEARCH_LIMIT) => {
   return { items: filtered.slice(0, limit), totalMatched: filtered.length, limit };
 };
 
-const formatSearchRequestsResult = ({ items, totalMatched, limit }, query) => {
+const formatSearchRequestsResult = ({ items, totalMatched, limit }, query, opts = {}) => {
   if (!items.length) {
     return query
       ? `No requests match "${query}".`
       : 'No requests in this collection.';
   }
+  const policy = buildRedactionPolicy(opts.security);
   const lines = items.map((r) => {
-    const url = r.url || '(no url)';
+    const url = r.url ? redactUrl(r.url, policy) : '(no url)';
     return `  ${methodOf(r)} ${labelOf(r)}\n    url: ${url}\n    pathname: ${r.pathname || ''}`;
   });
   const heading = query
@@ -556,6 +574,9 @@ module.exports = {
   isSensitiveName,
   maskValue,
   scrubSecretValues,
+  redactCodeContent,
+  redactFreeText,
+  redactUrl,
   buildRedactionPolicy,
   // response shape
   redactResponseValues,

@@ -275,8 +275,9 @@ const formatChildCount = (count, singular, plural) => {
   return `${count} ${count === 1 ? singular : plural}`;
 };
 
-const formatDocsContext = (ctx) => {
+const formatDocsContext = (ctx, security = null) => {
   if (!ctx) return '';
+  const policy = buildRedactionPolicy(security);
   const parts = [];
 
   if (ctx.scope === 'collection') {
@@ -302,7 +303,7 @@ const formatDocsContext = (ctx) => {
   if (requests.length) {
     parts.push(`Requests:\n${requests.map((request) => {
       const method = request.method || 'GET';
-      const url = request.url || '';
+      const url = redactUrl(request.url || '', policy);
       return `  - ${request.name}: ${method}${url ? ` ${url}` : ''}`;
     }).join('\n')}`);
   }
@@ -310,7 +311,7 @@ const formatDocsContext = (ctx) => {
   return parts.join('\n\n');
 };
 
-const { formatRequestContext, formatVariablesList } = require('./context');
+const { formatRequestContext, formatVariablesList, redactCodeContent, redactUrl, buildRedactionPolicy } = require('./context');
 
 const buildScriptUserPrompt = ({
   userPrompt,
@@ -322,7 +323,7 @@ const buildScriptUserPrompt = ({
   security
 }) => {
   const sections = [];
-  const docsContextStr = formatDocsContext(docsContext);
+  const docsContextStr = formatDocsContext(docsContext, security);
   if (docsContextStr) sections.push(`Documentation Context\n${docsContextStr}`);
 
   // Same redaction rules as the chat sidebar — sensitive headers/params masked,
@@ -346,7 +347,7 @@ const buildScriptUserPrompt = ({
       existingLabel = 'Existing App';
       fenceLang = 'html';
     }
-    sections.push(`${existingLabel}\n\`\`\`${fenceLang}\n${currentScript}\n\`\`\``);
+    sections.push(`${existingLabel}\n\`\`\`${fenceLang}\n${redactCodeContent(currentScript, security)}\n\`\`\``);
   }
   sections.push(`User Request\n${userPrompt}`);
   return sections.join('\n\n');

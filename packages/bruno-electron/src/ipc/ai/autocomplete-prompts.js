@@ -80,14 +80,14 @@ const truncateLinesFromStart = (text, maxLines) => {
   return lines.slice(0, maxLines).join('\n');
 };
 
-const { redactJsonBodyString, buildRedactionPolicy } = require('./context');
+const { redactJsonBodyString, redactFreeText, redactUrl, redactCodeContent, buildRedactionPolicy } = require('./context');
 
 const formatRequestContext = (ctx, security) => {
   if (!ctx) return '';
   const policy = buildRedactionPolicy(security);
   const parts = [];
   if (ctx.url || ctx.method) {
-    parts.push(`${ctx.method || 'GET'} ${ctx.url || ''}`.trim());
+    parts.push(`${ctx.method || 'GET'} ${redactUrl(ctx.url || '', policy)}`.trim());
   }
 
   const headers = (ctx.headers || []).filter((h) => h?.enabled && h?.name).slice(0, 12);
@@ -99,9 +99,9 @@ const formatRequestContext = (ctx, security) => {
   if (body && body.mode && body.mode !== 'none') {
     let bodyText = '';
     if (body.mode === 'json') bodyText = redactJsonBodyString(body.json || '', policy);
-    else if (body.mode === 'text') bodyText = body.text || '';
-    else if (body.mode === 'xml') bodyText = body.xml || '';
-    else if (body.mode === 'graphql') bodyText = body.graphql?.query || '';
+    else if (body.mode === 'text') bodyText = redactFreeText(body.text || '', policy);
+    else if (body.mode === 'xml') bodyText = redactFreeText(body.xml || '', policy);
+    else if (body.mode === 'graphql') bodyText = redactFreeText(body.graphql?.query || '', policy);
     if (bodyText) {
       const trimmed = bodyText.slice(0, 400);
       parts.push(`Body (${body.mode}):\n${trimmed}${bodyText.length > 400 ? '…' : ''}`);
@@ -119,12 +119,12 @@ const formatVariableNames = (vars) => {
   return entries.join('\n');
 };
 
-const formatSiblingScripts = (siblings) => {
+const formatSiblingScripts = (siblings, security = null) => {
   if (!Array.isArray(siblings) || !siblings.length) return '';
   return siblings
     .map((s) => {
       if (!s || !s.script || !s.script.trim()) return null;
-      const code = s.script.slice(0, 400);
+      const code = redactCodeContent(s.script, security).slice(0, 400);
       return `// ${s.name || 'sibling'} (${s.type || 'script'})\n${code}${s.script.length > 400 ? '\n// …' : ''}`;
     })
     .filter(Boolean)
@@ -134,8 +134,8 @@ const formatSiblingScripts = (siblings) => {
 const buildUserPrompt = ({ prefix, suffix, scriptType, requestContext, variableNames, siblingScripts, security }) => {
   // Keep recent context in the prefix (last 80 lines) and a short forward window (30 lines).
   // Cloud LLMs can handle more, but trimming keeps latency low and the model focused.
-  const trimmedPrefix = truncateLines(prefix || '', 80);
-  const trimmedSuffix = truncateLinesFromStart(suffix || '', 30);
+  const trimmedPrefix = truncateLines(redactCodeContent(prefix || '', security), 80);
+  const trimmedSuffix = truncateLinesFromStart(redactCodeContent(suffix || '', security), 30);
 
   const sections = [];
 
@@ -145,7 +145,7 @@ const buildUserPrompt = ({ prefix, suffix, scriptType, requestContext, variableN
   const varStr = formatVariableNames(variableNames);
   if (varStr) sections.push(`### Available variable names (use these in bru.getEnvVar / bru.getVar / interpolate)\n${varStr}`);
 
-  const siblingStr = formatSiblingScripts(siblingScripts);
+  const siblingStr = formatSiblingScripts(siblingScripts, security);
   if (siblingStr) sections.push(`### Sibling ${scriptType} scripts in the same collection (style reference)\n${siblingStr}`);
 
   sections.push(`### Cursor\n\`\`\`javascript\n${trimmedPrefix}<CURSOR>${trimmedSuffix}\n\`\`\``);
