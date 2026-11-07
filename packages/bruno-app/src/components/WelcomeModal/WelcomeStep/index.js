@@ -21,7 +21,7 @@ const highlights = [
   {
     icon: IconLock,
     title: 'Privacy-focused',
-    desc: 'No account, no login. Bruno works entirely offline, your API keys never leave your machine.'
+    desc: 'No account, no login, no telemetry. Nothing leaves your machine unless you send a request or turn on an optional feature.'
   },
   {
     icon: IconRocket,

@@ -3,6 +3,8 @@
 
 ### Bruno - Opensource IDE for exploring and testing APIs.
 
+> **RestLab** is a fork of Bruno built around one promise: local-first. No account, no telemetry, and no network call you did not start or turn on yourself. Optional features, such as AI and the announcements feed, are off by default. See [docs/privacy/network-inventory.md](docs/privacy/network-inventory.md) for every outbound connection and where it comes from.
+
 [![GitHub version](https://badge.fury.io/gh/usebruno%2Fbruno.svg)](https://badge.fury.io/gh/usebruno%2Fbruno)
 [![CI](https://github.com/usebruno/bruno/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/usebruno/bruno/actions/workflows/tests.yml)
 [![Commit Activity](https://img.shields.io/github/commit-activity/m/usebruno/bruno)](https://github.com/usebruno/bruno/pulse)
