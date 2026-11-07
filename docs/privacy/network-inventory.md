@@ -51,7 +51,9 @@ La dirección de retorno por defecto es `http://127.0.0.1:47831/oauth2/callback`
 - La interfaz no carga fuentes, scripts ni imágenes externas por sí sola. Los enlaces solo se abren al hacer clic.
 - La pestaña de changelog (`useChangelogOnUpdate`) es local y no usa la red.
 
+- `bruno-requests` (paquete compartido) solo contiene ayudantes de autenticación (digest, NTLM, EdgeGrid, OAuth2), el cliente HTTP y WebSocket, y el envío de peticiones desde scripts. Vault (`node-vault.ts`) y el archivo PAC de proxy (`pac-resolver.ts`) contactan solo la dirección que el usuario configura. Los hosts `*.usebruno.com` que aparecen ahí son datos de prueba.
+- El servidor mock escucha solo en `127.0.0.1` (`mock-server.js`).
+
 ## Pendiente de verificar
 
 - Arrancar la app con la red bloqueada y confirmar que no hay errores ni avisos.
-- Revisar `bruno-requests`, el paquete compartido que puede hacer llamadas propias, y el servidor mock (solo escucha en local, falta confirmar que no sale nada).
