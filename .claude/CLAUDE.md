@@ -1,6 +1,19 @@
 # Project Guide
 
-Bruno fork — open-source API client (Electron + React + Redux).
+**RestLab** — a fork of Bruno (MIT): open-source API client (Electron + React + Redux). Package names, folders and `.bru`/`.yml` formats still use the `bruno` name; do not rename them unless a task says so.
+
+## RestLab direction (read before changing behavior)
+
+Design: `docs/superpowers/specs/2026-11-07-restlab-v1-design.md` · Plan: `docs/superpowers/plans/2026-11-07-restlab-v1-plan.md` · Research: `reports/Debilidades de Bruno Postman Insomnia.md`.
+
+- **Product promise:** local-first. No account, no telemetry, no network call the user did not start. Any new outbound request must be user-initiated or behind an opt-in preference that defaults to **off**.
+- **AI is optional and on demand.** Off by default, no UI visible when off, bring-your-own-key, secrets redacted before sending, never runs in the background.
+- **The app must be worth using without AI.** Do not add features that nag, interrupt, or advertise paid tiers.
+- **Backward compatibility:** collections on disk must keep loading (see `.claude/rules/dsl-changes.md`).
+- **v1 scope** (M0 base, M1 local-first, M-P performance, M2 AI opt-in, M3 route autocomplete, M4 file attach, M5 UI, M6 polish). Out of scope for v1: public extension API, full AI agent, source-code route discovery, cloud collaboration.
+- **Upstream sync:** pull selected fixes from Bruno only, case by case. Do not merge upstream wholesale.
+
+Bruno is an API client — keep the rest of this guide's rules.
 
 Bruno is an API **client**, not a server: it sends requests and handles responses (auth, params, headers, bodies, environments, cookies). Judge every behavior and edge case by "what should a *client* do here?" — surface malformed or hostile responses clearly and stay robust; don't enforce server-side correctness.
 
