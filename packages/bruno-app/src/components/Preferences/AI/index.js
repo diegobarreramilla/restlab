@@ -19,6 +19,13 @@ import SecurityPane from './SecurityPane';
 import StyledWrapper from './StyledWrapper';
 
 const OPENAI_COMPATIBLE_PREFIX = 'openai-compatible:';
+
+// A local Ollama server answers on this machine and needs no API key.
+const OLLAMA_ENDPOINT_PRESET = Object.freeze({
+  name: 'Ollama (local)',
+  baseURL: 'http://localhost:11434/v1'
+});
+
 const isCompatProviderId = (id) => typeof id === 'string' && id.startsWith(OPENAI_COMPATIBLE_PREFIX);
 
 const aiPreferencesSchema = Yup.object().shape({
@@ -209,11 +216,11 @@ const AI = () => {
 
   const endpoints = formik.values.openaiCompatibleEndpoints || [];
 
-  const handleAddEndpoint = async () => {
+  const handleAddEndpoint = async (preset = null) => {
     const newEndpoint = {
       id: uuid(),
-      name: `Endpoint ${endpoints.length + 1}`,
-      baseURL: '',
+      name: preset?.name || `Endpoint ${endpoints.length + 1}`,
+      baseURL: preset?.baseURL || '',
       models: []
     };
     const next = [...endpoints, newEndpoint];
@@ -370,7 +377,7 @@ const AI = () => {
 
           {!formik.values.enabled && !statusError && (
             <div className="ai-empty-notice px-3.5 py-3 text-xs">
-              Bring your own API key. Bruno talks to providers directly, your keys never leave your machine.
+              Bring your own API key. RestLab talks to the provider directly from this machine, with no server of ours in between. Your key is stored encrypted here and sent only to that provider.
             </div>
           )}
 
@@ -412,20 +419,31 @@ const AI = () => {
 
               <div className="ai-section-header flex items-center justify-between text-[11px] font-medium uppercase tracking-wider mt-5 mb-2">
                 <span>OpenAI-Compatible Endpoints</span>
-                <button
-                  type="button"
-                  className="compat-add-btn inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer normal-case tracking-normal"
-                  onClick={handleAddEndpoint}
-                  data-testid="ai-compat-add-endpoint"
-                >
-                  <IconPlus size={13} strokeWidth={1.75} />
-                  Add endpoint
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="compat-add-btn inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer normal-case tracking-normal"
+                    onClick={() => handleAddEndpoint(OLLAMA_ENDPOINT_PRESET)}
+                    data-testid="ai-compat-add-ollama"
+                  >
+                    <IconPlus size={13} strokeWidth={1.75} />
+                    Use local Ollama
+                  </button>
+                  <button
+                    type="button"
+                    className="compat-add-btn inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer normal-case tracking-normal"
+                    onClick={() => handleAddEndpoint()}
+                    data-testid="ai-compat-add-endpoint"
+                  >
+                    <IconPlus size={13} strokeWidth={1.75} />
+                    Add endpoint
+                  </button>
+                </div>
               </div>
 
               {endpoints.length === 0 && (
                 <div className="ai-empty-notice px-3.5 py-3 text-xs">
-                  Point Bruno at any OpenAI-compatible API — Ollama, LM Studio, Together, Groq, OpenRouter, vLLM, and more.
+                  Run a model on your own machine with Ollama and nothing you send leaves your computer. Or point RestLab at any OpenAI-compatible API, such as LM Studio, vLLM, Together, Groq or OpenRouter.
                 </div>
               )}
 
