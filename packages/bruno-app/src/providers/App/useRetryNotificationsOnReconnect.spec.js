@@ -1,12 +1,20 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import useRetryNotificationsOnReconnect from './useRetryNotificationsOnReconnect';
+
+const setOnline = (value) => {
+  Object.defineProperty(window.navigator, 'onLine', { value, configurable: true });
+  act(() => {
+    window.dispatchEvent(new Event(value ? 'online' : 'offline'));
+  });
+};
 
 describe('useRetryNotificationsOnReconnect', () => {
   let send;
 
   beforeEach(() => {
     send = jest.fn();
-    window.ipcRenderer = { send };
+    window.ipcRenderer = { send, invoke: jest.fn().mockResolvedValue(null) };
+    Object.defineProperty(window.navigator, 'onLine', { value: true, configurable: true });
   });
 
   afterEach(() => {
@@ -16,24 +24,26 @@ describe('useRetryNotificationsOnReconnect', () => {
   it('asks the main process for notifications when the connection returns', () => {
     renderHook(() => useRetryNotificationsOnReconnect());
 
-    window.dispatchEvent(new Event('online'));
+    setOnline(false);
+    expect(send).not.toHaveBeenCalled();
 
+    setOnline(true);
     expect(send).toHaveBeenCalledWith('renderer:notifications-opened');
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('does nothing when the connection drops', () => {
+  it('does nothing on startup while the connection is stable', () => {
     renderHook(() => useRetryNotificationsOnReconnect());
-
-    window.dispatchEvent(new Event('offline'));
 
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('stops listening once unmounted', () => {
+  it('stops reacting once unmounted', () => {
     const { unmount } = renderHook(() => useRetryNotificationsOnReconnect());
+    setOnline(false);
     unmount();
 
-    window.dispatchEvent(new Event('online'));
+    setOnline(true);
 
     expect(send).not.toHaveBeenCalled();
   });

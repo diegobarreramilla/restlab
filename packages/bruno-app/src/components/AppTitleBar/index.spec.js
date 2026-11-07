@@ -42,8 +42,10 @@ const renderWithProviders = () => render(
 
 const getTitleBar = (container) => container.querySelector('.app-titlebar');
 
+// The main process answers null when it cannot tell whether the system has a default route.
 const mockInvokeWithFullscreen = (isFullScreen) => jest.fn((channel) => {
   if (channel === 'renderer:window-is-fullscreen') return Promise.resolve(isFullScreen);
+  if (channel === 'renderer:get-has-default-route') return Promise.resolve(null);
   return Promise.resolve(false);
 });
 
@@ -53,7 +55,7 @@ describe('AppTitleBar — fullscreen state sync', () => {
   beforeEach(() => {
     ipcListeners = {};
     window.ipcRenderer = {
-      invoke: jest.fn().mockResolvedValue(false),
+      invoke: mockInvokeWithFullscreen(false),
       send: jest.fn(),
       on: jest.fn((channel, cb) => {
         ipcListeners[channel] = cb;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { checkActiveWorkspaceCollectionsForUpdates } from 'providers/ReduxStore/slices/openapi-sync';
 import { getWorkspaceCollections } from 'utils/collections';
+import useOnReconnect from 'hooks/useOnReconnect';
 
 const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
@@ -48,12 +49,7 @@ const useOpenAPISyncPolling = () => {
       dispatch(checkActiveWorkspaceCollectionsForUpdates());
     }, POLL_INTERVAL);
 
-    // A check that failed while offline would otherwise wait for the next interval.
-    const checkOnReconnect = () => dispatch(checkActiveWorkspaceCollectionsForUpdates());
-    window.addEventListener('online', checkOnReconnect);
-
     return () => {
-      window.removeEventListener('online', checkOnReconnect);
       clearTimeout(initialTimeout);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -61,6 +57,13 @@ const useOpenAPISyncPolling = () => {
       }
     };
   }, [dispatch, pollingEnabled, hasSyncableCollections]);
+
+  // A check that failed while offline would otherwise wait for the next interval.
+  useOnReconnect(() => {
+    if (pollingEnabled && hasSyncableCollections) {
+      dispatch(checkActiveWorkspaceCollectionsForUpdates());
+    }
+  });
 
   return null;
 };
