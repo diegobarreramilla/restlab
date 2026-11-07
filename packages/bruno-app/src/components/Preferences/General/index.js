@@ -59,7 +59,8 @@ const General = () => {
     oauth2: Yup.object({
       useSystemBrowser: Yup.boolean()
     }),
-    defaultLocation: Yup.string().max(1024)
+    defaultLocation: Yup.string().max(1024),
+    fetchNotifications: Yup.boolean()
   });
 
   const formik = useFormik({
@@ -82,7 +83,8 @@ const General = () => {
       oauth2: {
         useSystemBrowser: get(preferences, 'request.oauth2.useSystemBrowser', false)
       },
-      defaultLocation: get(preferences, 'general.defaultLocation', '')
+      defaultLocation: get(preferences, 'general.defaultLocation', ''),
+      fetchNotifications: get(preferences, 'general.fetchNotifications', false)
     },
     validationSchema: preferencesSchema,
     onSubmit: async (values) => {
@@ -121,7 +123,9 @@ const General = () => {
           interval: newPreferences.autoSave.interval
         },
         general: {
-          defaultLocation: newPreferences.defaultLocation
+          ...preferences.general,
+          defaultLocation: newPreferences.defaultLocation,
+          fetchNotifications: newPreferences.fetchNotifications
         }
       }))
       .catch((err) => console.log(err) && toast.error('Failed to update preferences'));
@@ -253,6 +257,18 @@ const General = () => {
               disabled={keepDefaultCaCertificatesDisabled}
             />
           </CheckboxSetting>
+        </SettingsGroup>
+
+        <SettingsGroup title="Privacy">
+          <CheckboxSetting
+            id="fetchNotifications"
+            name="fetchNotifications"
+            label="Check for announcements"
+            description="Contacts the Bruno announcements server on startup. Off by default: RestLab sends nothing unless you ask."
+            data-testid="general-fetch-notifications"
+            checked={formik.values.fetchNotifications}
+            onChange={formik.handleChange}
+          />
         </SettingsGroup>
 
         <SettingsGroup title="Cookies & Authorization">

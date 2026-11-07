@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { ipcMain } = require('electron');
 const fetch = require('node-fetch');
+const { preferencesUtil } = require('../store/preferences');
 
 const fetchNotifications = async () => {
   const url = process.env.BRUNO_INFO_ENDPOINT || 'https://appinfo.usebruno.com';
@@ -8,7 +9,12 @@ const fetchNotifications = async () => {
   return data?.notifications || [];
 };
 
+// Contacting the notifications server is opt-in: with the preference off, no request leaves the machine.
 const pushNotifications = async (mainWindow) => {
+  if (!preferencesUtil.shouldFetchNotifications()) {
+    return;
+  }
+
   try {
     const notifications = await fetchNotifications();
     mainWindow.webContents.send('main:load-notifications', notifications);
@@ -23,3 +29,4 @@ const registerNotificationsIpc = (mainWindow, watcher) => {
 };
 
 module.exports = registerNotificationsIpc;
+module.exports.pushNotifications = pushNotifications;
