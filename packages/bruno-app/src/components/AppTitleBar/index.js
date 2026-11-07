@@ -23,6 +23,7 @@ import IconBottombarToggle from 'components/Icons/IconBottombarToggle/index';
 import AppMenu from './AppMenu';
 import StyledWrapper from './StyledWrapper';
 import ResponseLayoutToggle from 'components/ResponsePane/ResponseLayoutToggle';
+import OfflineBadge from 'components/OfflineBadge';
 import { isMacOS, isWindowsOS, isLinuxOS } from 'utils/common/platform';
 import classNames from 'classnames';
 
@@ -303,6 +304,7 @@ const AppTitleBar = () => {
 
         {/* Right section: Action buttons */}
         <div className="titlebar-right">
+          <OfflineBadge />
           <div className="titlebar-actions">
             {/* Toggle sidebar */}
             <ActionIcon
