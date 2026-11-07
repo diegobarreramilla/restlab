@@ -1,10 +1,20 @@
 import '@testing-library/jest-dom';
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-
-jest.mock('ui/StatusBadge', () => ({ children }) => <span>{children}</span>);
+import { ThemeProvider } from 'styled-components';
 
 import OfflineBadge from './index';
+
+const theme = {
+  text: '#343434',
+  status: { warning: { text: 'hsl(35, 85%, 42%)' } }
+};
+
+const renderBadge = () => render(
+  <ThemeProvider theme={theme}>
+    <OfflineBadge />
+  </ThemeProvider>
+);
 
 const setOnline = (value) => {
   Object.defineProperty(window.navigator, 'onLine', { value, configurable: true });
@@ -19,26 +29,37 @@ describe('OfflineBadge', () => {
   });
 
   it('renders nothing while the network is available', () => {
-    render(<OfflineBadge />);
+    renderBadge();
 
     expect(screen.queryByTestId('offline-badge')).not.toBeInTheDocument();
   });
 
   it('appears when the connection is lost and disappears when it returns', () => {
-    render(<OfflineBadge />);
+    renderBadge();
 
     setOnline(false);
-    expect(screen.getByTestId('offline-badge')).toHaveTextContent('Offline mode');
+    expect(screen.getByTestId('offline-badge')).toBeInTheDocument();
 
     setOnline(true);
     expect(screen.queryByTestId('offline-badge')).not.toBeInTheDocument();
   });
 
-  it('shows the label from the start when the app opens without a connection', () => {
+  it('is plain text, with no icon or image', () => {
     Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
+    renderBadge();
 
-    render(<OfflineBadge />);
+    const badge = screen.getByTestId('offline-badge');
+    expect(badge).toHaveTextContent('Offline');
+    expect(badge).toHaveTextContent('Working locally');
+    expect(badge.querySelector('svg, img')).toBeNull();
+  });
 
-    expect(screen.getByTestId('offline-badge')).toBeInTheDocument();
+  it('is announced as a status and explains what keeps working', () => {
+    Object.defineProperty(window.navigator, 'onLine', { value: false, configurable: true });
+    renderBadge();
+
+    const badge = screen.getByRole('status');
+    expect(badge).toHaveAttribute('data-state', 'offline');
+    expect(badge).toHaveAttribute('title', expect.stringContaining('keep working'));
   });
 });

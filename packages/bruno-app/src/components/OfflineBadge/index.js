@@ -1,7 +1,6 @@
 import React from 'react';
-import { IconWifiOff } from '@tabler/icons';
-import StatusBadge from 'ui/StatusBadge';
 import useOnlineStatus from 'hooks/useOnlineStatus';
+import StyledWrapper from './StyledWrapper';
 
 const OfflineBadge = () => {
   const isOnline = useOnlineStatus();
@@ -11,16 +10,15 @@ const OfflineBadge = () => {
   }
 
   return (
-    <div
-      className="flex items-center mr-2"
+    <StyledWrapper
       role="status"
       data-testid="offline-badge"
+      data-state="offline"
       title="No network connection. Your collections and requests to local servers keep working."
     >
-      <StatusBadge status="warning" size="sm" radius="xl" leftSection={<IconWifiOff size={12} strokeWidth={1.5} />}>
-        Offline mode
-      </StatusBadge>
-    </div>
+      <span className="offline-label">Offline</span>
+      <span className="offline-detail">Working locally</span>
+    </StyledWrapper>
   );
 };
 
