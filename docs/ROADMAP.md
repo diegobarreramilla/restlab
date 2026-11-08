@@ -31,7 +31,8 @@ Documentos relacionados, para no repetir:
 5. **Formato en disco intacto.** Una colección guardada por Bruno debe abrirse y guardarse sin perder campos (`.claude/rules/dsl-changes.md`). Si una meta pide cambiar el formato, se detiene y se decide antes.
 6. **Gemelos.** Si un cambio toca la app, revisar su par en la CLI (`.claude/rules/feature-parity.md`) o declarar por qué no.
 7. **Orden de comandos útiles:** `npm run lint:fix`, `npm test --workspace=packages/<paquete> -- <archivo>`, `npx playwright test <archivo> --project=default`.
-8. **No renombrar** paquetes `@usebruno/*`, `.bru`, `bruno.json` ni `bru.*` (ver `docs/branding.md`).
+8. **Este documento se mantiene al día.** Al terminar una meta se marca con `✅ (fecha)` en su título y se anota qué se hizo; al hacer algo que no estaba aquí, se agrega como meta nueva con su estado. Se actualiza en el mismo commit o en el siguiente.
+9. **No renombrar** paquetes `@usebruno/*`, `.bru`, `bruno.json` ni `bru.*` (ver `docs/branding.md`).
 
 ---
 
@@ -39,7 +40,7 @@ Documentos relacionados, para no repetir:
 
 | Etapa | Estado |
 |---|---|
-| **0. Base y marca** (nombre RestLab, logo provisional, `appId`, esquema `restlab://`, copyright, changelog propio, enlaces ajenos fuera) | Hecho |
+| **0. Base y marca** (nombre RestLab, logo provisional, `appId`, esquema `restlab://`, copyright, changelog propio, enlaces ajenos fuera) | ✅ Hecho (2026-11-07) |
 | **1. Local-first** (sin telemetría, anuncios opt-in, OAuth2 por dirección local, aviso sin conexión, documentación generada sin red) | Hecho en código y pruebas; falta probar con un proveedor OAuth2 real y con la red desconectada de verdad |
 | **2. IA opcional** (apagada por defecto, claves propias, Ollama, redacción reversible de secretos, vista previa "What's sent", "Review before sending") | Hecho en código y pruebas; falta verla responder con un proveedor real |
 | **3. Rendimiento** | Sin empezar |
@@ -157,6 +158,23 @@ Cada una está pensada para que quien la use la note sin que la pida. Se ordenan
 
 **Orden recomendado dentro de 5.3:** "Todo está en tu disco", copia de seguridad visible, petición suelta, informe de importación, valores por defecto sin sorpresas. Son pequeñas, refuerzan la promesa y no tocan el formato.
 
+### 5.4 Entornos: lista más cuidada · S · P ✅ (2026-11-07)
+
+**Origen:** pedido tuyo tras usar la lista de entornos de la colección (los entornos son de Bruno, no los añadió RestLab).
+
+Hecho:
+- Los botones de flecha y cruz al crear o renombrar pasaron a texto: **Create** o **Save**, y **Esc**, con los mismos atajos de teclado (`EnvironmentList/InlineNameActions`).
+- El campo de nombre tiene borde y resalta al enfocarlo, igual que el buscador de la lista.
+- Se quitó el aviso flotante "Environment created!" y "Environment renamed!". La fila nueva se resalta un instante. Los avisos de error se conservan.
+- Al crear un entorno se vacía el buscador y se ve la lista completa.
+- **Orden por uso:** abrir, activar, renombrar o crear un entorno lo sube al principio; el recién creado queda primero. Se guarda por colección en este equipo (hook `useRecentOrder`, 6 pruebas), sin tocar los archivos de la colección.
+
+Pendiente de esta meta:
+- Mirarlo en la app con tus ojos en tema claro y oscuro (yo no lo he visto; las pruebas de componente pasan).
+- Aplicar lo mismo a las listas de entornos **globales** y del **espacio de trabajo**, que tienen su propia lista.
+- Revisar el resto de avisos flotantes de la app con el mismo criterio (ver 7.2).
+- Las pruebas end-to-end de entornos tienen un fallo **ajeno** al cambio: el menú "Remove" queda fuera de la ventana al limpiar colecciones en esta máquina. Falla igual sin los cambios.
+
 ---
 
 ## 6. Etapa 4 — Las apuestas, con validación
@@ -209,6 +227,9 @@ Ninguna tiene demanda comprobada. Se construyen **pequeñas** y se validan antes
 3. **Personalización más allá de temas** (idea tuya del inicio): densidad (compacta o cómoda), tamaño de fuente de la interfaz y del editor, posición del panel de respuesta (derecha o abajo, ya existe en parte), barra de pestañas activable, atajos reasignables. Cada ajuste vive en Preferencias, General o Display, con un valor por defecto sensato.
 4. **Primer uso:** que alguien nuevo cree y envíe una petición sin ayuda (el modal de bienvenida ya existe). Medirlo con la sesión 6.3.
 5. Aplicar el logo y los iconos oficiales (`docs/branding.md`).
+
+### 7.2 Avisos y notificaciones coherentes · S · P
+Tu observación: el aviso que baja desde arriba al crear algo no se ve bien. Criterio propuesto: lo que el usuario ve ocurrir en pantalla no necesita aviso (la fila nueva, el contador); los avisos se reservan para errores y para acciones sin resultado visible. Pasos: (1) inventariar todos los `toast.success` (`grep -rn "toast.success" packages/bruno-app/src`); (2) en los que tienen resultado visible, sustituir por un cambio en el propio elemento, como se hizo en 5.4; (3) unificar posición, duración y estilo de los que queden con el tema.
 
 **Listo cuando:** los mockups están aprobados por ti, la implementación los sigue en claro y oscuro, y el recorrido del nuevo usuario se completó sin ayuda.
 
@@ -282,11 +303,22 @@ Idea tuya del inicio: un asistente al estilo de OpenCode que vea el proyecto, la
 
 | Paso | Qué entrega | Condición |
 |---|---|---|
+| 10.0 **Entrar con una cuenta, sin claves de pago** | Ver subsección de abajo | Verificar condiciones de cada proveedor antes de construir |
 | 10.1 **Explicar este fallo** | Botón en una respuesta con error: la IA recibe petición y respuesta (redactadas, con vista previa) y explica causas probables. Nada se envía sin pulsarlo | Decidir cuánto del cuerpo de la respuesta ve la IA (sección 13) |
 | 10.2 **Servidor MCP y CLI para agentes externos** | `restlab mcp` expone colecciones, entornos (sin secretos) y envío de peticiones a Claude Code, OpenCode u otro agente propio del usuario | Lo defendible según el informe: contexto propio del cliente, agente propio del usuario |
 | 10.3 **Contexto del código fuente** | El usuario indica una carpeta de proyecto; el asistente ve rutas y controladores para relacionar un fallo con el código | Solo lectura, carpeta elegida explícitamente, vista previa de lo enviado |
 | 10.4 **Propuestas de corrección** | Cambios mostrados como diff que el usuario aprueba; nunca escribe solo | Reutiliza el flujo "Apply" con restauración de valores |
 | 10.5 **Descubrir rutas desde el código** | Alternativa a OpenAPI para proyectos sin especificación | Depende de 10.3 |
+
+### 10.0 Usar la IA sin API key de pago (pedido tuyo)
+
+Hoy RestLab solo se conecta con claves o con un modelo local. Opciones, de más a menos recomendable:
+
+1. **Modelos locales (ya hecho: Ollama).** Gratis, sin cuenta y sin salida de datos. Se puede mejorar detectando Ollama al activarlo y sugiriendo un modelo.
+2. **Delegar en un agente que el usuario ya tiene con sesión iniciada** (Claude Code, OpenCode, Codex u otro) hablando con él por un protocolo de agentes (por ejemplo ACP) o por el servidor MCP de 10.2. RestLab no guarda credenciales ni toca la cuenta del usuario: el agente usa su propio inicio de sesión. Es la ruta más robusta ante cambios de términos.
+3. **Iniciar sesión con un proveedor desde RestLab (como hace OpenCode).** Funciona hoy con algunos proveedores (por ejemplo flujos de dispositivo o OAuth), pero **cada proveedor decide si permite que una aplicación de terceros use una suscripción de consumo** y esas condiciones han cambiado antes. **No lo he verificado**: antes de construirlo hay que leer los términos vigentes de cada proveedor y probar el flujo. Si se construye, los tokens van al llavero del sistema, con la misma vista previa y redacción de secretos que ya existen.
+
+**Mi recomendación:** 1 ya está; hacer 2 primero (sirve a la vez como "harness" y no depende de términos ajenos); investigar 3 proveedor por proveedor y construir solo los que lo permitan por escrito. Pasos: (a) definir la interfaz de "proveedor de IA" para que acepte además de claves un proveedor "agente externo"; (b) conexión por MCP/ACP con permisos y vista previa de lo que se comparte; (c) reutilizar las herramientas de lectura y edición de 10.3 y 10.4.
 
 Reglas permanentes de la IA: apagada por defecto, nada visible cuando está apagada, claves propias, secretos redactados con vista previa, nunca corre en segundo plano.
 
