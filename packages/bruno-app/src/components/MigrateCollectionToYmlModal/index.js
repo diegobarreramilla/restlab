@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import filter from 'lodash/filter';
 import each from 'lodash/each';
 import { useDispatch, useSelector } from 'react-redux';
@@ -112,6 +112,21 @@ const MigrateCollectionToYmlModal = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isResolvingDrafts, setIsResolvingDrafts] = useState(false);
   const [showDraftsStep, setShowDraftsStep] = useState(false);
+  // Read-only location the main process reports over IPC; the modal never hardcodes it.
+  const [backupRootPath, setBackupRootPath] = useState('');
+
+  useEffect(() => {
+    let isSubscribed = true;
+    window?.ipcRenderer
+      ?.invoke('renderer:get-yml-migration-backup-root')
+      .then((rootPath) => {
+        if (isSubscribed && typeof rootPath === 'string') setBackupRootPath(rootPath);
+      })
+      .catch((error) => console.error('Could not read the migration backup location', error));
+    return () => {
+      isSubscribed = false;
+    };
+  }, []);
 
   const collectionDrafts = useMemo(() => collectCollectionDrafts(collection), [collection]);
 
@@ -455,6 +470,10 @@ const MigrateCollectionToYmlModal = () => {
                 </div>
                 <p className="backup-section-help">
                   Export this collection as a ZIP archive before migrating, in case you want to restore it later.
+                </p>
+                <p className="backup-section-help" data-testid="migration-backup-notice">
+                  A committed migration also keeps a copy of the <code>.bru</code> files at{' '}
+                  <code data-testid="migration-backup-root">{backupRootPath || '…'}</code>.
                 </p>
                 <div className="backup-section-action">
                   <Button

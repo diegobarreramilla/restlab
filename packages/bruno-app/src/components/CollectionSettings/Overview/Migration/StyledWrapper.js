@@ -15,6 +15,31 @@ const StyledWrapper = styled.div`
       color: ${(props) => props.theme.colors.text.yellow};
     }
   }
+
+  code.backup-path {
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.text};
+    background: none;
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .backup-path-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: ${(props) => props.theme.font.size.sm};
+    color: ${(props) => props.theme.textLink};
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 `;
 
 export default StyledWrapper;
