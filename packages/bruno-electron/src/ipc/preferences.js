@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { ipcMain, nativeTheme } = require('electron');
+const { app, ipcMain, nativeTheme } = require('electron');
 const { getPreferences, savePreferences } = require('../store/preferences');
 const { getGitVersion } = require('../utils/git');
 const { globalEnvironmentsStore } = require('../store/global-environments');
@@ -10,6 +10,12 @@ const LastOpenedCollections = require('../store/last-opened-collections');
 const WindowStateStore = require('../store/window-state');
 const { clearAgentCache, clearPacCache } = require('@usebruno/requests');
 const mockServer = require('../app/mock-server/mock-server');
+
+// Read-only: answers where the app keeps its data, so the renderer can show it in Preferences.
+// It never touches the network.
+const getUserDataPath = () => {
+  return app.getPath('userData');
+};
 
 const registerPreferencesIpc = (mainWindow) => {
   const lastOpenedCollections = new LastOpenedCollections();
@@ -50,6 +56,15 @@ const registerPreferencesIpc = (mainWindow) => {
 
   ipcMain.on('main:open-preferences', () => {
     mainWindow.webContents.send('main:open-preferences');
+  });
+
+  ipcMain.handle('renderer:get-user-data-path', async () => {
+    try {
+      return getUserDataPath();
+    } catch (error) {
+      console.error('Error in get-user-data-path:', error);
+      return Promise.reject(error);
+    }
   });
 
   ipcMain.handle('renderer:save-preferences', async (event, preferences) => {
@@ -103,3 +118,4 @@ const registerPreferencesIpc = (mainWindow) => {
 };
 
 module.exports = registerPreferencesIpc;
+module.exports.getUserDataPath = getUserDataPath;
