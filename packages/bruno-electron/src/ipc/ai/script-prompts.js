@@ -313,7 +313,9 @@ const formatDocsContext = (ctx, security = null) => {
 
 const { formatRequestContext, formatVariablesList, createCodeRedactor, redactUrl, buildRedactionPolicy } = require('./context');
 
-const buildScriptUserPrompt = ({
+// The user prompt as titled pieces. The generation preview shows these same pieces, so what the
+// user reviews is built by the code that builds what is sent.
+const buildScriptUserPromptSections = ({
   userPrompt,
   currentScript,
   requestContext,
@@ -327,17 +329,21 @@ const buildScriptUserPrompt = ({
 }) => {
   const sections = [];
   const docsContextStr = formatDocsContext(docsContext, security);
-  if (docsContextStr) sections.push(`Documentation Context\n${docsContextStr}`);
+  if (docsContextStr) sections.push({ id: 'docs-context', title: 'Collection or folder', text: `Documentation Context\n${docsContextStr}` });
 
   // Same redaction rules as the chat sidebar — sensitive headers/params masked,
   // response shape only (no real values). Body is sent in full so the model
   // can write code that references real keys.
   const contextStr = formatRequestContext(requestContext, { includeResponse: true, security });
-  if (contextStr) sections.push(`HTTP Request Context\n${contextStr}`);
+  if (contextStr) sections.push({ id: 'request', title: 'The request', text: `HTTP Request Context\n${contextStr}` });
 
   const varsStr = formatVariablesList(variables, { security });
   if (varsStr) {
-    sections.push(`Available Variables (names only — call search_variables(query) for a value)\n${varsStr}`);
+    sections.push({
+      id: 'variables',
+      title: 'Variable names',
+      text: `Available Variables (names only — call search_variables(query) for a value)\n${varsStr}`
+    });
   }
 
   if (currentScript && currentScript.trim()) {
@@ -350,11 +356,17 @@ const buildScriptUserPrompt = ({
       existingLabel = 'Existing App';
       fenceLang = 'html';
     }
-    sections.push(`${existingLabel}\n\`\`\`${fenceLang}\n${redactor.redact(currentScript)}\n\`\`\``);
+    sections.push({
+      id: 'existing-content',
+      title: existingLabel,
+      text: `${existingLabel}\n\`\`\`${fenceLang}\n${redactor.redact(currentScript)}\n\`\`\``
+    });
   }
-  sections.push(`User Request\n${userPrompt}`);
-  return sections.join('\n\n');
+  sections.push({ id: 'user-request', title: 'Your request', text: `User Request\n${userPrompt}` });
+  return sections;
 };
+
+const buildScriptUserPrompt = (params) => buildScriptUserPromptSections(params).map((section) => section.text).join('\n\n');
 
 /**
  * Detect the decline sentinel in generated output. Returns the reason string
@@ -409,6 +421,7 @@ module.exports = {
   DECLINE_PREFIX,
   buildScriptSystemPrompt,
   buildScriptUserPrompt,
+  buildScriptUserPromptSections,
   formatDocsContext,
   parseDecline,
   stripCodeFences

@@ -21,6 +21,7 @@ const {
   SCRIPT_TYPES,
   buildScriptSystemPrompt,
   buildScriptUserPrompt,
+  buildScriptUserPromptSections,
   parseDecline,
   stripCodeFences
 } = require('./script-prompts');
@@ -28,8 +29,10 @@ const {
   formatResponseShape,
   searchVariables,
   formatSearchVariablesResult,
-  createCodeRedactor
+  createCodeRedactor,
+  buildRedactionPolicy
 } = require('./context');
+const { describePreview, describeReadResponseTool, SEARCH_VARIABLES_TOOL } = require('./preview');
 const registerChatIpc = require('./chat');
 
 const activeStreams = new Map();
@@ -44,6 +47,35 @@ const DEFAULT_SCRIPT_MAX_OUTPUT_TOKENS = 4096;
 const getAiPrefs = () => getPreferences().ai || {};
 
 const getSecurityPrefs = () => getAiPrefs().security || null;
+
+// The same pieces the generation sends, plus the size of each and how many values were hidden in
+// it. The prompt may still be empty: the preview shows what would go out with what is typed so far.
+const previewScriptRequest = (params, { isAiEnabled, security }) => {
+  if (!isAiEnabled()) {
+    return { error: 'AI features are disabled. Enable them in Preferences > AI.' };
+  }
+
+  const { scriptType, prompt, currentScript, requestContext, docsContext, variables } = params || {};
+  if (!SCRIPT_TYPES.includes(scriptType)) {
+    return { error: `Unknown scriptType: ${scriptType}` };
+  }
+
+  const userSections = buildScriptUserPromptSections({
+    userPrompt: prompt || '',
+    currentScript,
+    requestContext,
+    docsContext,
+    variables,
+    scriptType,
+    security
+  });
+  const sections = [
+    { id: 'instructions', kind: 'instructions', title: 'Instructions to the assistant', text: buildScriptSystemPrompt(scriptType) },
+    ...userSections.map((section) => ({ ...section, kind: section.id === 'user-request' ? 'conversation' : 'context' }))
+  ];
+
+  return describePreview(sections, [describeReadResponseTool(buildRedactionPolicy(security)), SEARCH_VARIABLES_TOOL]);
+};
 
 const isEnabled = () => Boolean(getAiPrefs().enabled);
 
@@ -194,6 +226,10 @@ const registerAiIpc = (mainWindow) => {
       console.error('AI generate-text error:', err);
       return { error: err.message || 'Failed to generate text' };
     }
+  });
+
+  ipcMain.handle('renderer:ai-generate-preview', (_event, params) => {
+    return previewScriptRequest(params, { isAiEnabled: isEnabled, security: getSecurityPrefs() });
   });
 
   ipcMain.handle('renderer:ai-generate-script', async (_event, params) => {
@@ -423,3 +459,4 @@ const registerAiIpc = (mainWindow) => {
 };
 
 module.exports = registerAiIpc;
+module.exports.previewScriptRequest = previewScriptRequest;

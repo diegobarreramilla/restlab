@@ -125,3 +125,75 @@ describe('autocomplete', () => {
     expect(result.suggestion).toContain(SECRET);
   });
 });
+
+describe('script generation preview', () => {
+  const params = (overrides = {}) => ({
+    scriptType: 'pre-request',
+    prompt: 'log when done',
+    currentScript: `const apiKey = '${SECRET}';\nconst page = 2;`,
+    requestContext: { method: 'GET', url: `https://api.example.com/items?api_key=${SECRET}` },
+    variables: [{ name: 'baseUrl', value: 'https://api.example.com', scope: 'env', secret: false }],
+    model: 'gpt-4o-mini',
+    ...overrides
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.keys(handlers).forEach((key) => delete handlers[key]);
+    mockPreferences = enabledPreferences();
+    registerAiIpc({ webContents: { isDestroyed: () => false, send: jest.fn() } });
+    mockStreamText.mockImplementation(() => streamOf('```js\nconsole.log(1);\n```'));
+  });
+
+  it('shows exactly what generation sends', async () => {
+    const preview = await handlers['renderer:ai-generate-preview']({}, params());
+    await handlers['renderer:ai-generate-script']({}, params());
+
+    const sent = mockStreamText.mock.calls[0][0];
+    expect(preview.sections.find((s) => s.kind === 'instructions').text).toBe(sent.system);
+    expect(preview.sections.filter((s) => s.kind !== 'instructions').map((s) => s.text).join('\n\n')).toBe(sent.prompt);
+  });
+
+  it('hides credentials, counts them and titles each piece', async () => {
+    const preview = await handlers['renderer:ai-generate-preview']({}, params());
+
+    expect(preview.sections.map((s) => s.text).join('\n')).not.toContain(SECRET);
+    expect(preview.sections.map((s) => s.title)).toEqual([
+      'Instructions to the assistant',
+      'The request',
+      'Variable names',
+      'Existing Code',
+      'Your request'
+    ]);
+    expect(preview.sections.find((s) => s.id === 'existing-content').hidden).toBe(1);
+    expect(preview.totals.hidden).toBeGreaterThanOrEqual(2);
+  });
+
+  it('works while the prompt is still empty, because the user opens it before typing', async () => {
+    const preview = await handlers['renderer:ai-generate-preview']({}, params({ prompt: '' }));
+
+    expect(preview.error).toBeUndefined();
+    expect(preview.sections.find((s) => s.id === 'user-request').text).toBe('User Request\n');
+  });
+
+  it('lists what generation may ask for on demand', async () => {
+    const preview = await handlers['renderer:ai-generate-preview']({}, params());
+
+    expect(preview.onDemand.map((tool) => tool.name)).toEqual(['read_response', 'search_variables']);
+  });
+
+  it('refuses an unknown kind of script, and does not call the model', async () => {
+    const preview = await handlers['renderer:ai-generate-preview']({}, params({ scriptType: 'nope' }));
+
+    expect(preview.error).toMatch(/Unknown scriptType/);
+    expect(mockStreamText).not.toHaveBeenCalled();
+  });
+
+  it('refuses while AI is turned off', async () => {
+    mockPreferences = enabledPreferences({ enabled: false });
+
+    const preview = await handlers['renderer:ai-generate-preview']({}, params());
+
+    expect(preview.error).toMatch(/disabled/i);
+  });
+});

@@ -15,6 +15,7 @@ const {
   createCodeRedactor,
   buildRedactionPolicy
 } = require('./context');
+const { describePreview, describeReadResponseTool, SEARCH_VARIABLES_TOOL } = require('./preview');
 const { getPreferences } = require('../../store/preferences');
 const { isBuiltInModelId } = require('./providers');
 
@@ -128,16 +129,8 @@ const describeOnDemandTools = (security) => {
       summary: 'Re-reads a section of this request (script, tests, docs or app) for its latest text.'
         + (policy.redactBody ? ' Credential-looking values stay hidden.' : '')
     },
-    {
-      name: 'read_response',
-      summary: policy.redactResponse
-        ? 'Reads the structure of the last response: keys and types, never the values.'
-        : 'Reads the body of the last response as it is.'
-    },
-    {
-      name: 'search_variables',
-      summary: 'Looks up variables by name. It sees the value of any variable that is not marked secret.'
-    },
+    describeReadResponseTool(policy),
+    SEARCH_VARIABLES_TOOL,
     {
       name: 'list_requests / search_requests',
       summary: 'Lists the requests of this collection with their names, methods and URLs.'
@@ -145,11 +138,6 @@ const describeOnDemandTools = (security) => {
     }
   ];
 };
-
-const countHiddenValues = (text) => (String(text).match(/<redacted(?::\d+)?>/g) || []).length;
-
-// Roughly four characters per token. It is a size hint, not a bill.
-const approximateTokens = (characters) => Math.ceil(characters / 4);
 
 // The same pieces the stream sends, plus the size of each and how many values were hidden in it.
 const previewChatRequest = (payload, { isAiEnabled, security }) => {
@@ -161,22 +149,7 @@ const previewChatRequest = (payload, { isAiEnabled, security }) => {
   }
 
   const { sections } = assembleChatRequest(payload, security);
-  const described = sections.map((section) => ({
-    ...section,
-    characters: section.text.length,
-    hidden: countHiddenValues(section.text)
-  }));
-  const characters = described.reduce((total, section) => total + section.characters, 0);
-
-  return {
-    sections: described,
-    onDemand: describeOnDemandTools(security),
-    totals: {
-      characters,
-      approximateTokens: approximateTokens(characters),
-      hidden: described.reduce((total, section) => total + section.hidden, 0)
-    }
-  };
+  return describePreview(sections, describeOnDemandTools(security));
 };
 
 // Defensive fallback: if the model returns a markdown code block instead of
