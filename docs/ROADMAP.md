@@ -146,7 +146,6 @@ Cada una está pensada para que quien la use la note sin que la pida. Se ordenan
 | Mejora | Motivo en la investigación | Esfuerzo | Notas |
 |---|---|---|---|
 | **Copia de seguridad visible antes de migrar de formato o actualizar** | El miedo a perder datos tras actualizar es de las quejas más fuertes contra Insomnia (#6585, 74 reacciones) | S | La migración BRU a YML ya hace copia y revierte si falla (`ipc/yml-migration.js`). Falta **decirlo** al usuario, y dónde queda la copia |
-| **"Todo está en tu disco"** en un solo lugar | La promesa de confianza es el principal motivo de elegir esta herramienta | S | Una línea en Preferencias, General, Privacy: carpeta de datos, carpeta de colecciones y lista de lo único que puede conectarse (enlace al inventario). Cero lógica nueva |
 | **Petición suelta sin colección** | Postman retiró el Scratch Pad y generó abandono | S | El proyecto ya usa colecciones "scratch" internas (`scratchCollectionUid`). Verificar si el usuario puede abrir la app y enviar una petición sin crear nada; si no, hacerlo evidente |
 | **Modo vim en el editor** | Bruno #2373 (57 reacciones) | M | CodeMirror admite el mapa de teclas vim; hace falta el ajuste, la carga diferida del módulo y probar con los atajos de la app |
 | **Pestañas de varias colecciones a la vez** | Bruno #5807 (33) | M | Comprobar primero qué ofrece el espacio de trabajo actual |
@@ -156,7 +155,25 @@ Cada una está pensada para que quien la use la note sin que la pida. Se ordenan
 | **Valores por defecto sin sorpresas** | "Bait and switch" es la queja de fondo | S | Revisar que ninguna opción nueva de la base venga activa y que no existan avisos de pago ni anuncios; añadir una prueba que lo vigile (`tests/` recorriendo Preferencias) |
 | **Internacionalización** | Bruno #322 (58 reacciones) | M | La app ya usa `react-i18next`. Completar el español y dejar la guía para añadir idiomas; comprobar que lo nuevo (offline, "What's sent") usa claves y no texto fijo |
 
-**Orden recomendado dentro de 5.3:** "Todo está en tu disco", copia de seguridad visible, petición suelta, informe de importación, valores por defecto sin sorpresas. Son pequeñas, refuerzan la promesa y no tocan el formato.
+### 5.3.1 "Todo está en tu disco" en un solo lugar · S · A ✅ (2026-11-08)
+
+**Origen:** la promesa de confianza es el principal motivo de elegir esta herramienta (informe de investigación, fila 5.3).
+
+Hecho:
+- Preferencias → General → Privacy ahora contiene, junto al interruptor de anuncios, dos bloques de solo lectura:
+  - **Where your data lives:** la carpeta de datos de la app (`userData`, el IPC de lectura `renderer:get-user-data-path` en `ipc/preferences.js`, callback exportada y testeada), y la carpeta de cada colección abierta (deduplicadas, del estado existente de redux). Cada ruta tiene botón **Copy** y **Reveal in Finder/Explorer/File Manager** (helper existente `renderer:show-in-folder` con etiqueta por plataforma `getRevealInFolderLabel`).
+  - **What can connect:** las tres conexiones posibles (peticiones que envías, OAuth2 con retorno local, IA solo si está activada) y mención al inventario completo. Como `REPOSITORY_URL` y `DOCS_URL` siguen en null (`docs/branding.md`: no mandar a páginas del proyecto de origen), el inventario se cita en texto (`docs/privacy/network-inventory.md`); el enlace activo aparecerá solo cuando exista la URL propia.
+- Estilo integrado al de Preferencias: `SettingsGroup`/`CheckboxSetting` y botones de texto tipo `default-location-browse`, mismo tamaño y colores del tema.
+
+Pruebas:
+- `packages/bruno-electron/src/ipc/preferences.spec.js`: el IPC registra el canal y el callback devuelve `app.getPath('userData')`.
+- `packages/bruno-app/src/components/Preferences/General/index.spec.js`: 10 casos — rutas visibles, copiado, revelado, colecciones deduplicadas, estado de la IA, y que no hay `fetch`/XHR ni ningún IPC de salida distinto al de lectura.
+- Prueba de mutación: una llamada a red inyectada en el componente hace fallar el spec de salida de red; un `userData` equivocado hace fallar el spec del IPC.
+- Comprobado en la app real con Playwright (captura del bloque Privacy).
+
+Listo cuando: abres Preferencias, ves las rutas correctas y puedes copiarlas. ✅
+
+
 
 ### 5.4 Entornos: lista más cuidada · S · P ✅ (2026-11-07)
 
