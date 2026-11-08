@@ -5,7 +5,10 @@ import Tippy from '@tippyjs/react';
 import { IconX, IconArrowBackUp, IconPlayerStop } from '@tabler/icons';
 import IconSparkles from 'components/Icons/IconSparkles';
 import Button from 'ui/Button';
-import { aiGenerateScript, stopAiGeneration } from 'utils/ai';
+import AiContextPreview from 'components/AiContextPreview';
+import useAiPreview from 'hooks/useAiPreview';
+import useDebounce from 'hooks/useDebounce';
+import { aiGenerateScript, previewAiGeneration, stopAiGeneration } from 'utils/ai';
 import StyledWrapper, { PopupWrapper } from './StyledWrapper';
 
 const SUGGESTIONS = {
@@ -71,28 +74,48 @@ const AIAssist = ({ scriptType, currentScript, requestContext, docsContext, vari
   const streamIdRef = useRef(null);
   const tippyRef = useRef(null);
 
+  const preferences = useSelector((state) => state.app.preferences);
+  const isAiEnabled = get(preferences, 'ai.enabled', false);
+  const reviewBeforeSend = get(preferences, 'ai.security.reviewBeforeSend', false);
+
+  // The preview is built by the main process with the same code as the generation request.
+  const fetchGenerationPreview = useCallback(
+    (text) => previewAiGeneration({ scriptType, prompt: text, currentScript: currentScript || '', requestContext, docsContext, variables }),
+    [scriptType, currentScript, requestContext, docsContext, variables]
+  );
+  const { state: previewState, open: openPreview, close: closePreview } = useAiPreview(fetchGenerationPreview);
+
+  // An open read-only preview follows what the user is typing.
+  const debouncedPrompt = useDebounce(prompt, 400);
+  useEffect(() => {
+    if (previewState?.mode === 'look') {
+      openPreview('look', debouncedPrompt.trim());
+    }
+  }, [debouncedPrompt]);
+
   // Focus the prompt textarea when coming back from preview
   useEffect(() => {
-    if (isOpen && generated == null) {
+    if (isOpen && generated == null && !previewState) {
       tippyRef.current?.popper?.querySelector('.popup-input')?.focus();
     }
-  }, [isOpen, generated]);
+  }, [isOpen, generated, previewState]);
 
-  // handle Escape key to close the popup
+  // handle Escape key: first close the request preview if it is open, then the popup
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        tippyRef.current?.hide();
+        if (previewState) {
+          closePreview();
+        } else {
+          tippyRef.current?.hide();
+        }
       }
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [isOpen]);
-
-  const preferences = useSelector((state) => state.app.preferences);
-  const isAiEnabled = get(preferences, 'ai.enabled', false);
+  }, [isOpen, previewState, closePreview]);
 
   const suggestions = useMemo(() => SUGGESTIONS[scriptType] || [], [scriptType]);
   const title = TITLES[scriptType] || 'Generate with AI';
@@ -103,9 +126,17 @@ const AIAssist = ({ scriptType, currentScript, requestContext, docsContext, vari
   }, []);
 
   const handleGenerate = useCallback(
-    async (overridePrompt) => {
+    async (overridePrompt, { reviewed = false } = {}) => {
       const text = (overridePrompt ?? prompt).trim();
       if (!text || isLoading) return;
+
+      // With "Review before sending" on, the request waits for the user's approval of the preview.
+      if (reviewBeforeSend && !reviewed) {
+        openPreview('review', text);
+        return;
+      }
+
+      closePreview();
       setIsLoading(true);
       setError(null);
 
@@ -141,8 +172,16 @@ const AIAssist = ({ scriptType, currentScript, requestContext, docsContext, vari
         setIsLoading(false);
       }
     },
-    [prompt, isLoading, scriptType, currentScript, requestContext, docsContext, variables]
+    [prompt, isLoading, scriptType, currentScript, requestContext, docsContext, variables, reviewBeforeSend, openPreview, closePreview]
   );
+
+  const handleTogglePreview = useCallback(() => {
+    if (previewState) {
+      closePreview();
+    } else {
+      openPreview('look', prompt.trim());
+    }
+  }, [previewState, prompt, openPreview, closePreview]);
 
   const handleStop = useCallback(() => {
     if (streamIdRef.current) {
@@ -184,6 +223,7 @@ const AIAssist = ({ scriptType, currentScript, requestContext, docsContext, vari
         onHide={() => {
           setIsOpen(false);
           setError(null);
+          closePreview();
         }}
         render={(attrs) => (
           <PopupWrapper className="ai-assist-popup" role="dialog" aria-label={title} tabIndex={-1} {...attrs}>
@@ -197,7 +237,19 @@ const AIAssist = ({ scriptType, currentScript, requestContext, docsContext, vari
               </button>
             </div>
 
-            {generated == null ? (
+            {previewState ? (
+              <div className="popup-context-preview">
+                <AiContextPreview
+                  preview={previewState.preview}
+                  error={previewState.error}
+                  isLoading={previewState.status === 'loading' && !previewState.preview}
+                  title={previewState.mode === 'review' ? 'Review before sending' : 'What will be sent'}
+                  confirmLabel="Generate"
+                  onConfirm={previewState.mode === 'review' ? () => handleGenerate(previewState.arg, { reviewed: true }) : undefined}
+                  onClose={closePreview}
+                />
+              </div>
+            ) : generated == null ? (
               <>
                 <div className="popup-body">
                   <textarea
@@ -241,7 +293,18 @@ const AIAssist = ({ scriptType, currentScript, requestContext, docsContext, vari
                       Generating...
                     </span>
                   ) : (
-                    <span className="popup-hint">Enter to generate · Shift+Enter for newline</span>
+                    <span className="popup-hint-group">
+                      <span className="popup-hint">Enter to generate · Shift+Enter for newline</span>
+                      <button
+                        type="button"
+                        className="popup-link"
+                        onClick={handleTogglePreview}
+                        title="See exactly what will be sent"
+                        data-testid="ai-assist-preview-toggle"
+                      >
+                        {'What\'s sent'}
+                      </button>
+                    </span>
                   )}
                   {isLoading ? (
                     <Button

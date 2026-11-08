@@ -1030,7 +1030,7 @@ const AiChatSidebar = ({ collection, variant = 'sidebar' }) => {
                       title="See exactly what will be sent"
                       data-testid="ai-preview-toggle"
                     >
-                      <IconEye size={12} /> Preview
+                      <IconEye size={12} /> {'What\'s sent'}
                     </button>
                   )}
                   {isLoading ? (

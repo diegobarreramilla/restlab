@@ -171,6 +171,40 @@ export const PopupWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.muted};
   }
 
+  .popup-hint-group {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 11px;
+  }
+
+  .popup-link {
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: inherit;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+
+    &:hover {
+      color: ${(props) => props.theme.text};
+    }
+
+    &:focus-visible {
+      outline: 1px solid ${(props) => props.theme.brand};
+    }
+  }
+
+  .popup-context-preview {
+    display: flex;
+    flex-direction: column;
+    max-height: 60vh;
+    min-height: 0;
+    margin: 8px;
+  }
+
   .popup-loading {
     display: inline-flex;
     align-items: center;

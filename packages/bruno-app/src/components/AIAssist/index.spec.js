@@ -4,18 +4,22 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { ThemeProvider } from 'styled-components';
-import { aiGenerateScript, stopAiGeneration } from 'utils/ai';
+import { aiGenerateScript, previewAiGeneration, stopAiGeneration } from 'utils/ai';
 import AIAssist from './index';
 
 jest.mock('utils/ai', () => ({
   aiGenerateScript: jest.fn(),
+  previewAiGeneration: jest.fn(),
   stopAiGeneration: jest.fn()
 }));
 
 const theme = {
   bg: '#1e1e1e',
   text: '#ffffff',
-  border: { radius: { sm: '4px', base: '5px', md: '6px', lg: '8px' } },
+  brand: '#6366f1',
+  codemirror: { bg: '#111827' },
+  status: { success: { text: '#22c55e', background: 'rgba(34, 197, 94, 0.15)' } },
+  border: { border1: '#374151', radius: { sm: '4px', base: '5px', md: '6px', lg: '8px' } },
   colors: {
     accent: '#6366f1',
     text: { muted: '#9ca3af', danger: '#ef4444' },
@@ -24,6 +28,7 @@ const theme = {
   button2: {
     color: {
       primary: { bg: '#6366f1', text: '#ffffff', border: '#6366f1' },
+      secondary: { bg: '#374151', text: '#d1d5db', border: '#374151' },
       danger: { bg: '#ef4444', text: '#ffffff', border: '#ef4444' }
     }
   },
@@ -35,9 +40,9 @@ const theme = {
   font: { monospace: 'monospace', size: { xs: '11px', sm: '12px', base: '13px' } }
 };
 
-const createStore = (aiEnabled = true) => configureStore({
+const createStore = (aiEnabled = true, reviewBeforeSend = false) => configureStore({
   reducer: {
-    app: (state = { preferences: { ai: { enabled: aiEnabled } } }) => state
+    app: (state = { preferences: { ai: { enabled: aiEnabled, security: { reviewBeforeSend } } } }) => state
   }
 });
 
@@ -49,11 +54,12 @@ const defaultProps = {
 
 const renderAIAssist = ({
   props = {},
-  aiEnabled = true
+  aiEnabled = true,
+  reviewBeforeSend = false
 } = {}) => {
   const mergedProps = { ...defaultProps, ...props };
   return render(
-    <Provider store={createStore(aiEnabled)}>
+    <Provider store={createStore(aiEnabled, reviewBeforeSend)}>
       <ThemeProvider theme={theme}>
         <AIAssist {...mergedProps} />
       </ThemeProvider>
@@ -413,5 +419,117 @@ describe('AIAssist', () => {
       expect(screen.getByRole('button', { name: 'Status 200' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('AIAssist preview of what will be sent', () => {
+  const PREVIEW = {
+    sections: [
+      { id: 'instructions', kind: 'instructions', title: 'Instructions to the assistant', text: 'You write tests.', characters: 16, hidden: 0 },
+      { id: 'existing-content', kind: 'context', title: 'Existing Code', text: 'const k = \'<redacted:1>\';', characters: 25, hidden: 1 },
+      { id: 'user-request', kind: 'conversation', title: 'Your request', text: 'User Request\nadd a test', characters: 23, hidden: 0 }
+    ],
+    onDemand: [{ name: 'read_response', summary: 'Reads the structure of the last response, never the values.' }],
+    totals: { characters: 64, approximateTokens: 16, hidden: 1 }
+  };
+
+  const typePrompt = (text) => {
+    fireEvent.change(screen.getByPlaceholderText('Describe what you want to generate...'), { target: { value: text } });
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    aiGenerateScript.mockResolvedValue({ content: 'test("generated", () => {});' });
+    previewAiGeneration.mockResolvedValue(PREVIEW);
+  });
+
+  it('shows what would be sent for the prompt typed so far, without generating', async () => {
+    renderAIAssist();
+    openPopup();
+    typePrompt('add a test');
+
+    fireEvent.click(screen.getByTestId('ai-assist-preview-toggle'));
+
+    expect(await screen.findByTestId('ai-context-preview')).toBeInTheDocument();
+    expect(previewAiGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      scriptType: 'tests',
+      prompt: 'add a test',
+      currentScript: 'test("ok", () => {});'
+    }));
+    expect(screen.queryByTestId('ai-context-preview-confirm')).not.toBeInTheDocument();
+    expect(aiGenerateScript).not.toHaveBeenCalled();
+  });
+
+  it('closes the preview first with Escape, and only then the popup', async () => {
+    renderAIAssist();
+    openPopup();
+    fireEvent.click(screen.getByTestId('ai-assist-preview-toggle'));
+    await screen.findByTestId('ai-context-preview');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByTestId('ai-context-preview')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Generate Tests' })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Generate Tests' })).not.toBeInTheDocument();
+  });
+
+  it('generates straight away when review is off', async () => {
+    renderAIAssist();
+    openPopup();
+    typePrompt('add a test');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    await waitFor(() => expect(aiGenerateScript).toHaveBeenCalledTimes(1));
+    expect(previewAiGeneration).not.toHaveBeenCalled();
+  });
+
+  it('holds the request for approval when review before sending is on', async () => {
+    renderAIAssist({ reviewBeforeSend: true });
+    openPopup();
+    typePrompt('add a test');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    expect(await screen.findByTestId('ai-context-preview-confirm')).toHaveTextContent('Generate');
+    expect(screen.getByText('Review before sending')).toBeInTheDocument();
+    expect(aiGenerateScript).not.toHaveBeenCalled();
+  });
+
+  it('also holds the one-click suggestions for approval', async () => {
+    renderAIAssist({ reviewBeforeSend: true });
+    openPopup();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Status 200' }));
+
+    expect(await screen.findByTestId('ai-context-preview-confirm')).toBeInTheDocument();
+    expect(previewAiGeneration).toHaveBeenCalledWith(expect.objectContaining({ prompt: expect.stringContaining('status code is 200') }));
+    expect(aiGenerateScript).not.toHaveBeenCalled();
+  });
+
+  it('generates once the user approves the review', async () => {
+    renderAIAssist({ reviewBeforeSend: true });
+    openPopup();
+    typePrompt('add a test');
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    fireEvent.click(await screen.findByTestId('ai-context-preview-confirm'));
+
+    await waitFor(() => expect(aiGenerateScript).toHaveBeenCalledTimes(1));
+    expect(aiGenerateScript).toHaveBeenCalledWith(expect.objectContaining({ prompt: 'add a test' }));
+    expect(await screen.findByText('test("generated", () => {});')).toBeInTheDocument();
+  });
+
+  it('goes back to the prompt without generating when the user cancels the review', async () => {
+    renderAIAssist({ reviewBeforeSend: true });
+    openPopup();
+    typePrompt('add a test');
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    fireEvent.click(await screen.findByTestId('ai-context-preview-cancel'));
+
+    expect(aiGenerateScript).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Describe what you want to generate...')).toHaveValue('add a test');
   });
 });
