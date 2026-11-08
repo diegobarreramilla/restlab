@@ -60,7 +60,7 @@ describe('AiContextPreview as a read-only look', () => {
   it('draws each hidden value as a mark, so it is visible where something was held back', () => {
     const { container } = render(<AiContextPreview preview={preview} onClose={jest.fn()} />);
 
-    const marks = container.querySelectorAll('mark.hidden-value');
+    const marks = container.querySelectorAll('mark.ctx-hidden-value');
     expect(marks).toHaveLength(1);
     expect(marks[0]).toHaveTextContent('<redacted:1>');
   });

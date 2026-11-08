@@ -14,7 +14,7 @@ const StyledWrapper = styled.div`
   border-radius: 8px;
   overflow: hidden;
 
-  .preview-header {
+  .ctx-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -23,25 +23,25 @@ const StyledWrapper = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.border.border1};
   }
 
-  .preview-heading {
+  .ctx-heading {
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
   }
 
-  .preview-title {
+  .ctx-title {
     font-size: 12.5px;
     font-weight: 600;
   }
 
-  .preview-summary {
+  .ctx-summary {
     font-size: 11px;
     color: ${(props) => props.theme.colors.text.muted};
     font-variant-numeric: tabular-nums;
   }
 
-  .preview-close {
+  .ctx-close {
     display: inline-flex;
     padding: 2px;
     border: none;
@@ -55,24 +55,24 @@ const StyledWrapper = styled.div`
     }
   }
 
-  .preview-body {
+  .ctx-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     padding: 4px 0;
   }
 
-  .preview-state {
+  .ctx-state {
     padding: 14px 12px;
     font-size: 12px;
     color: ${(props) => props.theme.colors.text.muted};
   }
 
-  .preview-state.is-error {
+  .ctx-state.is-error {
     color: ${(props) => props.theme.colors.text.danger};
   }
 
-  .preview-section {
+  .ctx-section {
     border-bottom: 1px solid ${(props) => props.theme.border.border1};
 
     &:last-of-type {
@@ -105,7 +105,7 @@ const StyledWrapper = styled.div`
         transition: transform 120ms ease;
       }
 
-      &:hover .section-title {
+      &:hover .ctx-section-title {
         color: ${(props) => props.theme.brand};
       }
 
@@ -119,26 +119,26 @@ const StyledWrapper = styled.div`
       transform: translateY(-3px) rotate(45deg);
     }
 
-    .section-title {
+    .ctx-section-title {
       flex: 1;
       min-width: 0;
       font-weight: 500;
       transition: color 120ms ease;
     }
 
-    .section-meta {
+    .ctx-section-meta {
       flex: none;
       font-size: 11px;
       color: ${(props) => props.theme.colors.text.muted};
       font-variant-numeric: tabular-nums;
     }
 
-    .section-hidden {
+    .ctx-section-hidden {
       color: color-mix(in srgb, ${(props) => props.theme.status.success.text} 70%, ${(props) => props.theme.text});
     }
   }
 
-  .section-text {
+  .ctx-section-text {
     margin: 0 12px 10px;
     padding: 8px 10px;
     max-height: 220px;
@@ -153,18 +153,18 @@ const StyledWrapper = styled.div`
     border-radius: 6px;
   }
 
-  .hidden-value {
+  .ctx-hidden-value {
     padding: 0 3px;
     border-radius: 3px;
     background: ${(props) => props.theme.status.success.background};
     color: color-mix(in srgb, ${(props) => props.theme.status.success.text} 70%, ${(props) => props.theme.text});
   }
 
-  .preview-on-demand {
+  .ctx-on-demand {
     padding: 10px 12px 12px;
     border-top: 1px solid ${(props) => props.theme.border.border1};
 
-    .on-demand-title {
+    .ctx-on-demand-title {
       margin-bottom: 6px;
       font-size: 11px;
       font-weight: 500;
@@ -192,7 +192,7 @@ const StyledWrapper = styled.div`
     }
   }
 
-  .preview-footer {
+  .ctx-footer {
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -202,8 +202,8 @@ const StyledWrapper = styled.div`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .preview-section summary::before,
-    .preview-section .section-title {
+    .ctx-section summary::before,
+    .ctx-section .ctx-section-title {
       transition: none;
     }
   }

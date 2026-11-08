@@ -18,7 +18,7 @@ export const describeHidden = (count) => {
 // Hidden values are drawn as marks so the user can see where something was held back.
 const MarkedText = ({ text }) => text.split(HIDDEN_VALUE_PATTERN).map((part, index) => (
   index % 2 === 1
-    ? <mark key={index} className="hidden-value">{part}</mark>
+    ? <mark key={index} className="ctx-hidden-value">{part}</mark>
     : <React.Fragment key={index}>{part}</React.Fragment>
 ));
 
@@ -43,11 +43,11 @@ const AiContextPreview = ({
 
   return (
     <StyledWrapper role="region" aria-label={title} data-testid="ai-context-preview">
-      <div className="preview-header">
-        <div className="preview-heading">
-          <span className="preview-title">{title}</span>
+      <div className="ctx-header">
+        <div className="ctx-heading">
+          <span className="ctx-title">{title}</span>
           {preview && (
-            <span className="preview-summary" data-testid="ai-context-preview-summary">
+            <span className="ctx-summary" data-testid="ai-context-preview-summary">
               {`about ${formatTokens(preview.totals.approximateTokens)} tokens · ${describeHidden(preview.totals.hidden)}`}
             </span>
           )}
@@ -55,7 +55,7 @@ const AiContextPreview = ({
         {!isReview && (
           <button
             type="button"
-            className="preview-close"
+            className="ctx-close"
             onClick={onClose}
             aria-label="Close preview"
             data-testid="ai-context-preview-close"
@@ -65,31 +65,31 @@ const AiContextPreview = ({
         )}
       </div>
 
-      <div className="preview-body">
-        {isLoading && <div className="preview-state">Preparing the preview…</div>}
-        {!isLoading && error && <div className="preview-state is-error" role="alert">{error}</div>}
+      <div className="ctx-body">
+        {isLoading && <div className="ctx-state">Preparing the preview…</div>}
+        {!isLoading && error && <div className="ctx-state is-error" role="alert">{error}</div>}
 
         {!isLoading && !error && preview && preview.sections.map((section) => (
           <details
             key={section.id}
-            className="preview-section"
+            className="ctx-section"
             open={section.kind === 'conversation'}
             data-testid={`ai-context-section-${section.id}`}
           >
             <summary>
-              <span className="section-title">{section.title}</span>
-              <span className="section-meta">
+              <span className="ctx-section-title">{section.title}</span>
+              <span className="ctx-section-meta">
                 {`${section.characters.toLocaleString('en-US')} characters`}
-                {section.hidden > 0 && <span className="section-hidden">{` · ${section.hidden} hidden`}</span>}
+                {section.hidden > 0 && <span className="ctx-section-hidden">{` · ${section.hidden} hidden`}</span>}
               </span>
             </summary>
-            <pre className="section-text"><MarkedText text={section.text} /></pre>
+            <pre className="ctx-section-text"><MarkedText text={section.text} /></pre>
           </details>
         ))}
 
         {!isLoading && !error && preview && preview.onDemand.length > 0 && (
-          <div className="preview-on-demand">
-            <div className="on-demand-title">The assistant may also ask for</div>
+          <div className="ctx-on-demand">
+            <div className="ctx-on-demand-title">The assistant may also ask for</div>
             <ul>
               {preview.onDemand.map((tool) => (
                 <li key={tool.name}>
@@ -103,7 +103,7 @@ const AiContextPreview = ({
       </div>
 
       {isReview && (
-        <div className="preview-footer">
+        <div className="ctx-footer">
           <Button variant="ghost" color="secondary" size="sm" rounded="sm" onClick={onClose} data-testid="ai-context-preview-cancel">
             Cancel
           </Button>
