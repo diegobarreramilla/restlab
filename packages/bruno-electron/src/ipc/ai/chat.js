@@ -11,7 +11,9 @@ const {
   formatSearchVariablesResult,
   formatRequestsList,
   searchRequests,
-  formatSearchRequestsResult
+  formatSearchRequestsResult,
+  createCodeRedactor,
+  buildRedactionPolicy
 } = require('./context');
 const { getPreferences } = require('../../store/preferences');
 const { isBuiltInModelId } = require('./providers');
@@ -30,44 +32,151 @@ const CONTENT_LABELS = {
 
 const APP_DISABLED_NOTICE = 'App mode is currently DISABLED for this request. The App tab is hidden and any code written to \'app\' will not be visible or runnable. Do NOT call write_content(\'app\'); instead, tell the user to open the request\'s Settings tab and turn on "Enable App" first, then ask them to run the request again.';
 
-const buildContextMessage = (contentType, allContent, requestContext, variables, security, appEnabled, requests) => {
+// The context message the model starts from, as titled pieces. The preview shows these same pieces,
+// so what the user reviews is built by the code that builds what is sent.
+const buildContextParts = (contentType, allContent, requestContext, variables, security, appEnabled, requests, redactor) => {
   const parts = [];
   if (appEnabled === false) {
-    parts.push(`Note: ${APP_DISABLED_NOTICE}`);
+    parts.push({ id: 'notice', title: 'Notice', text: `Note: ${APP_DISABLED_NOTICE}` });
   }
   const ctx = formatRequestContext(requestContext, { includeResponse: true, security });
   if (ctx) {
-    parts.push(`HTTP Request Context:\n${ctx}`);
+    parts.push({ id: 'request', title: 'The request', text: `HTTP Request Context:\n${ctx}` });
   }
 
   const varsStr = formatVariablesList(variables, { security });
   if (varsStr) {
-    parts.push(`Available Variables (names only — call search_variables(query) for a value):\n${varsStr}`);
+    parts.push({
+      id: 'variables',
+      title: 'Variable names',
+      text: `Available Variables (names only — call search_variables(query) for a value):\n${varsStr}`
+    });
   }
 
-  const requestsStr = formatRequestsList(requests);
+  const requestsStr = formatRequestsList(requests, { security });
   if (requestsStr) {
-    parts.push(`Requests in this collection (preview — call list_requests / search_requests for full details, use \`pathname\` with bru.ctx.runRequest):\n${requestsStr}`);
+    parts.push({
+      id: 'requests',
+      title: 'Requests in this collection',
+      text: `Requests in this collection (preview — call list_requests / search_requests for full details, use \`pathname\` with bru.ctx.runRequest):\n${requestsStr}`
+    });
   }
 
   const activeLabel = CONTENT_LABELS[contentType] || 'Code';
   const activeContent = allContent[contentType] || '';
   if (activeContent.trim()) {
-    parts.push(`Current ${activeLabel} (active tab — snapshot only; use read_content('${contentType}') to get the latest version before writing):\n\`\`\`\n${activeContent}\n\`\`\``);
+    parts.push({
+      id: 'active-content',
+      title: activeLabel,
+      text: `Current ${activeLabel} (active tab — snapshot only; use read_content('${contentType}') to get the latest version before writing):\n\`\`\`\n${redactor.redact(activeContent)}\n\`\`\``
+    });
   } else {
-    parts.push(`The ${activeLabel} (active tab) is currently empty. Use read_content('${contentType}') before writing new content.`);
+    parts.push({
+      id: 'active-content',
+      title: activeLabel,
+      text: `The ${activeLabel} (active tab) is currently empty. Use read_content('${contentType}') before writing new content.`
+    });
   }
 
   const others = Object.entries(allContent)
     .filter(([type, content]) => type !== contentType && content && content.trim());
   if (others.length > 0) {
     const summary = others
-      .map(([type, content]) => `${CONTENT_LABELS[type] || type}:\n\`\`\`\n${content}\n\`\`\``)
+      .map(([type, content]) => `${CONTENT_LABELS[type] || type}:\n\`\`\`\n${redactor.redact(content)}\n\`\`\``)
       .join('\n\n');
-    parts.push(`Other content in this request:\n${summary}`);
+    parts.push({ id: 'other-content', title: 'Other content in this request', text: `Other content in this request:\n${summary}` });
   }
 
-  return parts.join('\n\n');
+  return parts;
+};
+
+// Everything one chat turn sends before the model asks for more. The stream and the preview both
+// come through here. The redactor is returned because the model rewrites whole files from a
+// redacted copy, and the stream must put the original values back into what it writes.
+const assembleChatRequest = (payload, security) => {
+  const { messages = [], allContent, contentType, requestContext, variables, requests, appEnabled } = payload || {};
+  const normalizedContent = allContent || {};
+  const effectiveType = contentType || 'app';
+  const hasMultiple = Object.values(normalizedContent).filter((c) => c && c.trim()).length > 1;
+  const redactor = createCodeRedactor(security);
+
+  const contextParts = buildContextParts(effectiveType, normalizedContent, requestContext, variables, security, appEnabled, requests, redactor);
+  const system = buildSystemPrompt(effectiveType, hasMultiple);
+  const conversation = messages.map((m) => ({ role: m.role, content: m.content }));
+  const allMessages = [{ role: 'user', content: contextParts.map((part) => part.text).join('\n\n') }, ...conversation];
+
+  const sections = [
+    { id: 'instructions', kind: 'instructions', title: 'Instructions to the assistant', text: system },
+    ...contextParts.map((part) => ({ ...part, kind: 'context' })),
+    ...conversation.map((m, index) => ({
+      id: `message-${index}`,
+      kind: 'conversation',
+      title: m.role === 'user' ? 'Your message' : 'Earlier reply',
+      text: m.content
+    }))
+  ];
+
+  return { system, allMessages, sections, redactor, normalizedContent, effectiveType };
+};
+
+// What the assistant can ask for while it answers, described from the active redaction settings.
+const describeOnDemandTools = (security) => {
+  const policy = buildRedactionPolicy(security);
+  return [
+    {
+      name: 'read_content',
+      summary: 'Re-reads a section of this request (script, tests, docs or app) for its latest text.'
+        + (policy.redactBody ? ' Credential-looking values stay hidden.' : '')
+    },
+    {
+      name: 'read_response',
+      summary: policy.redactResponse
+        ? 'Reads the structure of the last response: keys and types, never the values.'
+        : 'Reads the body of the last response as it is.'
+    },
+    {
+      name: 'search_variables',
+      summary: 'Looks up variables by name. It sees the value of any variable that is not marked secret.'
+    },
+    {
+      name: 'list_requests / search_requests',
+      summary: 'Lists the requests of this collection with their names, methods and URLs.'
+        + (policy.redactHeaders ? ' Credentials in URLs stay hidden.' : '')
+    }
+  ];
+};
+
+const countHiddenValues = (text) => (String(text).match(/<redacted(?::\d+)?>/g) || []).length;
+
+// Roughly four characters per token. It is a size hint, not a bill.
+const approximateTokens = (characters) => Math.ceil(characters / 4);
+
+// The same pieces the stream sends, plus the size of each and how many values were hidden in it.
+const previewChatRequest = (payload, { isAiEnabled, security }) => {
+  if (!isAiEnabled()) {
+    return { error: 'AI features are disabled. Enable them in Preferences > AI.' };
+  }
+  if (payload?.messages !== undefined && !Array.isArray(payload.messages)) {
+    return { error: 'Invalid request: messages must be an array' };
+  }
+
+  const { sections } = assembleChatRequest(payload, security);
+  const described = sections.map((section) => ({
+    ...section,
+    characters: section.text.length,
+    hidden: countHiddenValues(section.text)
+  }));
+  const characters = described.reduce((total, section) => total + section.characters, 0);
+
+  return {
+    sections: described,
+    onDemand: describeOnDemandTools(security),
+    totals: {
+      characters,
+      approximateTokens: approximateTokens(characters),
+      hidden: described.reduce((total, section) => total + section.hidden, 0)
+    }
+  };
 };
 
 // Defensive fallback: if the model returns a markdown code block instead of
@@ -109,8 +218,12 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
     }
   });
 
+  ipcMain.handle('renderer:ai-chat-preview', (_event, payload) => {
+    return previewChatRequest(payload, { isAiEnabled, security: getSecurityPrefs() });
+  });
+
   ipcMain.on('renderer:ai-chat-stream', async (_event, payload) => {
-    const { messages, allContent, contentType, requestContext, variables, requests, requestId, model: modelId, appEnabled } = payload || {};
+    const { messages, requestContext, variables, requests, requestId, model: modelId, appEnabled } = payload || {};
 
     const send = (channel, data) => {
       if (mainWindow?.webContents && !mainWindow.webContents.isDestroyed()) {
@@ -155,10 +268,8 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
       return;
     }
 
-    const normalizedContent = allContent || {};
-    const effectiveType = contentType || 'app';
-    const hasMultiple = Object.values(normalizedContent).filter((c) => c && c.trim()).length > 1;
     const security = getSecurityPrefs();
+    const { system, allMessages, redactor, normalizedContent, effectiveType } = assembleChatRequest(payload, security);
 
     const readState = {};
     const writeResults = [];
@@ -171,17 +282,19 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
           const resolved = resolveContentType(type, effectiveType);
           const content = normalizedContent[resolved] || '';
           readState[resolved] = content;
-          return content || `(empty — no existing content for '${resolved}')`;
+          return redactor.redact(content) || `(empty — no existing content for '${resolved}')`;
         }
       },
       write_content: {
         description: 'Write complete updated content to a section. MUST call read_content for the same type first. The content parameter must be the COMPLETE file content, not a diff.',
         inputSchema: WRITE_PARAMS,
-        execute: async ({ type, content }) => {
+        execute: async ({ type, content: writtenByModel }) => {
           const resolved = resolveContentType(type, effectiveType);
           if (resolved === 'app' && appEnabled === false) {
             return APP_DISABLED_NOTICE;
           }
+          // The model wrote this from a redacted copy: bring the user's real values back.
+          const content = redactor.restore(writtenByModel);
           if (!(resolved in readState)) {
             // Tolerate models that skip read_content. We still record the
             // original snapshot so the diff renders correctly, but the UI
@@ -235,7 +348,7 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
           if (!Array.isArray(requests) || requests.length === 0) {
             return '(No requests in this collection.)';
           }
-          return formatSearchRequestsResult(searchRequests(requests, ''), '');
+          return formatSearchRequestsResult(searchRequests(requests, ''), '', { security });
         }
       },
       search_requests: {
@@ -246,15 +359,10 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
             return '(No requests in this collection.)';
           }
           const result = searchRequests(requests, query);
-          return formatSearchRequestsResult(result, query);
+          return formatSearchRequestsResult(result, query, { security });
         }
       }
     };
-
-    const allMessages = [
-      { role: 'user', content: buildContextMessage(effectiveType, normalizedContent, requestContext, variables, security, appEnabled, requests) },
-      ...messages.map((m) => ({ role: m.role, content: m.content }))
-    ];
 
     const controller = new AbortController();
     activeStreams.set(requestId, controller);
@@ -264,7 +372,7 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
       const primary = writeResults[writeResults.length - 1];
       send('main:ai-chat-complete', {
         requestId,
-        message: fullText || 'Here are the proposed changes:',
+        message: redactor.restore(fullText) || 'Here are the proposed changes:',
         code: primary.content,
         contentType: primary.type,
         writes: writeResults.map((w) => ({
@@ -279,7 +387,7 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
     try {
       const result = streamText({
         model,
-        system: buildSystemPrompt(effectiveType, hasMultiple),
+        system,
         messages: allMessages,
         tools,
         stopWhen: stepCountIs(8),
@@ -294,7 +402,7 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
         switch (part.type) {
           case 'text-delta': {
             fullText += part.text;
-            send('main:ai-chat-chunk', { requestId, chunk: part.text, fullText });
+            send('main:ai-chat-chunk', { requestId, chunk: part.text, fullText: redactor.restore(fullText) });
             break;
           }
           case 'tool-call': {
@@ -329,7 +437,7 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
       activeStreams.delete(requestId);
 
       if (controller.signal.aborted) {
-        send('main:ai-chat-stopped', { requestId, message: fullText });
+        send('main:ai-chat-stopped', { requestId, message: redactor.restore(fullText) });
         return;
       }
 
@@ -339,10 +447,11 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
       }
 
       if (fullText.trim()) {
-        const fallback = extractFencedCode(fullText);
+        const restoredText = redactor.restore(fullText);
+        const fallback = extractFencedCode(restoredText);
         send('main:ai-chat-complete', {
           requestId,
-          message: fullText,
+          message: restoredText,
           code: fallback,
           contentType: effectiveType
         });
@@ -359,7 +468,7 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
       activeStreams.delete(requestId);
 
       if (error?.name === 'AbortError' || controller.signal.aborted) {
-        send('main:ai-chat-stopped', { requestId, message: fullText });
+        send('main:ai-chat-stopped', { requestId, message: redactor.restore(fullText) });
         return;
       }
 
@@ -382,3 +491,5 @@ const registerChatIpc = ({ mainWindow, resolveModel, pickDefaultModelId, isAiEna
 };
 
 module.exports = registerChatIpc;
+module.exports.previewChatRequest = previewChatRequest;
+module.exports.assembleChatRequest = assembleChatRequest;
