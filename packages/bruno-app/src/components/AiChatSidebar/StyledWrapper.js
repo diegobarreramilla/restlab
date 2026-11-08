@@ -850,7 +850,7 @@ const StyledWrapper = styled.div`
     .preview-slot {
       display: flex;
       flex-direction: column;
-      max-height: 55vh;
+      max-height: 42vh;
       min-height: 0;
       margin-bottom: 8px;
     }

@@ -7,7 +7,7 @@ import { Page } from '../../../playwright';
 export const buildAiPreviewLocators = (page: Page) => ({
   /** The panel itself, in the generation popup or in the chat sidebar */
   panel: () => page.getByTestId('ai-context-preview'),
-  /** "about N tokens · M values hidden" */
+  /** "about N tokens · hidden in M places" */
   summary: () => page.getByTestId('ai-context-preview-summary'),
   /** One titled piece of the request (instructions, request, variables, ...) */
   section: (id: string) => page.getByTestId(`ai-context-section-${id}`),
@@ -20,12 +20,16 @@ export const buildAiPreviewLocators = (page: Page) => ({
   /** Approval buttons, present only in the review step */
   confirm: () => page.getByTestId('ai-context-preview-confirm'),
   cancel: () => page.getByTestId('ai-context-preview-cancel'),
-  /** Close button, present only in the read-only look */
+  /** Close button, present only in the read-only look of the chat (the generation popup has a Back button instead) */
   close: () => page.getByTestId('ai-context-preview-close'),
+  /** The folded list of what the assistant may ask for on demand */
+  onDemand: () => page.getByTestId('ai-context-on-demand'),
 
   generation: {
     /** The "What's sent" link in the generation popup */
     toggle: () => page.getByTestId('ai-assist-preview-toggle'),
+    /** The Back button of the read-only look */
+    back: () => page.getByTestId('ai-assist-preview-back'),
     promptInput: () => page.getByPlaceholder('Describe what you want to generate...'),
     generateButton: () => page.getByRole('button', { name: 'Generate', exact: true })
   },

@@ -27,8 +27,13 @@ test.describe('What will be sent to the AI', () => {
       await locators.aiPreview.generation.promptInput().fill('add a status test');
       await locators.aiPreview.generation.toggle().click();
       await expect(locators.aiPreview.panel()).toBeVisible();
-      await expect(locators.aiPreview.summary()).toContainText(/[1-9]\d* values? hidden/);
+      await expect(locators.aiPreview.summary()).toContainText(/hidden in [1-9]\d* places?/);
       await expect(locators.aiPreview.confirm()).toHaveCount(0);
+      // The popup already has its own close button, so the look has a Back button and no second close
+      await expect(locators.aiPreview.close()).toHaveCount(0);
+      await expect(locators.aiPreview.generation.back()).toBeVisible();
+      // The list of on-demand requests starts folded
+      await expect(locators.aiPreview.onDemand()).not.toHaveAttribute('open', '');
     });
 
     await test.step('The request section hides the credential and keeps the rest', async () => {
