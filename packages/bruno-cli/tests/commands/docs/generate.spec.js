@@ -56,7 +56,9 @@ describe('bru docs generate', () => {
   it('leaves out the git repo url when --no-git-link is used', async () => {
     const output = path.join(outDir, 'b.html');
     await generate.handler({ output, gitLink: false });
-    expect(fs.readFileSync(output, 'utf8')).not.toContain('repositoryUrl');
+    // The embedded viewer mentions the option by name; only the page's own launch script matters
+    const html = fs.readFileSync(output, 'utf8');
+    expect(html.slice(html.lastIndexOf('const collectionData'))).not.toContain('repositoryUrl');
   });
 
   it('still writes a smaller but valid doc when no request matches the tag filter', async () => {

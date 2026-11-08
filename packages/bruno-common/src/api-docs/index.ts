@@ -31,9 +31,17 @@ export interface ApiDocsMetadata {
   exportedUsing?: string;
 }
 
+/** The viewer's script and stylesheet, embedded in the file so it opens with no network */
+export interface ApiDocsInlineAssets {
+  js: string;
+  css: string;
+}
+
 export interface ApiDocsHtmlOptions {
   gitCollectionUrl?: string | null;
+  /** Load the viewer from this server instead of embedding it. Used only when `inlineAssets` is absent */
   rendererBaseUrl?: string;
+  inlineAssets?: ApiDocsInlineAssets;
 }
 
 export interface GenerateApiDocsOptions extends ApiDocsMetadata {
@@ -51,7 +59,6 @@ export interface ApiDocsDependencies {
 
 const YAML_DUMP_OPTIONS = { indent: 2, lineWidth: -1, noRefs: true, sortKeys: false };
 const JSESC_OPTIONS = { quotes: 'double', wrap: true };
-const DEFAULT_RENDERER_BASE_URL = 'https://cdn.usebruno.com';
 
 const isFolder = (item: TaggedItem): boolean => item.type === 'folder' || Array.isArray(item.items);
 const isRequestItem = (item: TaggedItem): boolean =>
@@ -146,7 +153,17 @@ export const buildApiDocsHtml = (
   embeddedCollectionData: string,
   options: ApiDocsHtmlOptions = {}
 ): string => {
-  const baseUrl = options.rendererBaseUrl ?? DEFAULT_RENDERER_BASE_URL;
+  const assets = options.inlineAssets;
+  if (!assets && !options.rendererBaseUrl) {
+    throw new Error('API docs need the viewer files: pass inlineAssets, or rendererBaseUrl to load them from a server you run.');
+  }
+  // The file is one HTML page, so a closing script tag inside the bundle would end it early
+  const embed = (code: string): string => code.replace(/<\/(script|style)/gi, '<\\/$1');
+  const viewerTags = assets
+    ? `<style>${embed(assets.css)}</style>
+    <script>${embed(assets.js)}</script>`
+    : `<link rel="stylesheet" href="${options.rendererBaseUrl}/api-docs/api-docs.css">
+    <script src="${options.rendererBaseUrl}/api-docs/api-docs.js"></script>`;
   const gitLine = options.gitCollectionUrl
     ? `\n            repositoryUrl: ${hardenScriptSequences(JSON.stringify(stripGitCredentials(options.gitCollectionUrl)))},`
     : '';
@@ -161,8 +178,7 @@ export const buildApiDocsHtml = (
         body { margin: 0; padding: 0; }
         #opencollection-container { width: 100vw; height: 100vh; }
     </style>
-    <link rel="stylesheet" href="${baseUrl}/api-docs/api-docs.css">
-    <script src="${baseUrl}/api-docs/api-docs.js"></script>
+    ${viewerTags}
 </head>
 <body>
     <div id="opencollection-container"></div>
@@ -213,6 +229,7 @@ export const generateApiDocsHtml = (
   const collectionName = openCollection.info?.name || collection.name || 'Untitled Collection';
   return buildApiDocsHtml(collectionName, embeddedCollectionData, {
     gitCollectionUrl: options.gitCollectionUrl,
-    rendererBaseUrl: options.rendererBaseUrl
+    rendererBaseUrl: options.rendererBaseUrl,
+    inlineAssets: options.inlineAssets
   });
 };

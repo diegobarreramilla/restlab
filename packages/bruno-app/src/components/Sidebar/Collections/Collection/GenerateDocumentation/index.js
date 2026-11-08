@@ -18,6 +18,7 @@ import useCollectionGitRemoteUrl from 'hooks/useCollectionGitRemoteUrl';
 import { transformCollectionToSaveToExportAsFile, findCollectionByUid, areItemsLoading, sortItemsBySidebarOrder, getCollectionItemCounts, getCollectionVersion, getUniqueTagsFromItems } from 'utils/collections/index';
 import { brunoToOpenCollection } from '@usebruno/converters';
 import { generateApiDocsHtml, getApiDocsFileName, filterRequestItemsByTags } from '@usebruno/common';
+import { APP_NAME } from 'utils/branding';
 
 const FEATURES = [
   'Standalone HTML file - no server required',
@@ -100,8 +101,10 @@ const GenerateDocumentation = ({ onClose, collectionUid }) => {
   const { gitCollectionUrl, isResolved: gitUrlLoaded } = useCollectionGitRemoteUrl(collection?.pathname);
   const hasGitUrl = gitUrlLoaded && Boolean(gitCollectionUrl);
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     try {
+      // The viewer ships with the app and is embedded in the file, so the page opens with no network
+      const inlineAssets = await window.ipcRenderer.invoke('renderer:get-api-docs-assets');
       const collectionCopy = cloneDeep(collection);
 
       // Match the sidebar's ordering (folders then requests, by seq, at every depth)
@@ -119,7 +122,8 @@ const GenerateDocumentation = ({ onClose, collectionUid }) => {
           gitCollectionUrl: includeGitLink ? gitCollectionUrl : undefined,
           collectionVersion: currentVersion,
           exportedAt: new Date().toISOString(),
-          exportedUsing: version ? `Bruno/${version}` : 'Bruno'
+          exportedUsing: version ? `${APP_NAME}/${version}` : APP_NAME,
+          inlineAssets
         },
         { brunoToOpenCollection, dumpYaml: jsyaml.dump, escapeString: jsesc }
       );
@@ -206,7 +210,7 @@ const GenerateDocumentation = ({ onClose, collectionUid }) => {
               </div>
 
               <p className="note m-0">
-                The generated file loads Bruno's JavaScript and CSS files from a CDN, which requires an internet connection.
+                The generated file is self-contained: it opens in any browser without an internet connection.
               </p>
             </div>
           )}

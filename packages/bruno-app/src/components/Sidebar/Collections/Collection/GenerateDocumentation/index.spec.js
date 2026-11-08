@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import { ThemeProvider } from 'styled-components';
@@ -123,6 +123,7 @@ const renderModal = (collection, onClose = jest.fn()) => {
 };
 
 beforeEach(() => {
+  window.ipcRenderer = { invoke: jest.fn(async () => ({ js: 'js', css: 'css' })) };
   mockGitRemote = { gitCollectionUrl: null, isResolved: true };
   generateApiDocsHtml.mockClear();
   FileSaver.saveAs.mockClear();
@@ -147,22 +148,24 @@ describe('GenerateDocumentation', () => {
     expect(screen.getByTestId('generate-btn')).toBeEnabled();
   });
 
-  it('generates docs with the resolved git url, the shared filename, and the format-aware version', () => {
+  it('generates docs with the resolved git url, the shared filename, and the format-aware version', async () => {
     mockGitRemote = { gitCollectionUrl: 'https://github.com/org/repo.git', isResolved: true };
     const { onClose } = renderModal(buildCollection({ name: 'My Collection' }));
 
     fireEvent.click(screen.getByTestId('generate-btn'));
+    await waitFor(() => expect(generateApiDocsHtml).toHaveBeenCalled());
 
     expect(generateApiDocsHtml).toHaveBeenCalledTimes(1);
     const [, options] = generateApiDocsHtml.mock.calls[0];
     expect(options.gitCollectionUrl).toBe('https://github.com/org/repo.git');
     expect(options.collectionVersion).toBe('2.0');
+    expect(options.inlineAssets).toEqual({ js: 'js', css: 'css' });
     expect(options.tags).toEqual({ include: [], exclude: [] });
     expect(FileSaver.saveAs).toHaveBeenCalledWith(expect.any(Blob), 'My Collection-documentation.html');
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('omits the git url when the include-git-link toggle is turned off', () => {
+  it('omits the git url when the include-git-link toggle is turned off', async () => {
     mockGitRemote = { gitCollectionUrl: 'https://github.com/org/repo.git', isResolved: true };
     renderModal(buildCollection());
 
@@ -170,6 +173,7 @@ describe('GenerateDocumentation', () => {
     fireEvent.click(screen.getByTestId('docs-git-link-toggle').querySelector('input[type="checkbox"]'));
 
     fireEvent.click(screen.getByTestId('generate-btn'));
+    await waitFor(() => expect(generateApiDocsHtml).toHaveBeenCalled());
 
     const [, options] = generateApiDocsHtml.mock.calls[0];
     expect(options.gitCollectionUrl).toBeUndefined();
@@ -224,7 +228,7 @@ describe('GenerateDocumentation', () => {
       expectSummary('2 Folders', '5 requests');
     });
 
-    it('generates the docs with the same tags the counts were based on', () => {
+    it('generates the docs with the same tags the counts were based on', async () => {
       renderModal(buildTaggedCollection());
       switchToTagFilter();
       addTag('Include Tags', 'smoke');
@@ -232,6 +236,7 @@ describe('GenerateDocumentation', () => {
       expectSummary('1 Folder', '2 requests');
 
       fireEvent.click(screen.getByTestId('generate-btn'));
+      await waitFor(() => expect(generateApiDocsHtml).toHaveBeenCalled());
 
       const [, options] = generateApiDocsHtml.mock.calls[0];
       expect(options.tags).toEqual({ include: ['smoke'], exclude: ['wip'] });

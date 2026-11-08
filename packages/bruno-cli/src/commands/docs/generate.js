@@ -11,6 +11,21 @@ const { parseListOption, pluralizeWord, stripRequestItems } = require('../../uti
 const { getGitRemoteUrl } = require('../../utils/git');
 const { CLI_VERSION, EXIT_STATUS } = require('../../constants');
 
+// The viewer the generated page embeds. It lives with the app (bruno-app/public/api-docs); keeping one
+// copy means this command works from a checkout of the repository, and says so when it cannot find it.
+const readViewerAssets = () => {
+  const directory = path.join(__dirname, '../../../../bruno-app/public/api-docs');
+  try {
+    return {
+      js: fs.readFileSync(path.join(directory, 'api-docs.js'), 'utf8'),
+      css: fs.readFileSync(path.join(directory, 'api-docs.css'), 'utf8')
+    };
+  } catch (error) {
+    console.error(chalk.red(`Could not find the API docs viewer files in ${directory}.`));
+    process.exit(EXIT_STATUS.ERROR_GENERIC);
+  }
+};
+
 const command = 'generate';
 const desc = 'Generate a standalone HTML documentation page for the collection';
 
@@ -128,7 +143,8 @@ const handler = async (argv) => {
         gitCollectionUrl,
         collectionVersion: resolveCollectionVersion(collection.brunoConfig, collection.format === 'yml'),
         exportedAt: new Date().toISOString(),
-        exportedUsing: `usebruno-cli/${CLI_VERSION}`
+        exportedUsing: `restlab-cli/${CLI_VERSION}`,
+        inlineAssets: readViewerAssets()
       },
       { brunoToOpenCollection, dumpYaml: jsyaml.dump, escapeString: jsesc }
     );

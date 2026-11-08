@@ -121,29 +121,45 @@ describe('selectEnvironmentsByName', () => {
   });
 });
 
+const ASSETS = { js: 'window.Bruno={apiDocs(){}};', css: 'body{}' };
+
 describe('buildApiDocsHtml', () => {
   it('omits repositoryUrl when not provided and embeds the collection data', () => {
-    const html = buildApiDocsHtml('My API', '"data"');
+    const html = buildApiDocsHtml('My API', '"data"', { inlineAssets: ASSETS });
     expect(html).not.toContain('repositoryUrl');
     expect(html).toContain('const collectionData = "data";');
     expect(html).toContain('Bruno.apiDocs(document.getElementById(\'opencollection-container\'), {');
     expect(html).not.toContain('window.OpenCollection');
-    expect(html).toContain('https://cdn.usebruno.com/api-docs/api-docs.js');
+    expect(html).toContain('<script>window.Bruno={apiDocs(){}};</script>');
+    expect(html).not.toMatch(/https?:\/\/[^"' ]*usebruno/);
   });
 
   it('embeds repositoryUrl when provided', () => {
-    const html = buildApiDocsHtml('My API', '"data"', { gitCollectionUrl: 'https://git/x.git' });
+    const html = buildApiDocsHtml('My API', '"data"', { gitCollectionUrl: 'https://git/x.git', inlineAssets: ASSETS });
     expect(html).toContain('repositoryUrl: "https://git/x.git"');
   });
 
   it('escapes the collection name in the document title', () => {
-    const html = buildApiDocsHtml('<b>&"', '"data"');
+    const html = buildApiDocsHtml('<b>&"', '"data"', { inlineAssets: ASSETS });
     expect(html).toContain('<title>&lt;b&gt;&amp;&quot; - API Documentation</title>');
   });
 
   it('honors a custom renderer base url', () => {
     const html = buildApiDocsHtml('X', '"d"', { rendererBaseUrl: 'https://cdn.example.com' });
     expect(html).toContain('https://cdn.example.com/api-docs/api-docs.css');
+  });
+});
+
+describe('buildApiDocsHtml viewer files', () => {
+  it('refuses to build a page that would need a server nobody chose', () => {
+    expect(() => buildApiDocsHtml('X', '"d"')).toThrow(/inlineAssets/);
+  });
+
+  it('keeps a closing script tag inside the viewer from ending the page early', () => {
+    const html = buildApiDocsHtml('X', '"d"', { inlineAssets: { js: 'a="</script><b>"', css: 'x:after{content:"</style>"}' } });
+    expect(html).not.toContain('a="</script>');
+    expect(html).toContain('<\\/script><b>');
+    expect(html).toContain('<\\/style>');
   });
 });
 
@@ -182,7 +198,7 @@ describe('generateApiDocsHtml', () => {
   it('filters requests by tag before conversion', () => {
     const deps = makeDeps();
     const collection = { name: 'C', items: [req('a', ['prod']), req('b', ['wip'])] };
-    generateApiDocsHtml(collection, { tags: { include: ['prod'] } }, deps as any);
+    generateApiDocsHtml(collection, { tags: { include: ['prod'] }, inlineAssets: ASSETS }, deps as any);
     const converted = deps.brunoToOpenCollection.mock.calls[0][0];
     expect(converted.items.map((i: any) => i.name)).toEqual(['a']);
   });
@@ -190,14 +206,14 @@ describe('generateApiDocsHtml', () => {
   it('scopes environments by name when requested', () => {
     const deps = makeDeps();
     const collection = { name: 'C', items: [], environments: [{ name: 'Prod' }, { name: 'Dev' }] };
-    generateApiDocsHtml(collection, { environments: { include: ['Prod'] } }, deps as any);
+    generateApiDocsHtml(collection, { environments: { include: ['Prod'] }, inlineAssets: ASSETS }, deps as any);
     const converted = deps.brunoToOpenCollection.mock.calls[0][0];
     expect(converted.environments.map((e: any) => e.name)).toEqual(['Prod']);
   });
 
   it('serializes with fixed options and hardens closing tags in the embedded data', () => {
     const deps = makeDeps({ escapeString: jest.fn(() => '"a</script>b"') });
-    const html = generateApiDocsHtml({ name: 'C', items: [] }, {}, deps as any);
+    const html = generateApiDocsHtml({ name: 'C', items: [] }, { inlineAssets: ASSETS }, deps as any);
     expect(deps.dumpYaml).toHaveBeenCalledWith(expect.anything(), {
       indent: 2,
       lineWidth: -1,
@@ -209,7 +225,7 @@ describe('generateApiDocsHtml', () => {
 
   it('neutralizes an HTML comment opener in the embedded data so it cannot flip script parsing', () => {
     const deps = makeDeps({ escapeString: jest.fn(() => '"a<!--<script>b"') });
-    const html = generateApiDocsHtml({ name: 'C', items: [] }, {}, deps as any);
+    const html = generateApiDocsHtml({ name: 'C', items: [] }, { inlineAssets: ASSETS }, deps as any);
     expect(html).not.toContain('<!--');
     expect(html).toContain('<\\!--');
   });
@@ -218,7 +234,7 @@ describe('generateApiDocsHtml', () => {
     const deps = makeDeps();
     generateApiDocsHtml(
       { name: 'C', items: [] },
-      { collectionVersion: '2.0.0', exportedAt: 'T', exportedUsing: 'Bruno/1' },
+      { collectionVersion: '2.0.0', exportedAt: 'T', exportedUsing: 'Bruno/1', inlineAssets: ASSETS },
       deps as any
     );
     const openCollection = deps.dumpYaml.mock.calls[0][0] as any;
@@ -230,7 +246,7 @@ describe('generateApiDocsHtml', () => {
     const deps = makeDeps({
       brunoToOpenCollection: jest.fn((c: any) => ({ info: { name: c.name || 'X', version: '1' }, items: c.items }))
     });
-    generateApiDocsHtml({ name: 'C', items: [] }, { collectionVersion: '' }, deps as any);
+    generateApiDocsHtml({ name: 'C', items: [] }, { collectionVersion: '', inlineAssets: ASSETS }, deps as any);
     const openCollection = deps.dumpYaml.mock.calls[0][0] as any;
     expect(openCollection.info.version).toBeUndefined();
     expect(openCollection.info.name).toBe('C');
@@ -240,23 +256,23 @@ describe('generateApiDocsHtml', () => {
     const deps = makeDeps({
       brunoToOpenCollection: jest.fn((c: any) => ({ info: { name: c.name || 'X', version: '1' }, items: c.items }))
     });
-    generateApiDocsHtml({ name: 'C', items: [] }, { collectionVersion: '3.1' }, deps as any);
+    generateApiDocsHtml({ name: 'C', items: [] }, { collectionVersion: '3.1', inlineAssets: ASSETS }, deps as any);
     const openCollection = deps.dumpYaml.mock.calls[0][0] as any;
     expect(openCollection.info.version).toBe('3.1');
   });
 
   it('embeds the git link only when provided', () => {
     const deps = makeDeps();
-    expect(generateApiDocsHtml({ name: 'C', items: [] }, {}, deps as any)).not.toContain('repositoryUrl');
+    expect(generateApiDocsHtml({ name: 'C', items: [] }, { inlineAssets: ASSETS }, deps as any)).not.toContain('repositoryUrl');
     expect(
-      generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: 'https://g/x.git' }, deps as any)
+      generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: 'https://g/x.git', inlineAssets: ASSETS }, deps as any)
     ).toContain('repositoryUrl: "https://g/x.git"');
   });
 
   it('strips credentials from the embedded git link so a token cannot leak into the docs', () => {
     const deps = makeDeps();
     const tokenized = 'https://ghp_0123456789abcdefghijklmnopqrstuvwxyz@github.com/org/repo.git';
-    const html = generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: tokenized }, deps as any);
+    const html = generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: tokenized, inlineAssets: ASSETS }, deps as any);
     expect(html).not.toContain('ghp_0123456789abcdefghijklmnopqrstuvwxyz');
     expect(html).toContain('repositoryUrl: "https://github.com/org/repo.git"');
   });
@@ -264,7 +280,7 @@ describe('generateApiDocsHtml', () => {
   it('hardens a closing script tag in the embedded git link', () => {
     const deps = makeDeps();
     const url = 'https://example.com/a</script><script>alert(1)</script>';
-    const html = generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: url }, deps as any);
+    const html = generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: url, inlineAssets: ASSETS }, deps as any);
     expect(html).not.toContain('</script><script>');
     expect(html).toContain('<\\/script>');
   });
@@ -272,7 +288,7 @@ describe('generateApiDocsHtml', () => {
   it('neutralizes an HTML comment opener in the embedded git link', () => {
     const deps = makeDeps();
     const url = 'https://example.com/a<!--<script>';
-    const html = generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: url }, deps as any);
+    const html = generateApiDocsHtml({ name: 'C', items: [] }, { gitCollectionUrl: url, inlineAssets: ASSETS }, deps as any);
     expect(html).not.toContain('<!--');
   });
 });
