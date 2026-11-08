@@ -520,8 +520,10 @@ const migrateCollectionOnDisk = async ({
       emitProgress('finalizing', i + 1, originalsToRemove.length);
     }
 
-    await fsExtra.remove(backupDir).catch(() => {});
-    backupDir = null;
+    // The backup copy is kept after a committed migration so the user can see where the
+    // .bru sources live and restore the previous format; the renderer shows the exact
+    // path returned below. It is only deleted when the migration fails and every
+    // original was restored in place (nothing left to recover).
 
     try {
       const { size, filesCount } = await getCollectionStats(collectionPathname);
@@ -531,7 +533,7 @@ const migrateCollectionOnDisk = async ({
       console.error('Failed to compute collection stats after migration:', statsError);
     }
 
-    return { brunoConfig: ymlBrunoConfig, tabPathMap };
+    return { brunoConfig: ymlBrunoConfig, tabPathMap, backupPath: backupDir };
   } catch (error) {
     // Restore removed originals first (data safety), then clean up what this run added
     for (const { originalPath, backupPath } of restorePlan) {
@@ -623,7 +625,7 @@ const migrateCollectionToYml = async ({ mainWindow, watcher, collectionPathname,
     result = await migrateCollectionOnDisk({
       collectionPathname,
       brunoConfig,
-      backupRootDir: path.join(app.getPath('userData'), 'tmp', 'yml-migration'),
+      backupRootDir: getYmlMigrationBackupRoot(),
       checkCancelled,
       emitProgress,
       reportError
@@ -650,12 +652,27 @@ const migrateCollectionToYml = async ({ mainWindow, watcher, collectionPathname,
   }
 
   await reopenCollection();
-  return { brunoConfig: result.brunoConfig };
+  return { brunoConfig: result.brunoConfig, backupPath: result.backupPath };
+};
+
+// Where a committed migration keeps the .bru backup copies. Exposed read-only so the
+// renderer can announce the location before migrating without hardcoding it.
+const getYmlMigrationBackupRoot = () => {
+  return path.join(app.getPath('userData'), 'tmp', 'yml-migration');
 };
 
 const registerYmlMigrationIpc = (mainWindow, watcher) => {
   ipcMain.handle('renderer:cancel-migrate-collection-to-yml', (event, collectionUid) => {
     migrationCancellations.add(collectionUid);
+  });
+
+  ipcMain.handle('renderer:get-yml-migration-backup-root', async () => {
+    try {
+      return getYmlMigrationBackupRoot();
+    } catch (error) {
+      console.error('Error in get-yml-migration-backup-root:', error);
+      return Promise.reject(error);
+    }
   });
 
   ipcMain.handle('renderer:migrate-collection-to-yml', (event, collectionPathname, collectionUid) => {
@@ -667,6 +684,7 @@ module.exports = {
   registerYmlMigrationIpc,
   migrateCollectionOnDisk,
   migrateCollectionToYml,
+  getYmlMigrationBackupRoot,
   stripBruExtInRunRequest,
   MIGRATION_CANCELLED_MESSAGE
 };

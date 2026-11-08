@@ -40,8 +40,10 @@ jest.mock('@usebruno/filestore', () => {
 });
 
 const {
+  registerYmlMigrationIpc,
   migrateCollectionOnDisk,
   migrateCollectionToYml,
+  getYmlMigrationBackupRoot,
   stripBruExtInRunRequest,
   MIGRATION_CANCELLED_MESSAGE
 } = require('./yml-migration');
@@ -178,7 +180,7 @@ describe('migrateCollectionOnDisk', () => {
   });
 
   it('converts every .bru file, removes the sources and leaves other files untouched', async () => {
-    const { brunoConfig, tabPathMap } = await runMigration();
+    const { brunoConfig, tabPathMap, backupPath } = await runMigration();
 
     const remaining = listFilesRecursive(collectionDir).map((file) => path.relative(collectionDir, file));
     expect(remaining).toEqual(
@@ -204,8 +206,28 @@ describe('migrateCollectionOnDisk', () => {
     expect(brunoConfig.version).toBe('2.1.0');
     expect(brunoConfig.collectionVersion).toBeUndefined();
 
-    // backup is removed once the migration committed
-    expect(fs.readdirSync(backupRootDir)).toEqual([]);
+    // the migration committed: the .bru backup copy is kept so the user can restore
+    // the previous format, and its exact path comes back for the UI to show
+    expect(typeof backupPath).toBe('string');
+    expect(backupPath.startsWith(backupRootDir)).toBe(true);
+    expect(fs.existsSync(backupPath)).toBe(true);
+    expect(fs.statSync(backupPath).isDirectory()).toBe(true);
+    // the backup mirrors the collection's relative layout: bru sources + bruno.json, no yml
+    const backedUp = fs
+      .readdirSync(backupPath, { withFileTypes: true, recursive: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => path.join(path.relative(backupPath, entry.parentPath || entry.path), entry.name).split(path.sep).join('/'))
+      .sort();
+    expect(backedUp).toEqual(
+      [
+        'bruno.json',
+        'collection.bru',
+        'ping.bru',
+        path.join('api', 'folder.bru'),
+        path.join('api', 'get-users.bru'),
+        path.join('environments', 'Local.bru')
+      ].sort()
+    );
   });
 
   it('emits parsing, writing and finalizing progress with consistent totals', async () => {
@@ -602,5 +624,20 @@ describe('migrateCollectionToYml reopen', () => {
         collectionUid
       })
     ).rejects.toThrow(/failed to parse/);
+  });
+});
+
+describe('getYmlMigrationBackupRoot', () => {
+  it('answers where committed migrations keep the .bru backup copies', async () => {
+    const { ipcMain, app } = require('electron');
+    registerYmlMigrationIpc({ webContents: { send: jest.fn() } });
+
+    expect(ipcMain.handle).toHaveBeenCalledWith('renderer:get-yml-migration-backup-root', expect.any(Function));
+
+    const callback = ipcMain.handle.mock.calls.find(([channel]) => channel === 'renderer:get-yml-migration-backup-root')[1];
+    await expect(callback()).resolves.toBe(path.join(os.tmpdir(), 'tmp', 'yml-migration'));
+
+    expect(getYmlMigrationBackupRoot()).toBe(path.join(os.tmpdir(), 'tmp', 'yml-migration'));
+    expect(app.getPath).toHaveBeenCalledWith('userData');
   });
 });
