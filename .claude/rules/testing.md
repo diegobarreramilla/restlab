@@ -18,6 +18,11 @@ npx playwright test --project=default      # Run specific project
 npx playwright test --headed               # Watch mode
 ```
 
+On a Wayland desktop the default Electron backend can leave the window hidden, so every click waits
+forever for the element to be "stable". Run the suite with
+`PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11"` (extra Chromium switches, empty by default, so CI is
+unaffected).
+
 Projects: `default` (main), `system-pac` (depends on `default`), `mock-server`, `auth`, `ssl`.
 `npm run test:e2e` runs `default` + `system-pac` + `mock-server`; `auth` and `ssl` have their own
 `test:e2e:*` scripts and CI jobs. Config: `playwright.config.ts` — `fullyParallel: true`, `workers` unset

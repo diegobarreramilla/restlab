@@ -287,8 +287,13 @@ export const test = baseTest.extend<
           }
         }
 
+        // Extra Chromium switches for the machine running the suite. On a Wayland session Electron's
+        // default backend can leave the window hidden, which stalls every click; the fix is
+        // PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11". Empty by default, so CI is unaffected.
+        const extraArgs = (process.env.PLAYWRIGHT_ELECTRON_ARGS || '').split(/\s+/).filter(Boolean);
+
         const app = await playwright._electron.launch({
-          args: [electronAppPath, '--disable-gpu'],
+          args: [electronAppPath, '--disable-gpu', ...extraArgs],
           env: {
             ...process.env,
             ELECTRON_USER_DATA_PATH: userDataPath,
