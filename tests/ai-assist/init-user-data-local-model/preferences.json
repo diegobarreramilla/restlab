@@ -1,0 +1,18 @@
+{
+  "preferences": {
+    "ai": {
+      "enabled": true,
+      "providers": {
+        "openai-compatible:local": { "enabled": true }
+      },
+      "openaiCompatibleEndpoints": [
+        {
+          "id": "local",
+          "name": "Ollama (local)",
+          "baseURL": "http://localhost:11434/v1",
+          "models": [{ "id": "local-llama", "modelId": "llama3.1:8b", "label": "Llama 3.1 8B" }]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "preferences": {
+    "ai": {
+      "enabled": true,
+      "security": { "reviewBeforeSend": true }
+    }
+  }
+}

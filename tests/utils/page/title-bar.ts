@@ -7,7 +7,9 @@ export const buildTitleBarLocators = (page: Page) => ({
   openWorkspaceOption: () => page.getByTestId('workspace-menu-open-workspace'),
   importWorkspaceOption: () => page.getByTestId('workspace-menu-import-workspace'),
   manageWorkspacesOption: () => page.getByTestId('workspace-menu-manage-workspaces'),
-  responseLayoutToggle: () => page.getByTestId('app-titlebar').getByTestId('response-layout-toggle-btn')
+  responseLayoutToggle: () => page.getByTestId('app-titlebar').getByTestId('response-layout-toggle-btn'),
+  /** The "Offline" / "Back online" label, present only while offline and for a moment after reconnecting */
+  offlineBadge: () => page.getByTestId('app-titlebar').getByTestId('offline-badge')
 });
 
 export const clickImportWorkspace = async (page: Page) => {

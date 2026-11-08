@@ -5,6 +5,7 @@ import { buildMockServerLocators } from './mock-server';
 import { buildFileModeLocators } from './file-mode';
 import { buildPreferencesLocators } from './preferences';
 import { buildAiPreferencesLocators } from './ai';
+import { buildAiPreviewLocators } from './ai-preview';
 import { buildCodeEditorSearchLocators } from './code-editor-search';
 import { buildCodeEditorHintLocators } from './code-editor-hints';
 import { buildRequestSettingsLocators } from './request-settings';
@@ -59,6 +60,7 @@ export const buildCommonLocators = (page: Page) => ({
   },
   preferences: buildPreferencesLocators(page),
   ai: buildAiPreferencesLocators(page),
+  aiPreview: buildAiPreviewLocators(page),
   requestSettings: buildRequestSettingsLocators(page),
   unresolvedVariablesInfo: buildUnresolvedVariablesInfoLocators(page),
   websocket: buildWebsocketCommonLocators(page),

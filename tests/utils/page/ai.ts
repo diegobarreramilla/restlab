@@ -10,6 +10,8 @@ export type AiPreferencesSubTab = 'config' | 'autocomplete' | 'security';
 export const buildAiPreferencesLocators = (page: Page) => ({
   /** A sub-tab inside the AI preferences pane */
   subTab: (key: AiPreferencesSubTab) => page.getByTestId(`ai-tab-${key}`),
+  /** The "Review before sending" switch on the Security sub-tab */
+  reviewBeforeSendToggle: () => page.getByTestId('ai-security-review-toggle'),
   /** The keyboard-shortcut hint block on the Autocomplete sub-tab */
   autocompleteKeymap: () => page.locator('.autocomplete-keymap'),
   /** A single key label inside the autocomplete keymap (exact match) */
