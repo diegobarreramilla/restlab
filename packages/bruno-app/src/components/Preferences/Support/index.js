@@ -1,15 +1,13 @@
 import React from 'react';
 import {
   IconSpeakerphone,
-  IconBrandTwitter,
   IconBrandGithub,
-  IconBrandDiscord,
-  IconBrandLinkedin,
   IconBook,
   IconExternalLink
 } from '@tabler/icons';
 import StyledWrapper from './StyledWrapper';
 import { useTranslation } from 'react-i18next';
+import { DOCS_URL, ISSUES_URL, REPOSITORY_URL } from 'utils/branding';
 
 const SUPPORT_GROUPS = [
   {
@@ -19,14 +17,14 @@ const SUPPORT_GROUPS = [
       {
         key: 'documentation',
         icon: IconBook,
-        url: 'https://docs.usebruno.com',
+        url: DOCS_URL,
         label: 'COMMON.DOCUMENTATION',
         description: 'SUPPORT.DOCUMENTATION_DESCRIPTION'
       },
       {
         key: 'report-issues',
         icon: IconSpeakerphone,
-        url: 'https://github.com/usebruno/bruno/issues',
+        url: ISSUES_URL,
         label: 'COMMON.REPORT_ISSUES',
         description: 'SUPPORT.REPORT_ISSUES_DESCRIPTION'
       }
@@ -39,34 +37,17 @@ const SUPPORT_GROUPS = [
       {
         key: 'github',
         icon: IconBrandGithub,
-        url: 'https://github.com/usebruno/bruno',
+        url: REPOSITORY_URL,
         label: 'COMMON.GITHUB',
         description: 'SUPPORT.GITHUB_DESCRIPTION'
-      },
-      {
-        key: 'discord',
-        icon: IconBrandDiscord,
-        url: 'https://discord.com/invite/KgcZUncpjq',
-        label: 'COMMON.DISCORD',
-        description: 'SUPPORT.DISCORD_DESCRIPTION'
-      },
-      {
-        key: 'twitter',
-        icon: IconBrandTwitter,
-        url: 'https://twitter.com/use_bruno',
-        label: 'COMMON.TWITTER',
-        description: 'SUPPORT.TWITTER_DESCRIPTION'
-      },
-      {
-        key: 'linkedin',
-        icon: IconBrandLinkedin,
-        url: 'https://in.linkedin.com/company/usebruno',
-        label: 'COMMON.LINKEDIN',
-        description: 'SUPPORT.LINKEDIN_DESCRIPTION'
       }
     ]
   }
 ];
+
+const visibleGroups = SUPPORT_GROUPS
+  .map((group) => ({ ...group, links: group.links.filter((link) => link.url) }))
+  .filter((group) => group.links.length > 0);
 
 const Support = () => {
   const { t } = useTranslation();
@@ -75,7 +56,13 @@ const Support = () => {
     <StyledWrapper className="w-full">
       <div className="section-header">Support</div>
 
-      {SUPPORT_GROUPS.map((group) => (
+      {visibleGroups.length === 0 && (
+        <p className="support-empty" data-testid="support-empty">
+          RestLab does not have its own documentation or issue tracker yet. Nothing here sends you to another project.
+        </p>
+      )}
+
+      {visibleGroups.map((group) => (
         <section className="support-group" key={group.key} aria-labelledby={`support-${group.key}-label`}>
           <h3 className="support-group-label select-none" id={`support-${group.key}-label`}>
             {t(group.label)}

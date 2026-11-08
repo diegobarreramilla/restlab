@@ -42,19 +42,30 @@ Son nombres de formatos, interfaces o compatibilidad. Cambiarlos rompería colec
 - Las claves internas de `localStorage` que empiezan por `bruno.`, para no perder ajustes guardados.
 - Los textos de la IA que describen la API de scripts como "Bruno API". La API se llama así.
 
-## Decisiones pendientes
+## Decisiones tomadas (fase A2)
+
+| Tema | Resolución |
+|---|---|
+| Identificador de la aplicación | `com.restlab.app` (`electron-builder-config.js`). Debe quedar fijo desde la primera versión publicada |
+| Esquema de enlaces | `restlab://` (registro en `src/index.js`, `utils/deeplink.js`, instaladores). Ya no compite con Bruno si ambos están instalados |
+| Reporte de errores | Oculto mientras no exista repositorio. La dirección vive en `utils/branding` (`ISSUES_URL`, `null`); al darle valor reaparecen el botón del panel de errores, el de la importación de Postman, el enlace del error fatal y la sección de Soporte |
+| Documentación | Se quitaron todos los enlaces a la de Bruno (menú Ayuda, buscador global, Soporte, avisos). `DOCS_URL` queda en `null` |
+| Registro de cambios | Propio: `components/ChangelogTab/CHANGELOG.md` |
+| Documentación generada | Incrusta el visor (`packages/bruno-app/public/api-docs`, 8,6 MB, copiado tal cual del CDN de Bruno) y abre sin red. La CLI lo lee de ahí |
+| Metadatos de exportación | `exportedUsing: RestLab/<versión>` (la CLI usa `restlab-cli/<versión>`). El importador solo borra el campo, nada lo lee |
+| Copyright de RestLab | Línea propia "Copyright (c) 2026 RestLab" sobre el aviso original en `license.md` |
+| Enlaces de `package.json` de Electron | `homepage` y `repository` quitados |
+
+## Pendiente
 
 | Tema | Situación |
 |---|---|
-| **Identificador de la aplicación** | `appId: 'com.usebruno.app'` en `electron-builder-config.js`. Debería pasar a uno propio antes de publicar. |
-| **Esquema de enlaces** | `bruno://` está registrado en el sistema y lo usan las páginas de retorno de OAuth2. Cambiarlo afecta a esas páginas. |
-| **Reporte de errores** | El panel de errores (`Devtools/Console/ErrorDetailsPanel`) envía el reporte al repositorio de Bruno en GitHub y dice "Help us improve Bruno". Necesita el repositorio de RestLab. |
-| **Documentación** | El buscador global y el botón de ayuda abren la documentación de Bruno. |
-| **Registro de cambios** | `components/ChangelogTab/CHANGELOG.md` es el de Bruno ("What's New in Bruno v4.4.0"). RestLab necesita el suyo. |
-| **Documentación generada** | La documentación exportada carga archivos JS y CSS desde un CDN de Bruno (`GenerateDocumentation`). Conviene alojarlos o incrustarlos. |
-| **Metadatos de exportación** | Los archivos exportados dicen `exportedUsing: Bruno/<versión>`. Debe decidirse si pasan a decir RestLab. |
-| **Enlaces de proyecto** | `homepage` y URLs de `package.json`, `readme.md` y traducciones apuntan a Bruno. |
-| **Copyright de RestLab** | `license.md` conserva el aviso original. Falta decidir el aviso propio para el código nuevo. |
+| **Repositorio público de RestLab** | Al crearlo: dar valor a `ISSUES_URL` y `REPOSITORY_URL` en `utils/branding` |
+| **Documentación propia de RestLab** | Al publicarla: dar valor a `DOCS_URL` y devolver el elemento "Documentation" al menú Ayuda |
+| **Visor de la documentación generada** | Es un archivo compilado ajeno. Falta su fuente (proyecto OpenCollection) para poder actualizarlo con autoridad |
+| `readme.md`, traducciones y `docs/` | Siguen apuntando a Bruno |
+| Anuncios de Bruno (`appinfo.usebruno.com`) | Apagado por defecto. Decidir si se elimina o se apunta a un servicio propio |
+| Iconos y logo oficiales | Ver la tabla de arriba |
 
 ## Atribución y licencia
 

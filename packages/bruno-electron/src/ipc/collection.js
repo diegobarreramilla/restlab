@@ -68,6 +68,7 @@ const { getCollectionConfigFile, openCollection, openCollectionsByPathname, regi
 const { generateUidBasedOnHash, stringifyJson, safeStringifyJSON, safeParseJSON } = require('../utils/common');
 const { isValidNpmPackageName, runNpmInstall } = require('../utils/install-packages');
 const { waitForShellEnv } = require('../store/shell-env-state');
+const { APP_NAME } = require('../branding');
 const { moveRequestUid, deleteRequestUid, syncExampleUidsCache } = require('../cache/requestUids');
 const { deleteCookiesForDomain, getDomainsWithCookies, addCookieForDomain, modifyCookieForDomain, parseCookieString, createCookieString, deleteCookie } = require('../utils/cookies');
 const EnvironmentSecretsStore = require('../store/env-secrets');
@@ -1038,7 +1039,7 @@ const registerRendererEventHandlers = (mainWindow, watcher) => {
         info: {
           type: 'bruno-environment',
           exportedAt: new Date().toISOString(),
-          exportedUsing: `Bruno/v${appVersion}`
+          exportedUsing: `${APP_NAME}/v${appVersion}`
         }
       });
 
@@ -1069,7 +1070,7 @@ const registerRendererEventHandlers = (mainWindow, watcher) => {
           info: {
             type: 'bruno-environment',
             exportedAt: new Date().toISOString(),
-            exportedUsing: `Bruno/v${appVersion}`
+            exportedUsing: `${APP_NAME}/v${appVersion}`
           },
           environments
         };
@@ -2803,11 +2804,6 @@ const registerMainEventHandlers = (mainWindow) => {
 
   ipcMain.on('renderer:open-collection', triggerOpenCollection);
   ipcMain.on('menu:open-collection', triggerOpenCollection);
-
-  ipcMain.on('main:open-docs', () => {
-    const docsURL = 'https://docs.usebruno.com';
-    shell.openExternal(docsURL);
-  });
 
   ipcMain.on('main:collection-opened', async (win, pathname, uid, brunoConfig) => {
     app.addRecentDocument(pathname);

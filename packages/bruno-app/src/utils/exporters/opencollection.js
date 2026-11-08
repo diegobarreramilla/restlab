@@ -3,6 +3,7 @@ import jsyaml from 'js-yaml';
 import { brunoToOpenCollection } from '@usebruno/converters';
 import { sanitizeName } from 'utils/common/regex';
 import { filterTransientItems } from 'utils/collections';
+import { APP_NAME } from 'utils/branding';
 
 export const exportCollection = (collection, version) => {
   // Filter out transient items before export
@@ -17,7 +18,7 @@ export const exportCollection = (collection, version) => {
     openCollection.extensions.bruno = {};
   }
   openCollection.extensions.bruno.exportedAt = new Date().toISOString();
-  openCollection.extensions.bruno.exportedUsing = version ? `Bruno/${version}` : 'Bruno';
+  openCollection.extensions.bruno.exportedUsing = version ? `${APP_NAME}/${version}` : APP_NAME;
 
   const yamlContent = jsyaml.dump(openCollection, {
     indent: 2,

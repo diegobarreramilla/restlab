@@ -75,7 +75,6 @@ const StyledWrapper = styled.div`
         }
       }
 
-      p:has(> a[href*='link.usebruno.com']),
       p:has(> a[href^='#preferences/']) {
         display: flex;
         align-items: center;
@@ -86,10 +85,6 @@ const StyledWrapper = styled.div`
         a {
           font-weight: 500;
           color: ${(props) => props.theme.textLink};
-        }
-
-        a[href*='link.usebruno.com'] {
-          margin-left: auto;
         }
       }
 

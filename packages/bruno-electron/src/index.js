@@ -171,13 +171,13 @@ if (useSingleInstance && !gotTheLock) {
   // This is the primary instance (or single instance is disabled)
 
   // Try to remove any existing registrations
-  app.removeAsDefaultProtocolClient('bruno');
-  // Register as default handler for `bruno://` protocol URLs
-  app.setAsDefaultProtocolClient('bruno');
+  app.removeAsDefaultProtocolClient('restlab');
+  // Register as default handler for `restlab://` protocol URLs
+  app.setAsDefaultProtocolClient('restlab');
 
   if (isLinux) {
     try {
-      execSync('xdg-mime default bruno.desktop x-scheme-handler/bruno');
+      execSync('xdg-mime default bruno.desktop x-scheme-handler/restlab');
     } catch (err) {}
   }
 
@@ -351,10 +351,6 @@ app.on('ready', async () => {
     mainWindow.setFullScreen(!mainWindow.isFullScreen());
   });
 
-  ipcMain.handle('renderer:open-docs', () => {
-    ipcMain.emit('main:open-docs');
-  });
-
   ipcMain.handle('renderer:open-about', () => {
     const { version } = require('../package.json');
     const aboutBruno = require('./app/about-bruno');
@@ -390,8 +386,7 @@ app.on('ready', async () => {
       );
     } else {
       console.error(
-        'If you are using an official production build: the above error is most likely a bug! '
-        + ' Please report this under: https://github.com/usebruno/bruno/issues'
+        'If you are using an official production build: the above error is most likely a bug!'
       );
     }
   });

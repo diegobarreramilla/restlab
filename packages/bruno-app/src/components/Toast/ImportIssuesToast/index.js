@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { IconAlertCircle, IconBrandGithub, IconCopy, IconX } from '@tabler/icons';
 import StyledWrapper from './StyledWrapper';
+import { ISSUES_URL } from 'utils/branding';
 
-const GITHUB_ISSUES_URL = 'https://github.com/usebruno/bruno/issues/new';
 const MAX_URL_LENGTH = 8000;
 
 const ImportIssuesToastContent = ({ t, issues, summary }) => {
@@ -57,7 +57,7 @@ const ImportIssuesToastContent = ({ t, issues, summary }) => {
     const title = `Postman import: ${summary}`;
     const body = buildIssueBody();
     const params = new URLSearchParams({ title, body, labels: 'bug' });
-    return `${GITHUB_ISSUES_URL}?${params.toString()}`.length > MAX_URL_LENGTH;
+    return Boolean(ISSUES_URL) && `${ISSUES_URL}/new?${params.toString()}`.length > MAX_URL_LENGTH;
   }, [issues, summary, includeItems]);
 
   const handleCopy = async () => {
@@ -75,18 +75,18 @@ const ImportIssuesToastContent = ({ t, issues, summary }) => {
 
     if (!isUrlTooLong) {
       const params = new URLSearchParams({ title, body, labels: 'bug' });
-      window.open(`${GITHUB_ISSUES_URL}?${params.toString()}`, '_blank');
+      window.open(`${ISSUES_URL}/new?${params.toString()}`, '_blank');
       return;
     }
 
     try {
       await navigator.clipboard.writeText(body);
-      toast.success('Issue details copied — paste them into the GitHub issue body', { duration: 5000 });
+      toast.success('Issue details copied — paste them into the issue body', { duration: 5000 });
     } catch (err) {
       toast.error('Failed to copy to clipboard', { duration: 3000 });
     }
     const params = new URLSearchParams({ title, labels: 'bug' });
-    window.open(`${GITHUB_ISSUES_URL}?${params.toString()}`, '_blank');
+    window.open(`${ISSUES_URL}/new?${params.toString()}`, '_blank');
   };
 
   return (
@@ -127,14 +127,16 @@ const ImportIssuesToastContent = ({ t, issues, summary }) => {
         {isUrlTooLong && (
           <div className="toast-warning" data-testid="import-issues-url-too-long-warning">
             <IconAlertCircle size={14} className="toast-warning-icon" />
-            <span>Issue details are too long to embed in the URL. Clicking &quot;Report on GitHub&quot; will copy them to your clipboard — paste it once the GitHub issue page opens.</span>
+            <span>Issue details are too long to embed in the URL. Clicking &quot;Report issue&quot; will copy them to your clipboard — paste it once the issue page opens.</span>
           </div>
         )}
         <div className="toast-actions">
-          <button className="toast-btn" onClick={handleReport} data-testid="import-issues-report-btn">
-            <IconBrandGithub size={13} />
-            Report on GitHub
-          </button>
+          {ISSUES_URL && (
+            <button className="toast-btn" onClick={handleReport} data-testid="import-issues-report-btn">
+              <IconBrandGithub size={13} />
+              Report issue
+            </button>
+          )}
           <button className="toast-btn" onClick={handleCopy} data-testid="import-issues-copy-btn">
             <IconCopy size={13} />
             Copy Issues

@@ -34,6 +34,7 @@ Método: se buscó en `bruno-electron/src` y `bruno-app/src` (sin pruebas) todo 
 |---|---|
 | Contador anónimo de visitas con PostHog (`useTelemetry`) y permiso `*.posthog.com` en la CSP | `feat(privacy): remove PostHog telemetry...` |
 | Componente `GoldenEdition` (anuncio de pago que enviaba eventos a PostHog) | mismo commit |
+| Visor de la documentación generada cargado desde `cdn.usebruno.com`: ahora va incrustado en el archivo | `Embed the API docs viewer...` |
 | Retorno OAuth2 por la página de Bruno (`https://oauth.usebruno.com/callback`) | `feat(oauth2): use a local callback server...` |
 
 ## 5. Comportamiento actual de OAuth2

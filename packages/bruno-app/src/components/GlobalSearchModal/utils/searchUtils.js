@@ -29,10 +29,6 @@ export const highlightText = (text, searchQuery) => {
 
 export const sortResults = (results) => {
   return results.sort((a, b) => {
-    // Documentation always first
-    if (a.type === SEARCH_TYPES.DOCUMENTATION) return -1;
-    if (b.type === SEARCH_TYPES.DOCUMENTATION) return 1;
-
     // Sort by match type priority
     const matchTypeOrder = {
       [MATCH_TYPES.COLLECTION]: 0,
@@ -64,7 +60,6 @@ export const sortResults = (results) => {
 
 export const getTypeLabel = (type) => {
   const baseLabels = {
-    [SEARCH_TYPES.DOCUMENTATION]: 'Documentation',
     [SEARCH_TYPES.COLLECTION]: 'Collection',
     [SEARCH_TYPES.FOLDER]: 'Folder'
   };

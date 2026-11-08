@@ -35,7 +35,7 @@ describe('parseLoopbackCallbackUrl', () => {
     expect(parseLoopbackCallbackUrl('https://example.com/callback')).toBeNull();
     expect(parseLoopbackCallbackUrl('https://127.0.0.1:5000/cb')).toBeNull();
     expect(parseLoopbackCallbackUrl('http://127.0.0.1/cb')).toBeNull();
-    expect(parseLoopbackCallbackUrl('bruno://app/oauth2/callback')).toBeNull();
+    expect(parseLoopbackCallbackUrl('restlab://app/oauth2/callback')).toBeNull();
     expect(parseLoopbackCallbackUrl('not a url')).toBeNull();
   });
 

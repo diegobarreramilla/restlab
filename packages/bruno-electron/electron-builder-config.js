@@ -4,7 +4,7 @@ const isBenchmark = process.env.BRUNO_BENCHMARK === 'true';
 const { APP_NAME } = require('./src/branding');
 
 const config = {
-  appId: 'com.usebruno.app',
+  appId: 'com.restlab.app',
   productName: isBenchmark ? `${APP_NAME} Benchmark` : APP_NAME,
   extraMetadata: {
     brunoBuild: {
@@ -51,9 +51,9 @@ const config = {
     requirements: 'resources/app-requirements.txt',
     protocols: [
       {
-        name: 'Bruno',
+        name: APP_NAME,
         schemes: [
-          'bruno'
+          'restlab'
         ]
       }
     ]
@@ -77,14 +77,14 @@ const config = {
     ],
     protocols: [
       {
-        name: 'Bruno',
-        schemes: ['bruno']
+        name: APP_NAME,
+        schemes: ['restlab']
       }
     ],
     category: 'Development',
     desktop: {
       entry: {
-        MimeType: 'x-scheme-handler/bruno;'
+        MimeType: 'x-scheme-handler/restlab;'
       }
     }
   },

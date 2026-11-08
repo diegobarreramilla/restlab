@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons';
 import { clearSelectedError } from 'providers/ReduxStore/slices/logs';
 import { useApp } from 'providers/App';
+import { APP_NAME, ISSUES_URL } from 'utils/branding';
 import platformLib from 'platform';
 import StyledWrapper from './StyledWrapper';
 
@@ -67,7 +68,7 @@ ${error.args ? error.args.map((arg, index) => {
     const encodedTitle = encodeURIComponent(title);
     const encodedBody = encodeURIComponent(body);
 
-    return `https://github.com/usebruno/bruno/issues/new?template=BLANK_ISSUE&title=${encodedTitle}&body=${encodedBody}`;
+    return `${ISSUES_URL}/new?title=${encodedTitle}&body=${encodedBody}`;
   };
 
   const handleReportIssue = () => {
@@ -106,20 +107,22 @@ ${error.args ? error.args.map((arg, index) => {
         </div>
       </div>
 
-      <div className="section">
-        <h4>Report Issue</h4>
-        <div className="report-section">
-          <p>Found a bug? Help us improve Bruno by reporting this error on GitHub.</p>
-          <button
-            className="report-button"
-            onClick={handleReportIssue}
-            title="Report this error on GitHub"
-          >
-            <IconBrandGithub size={16} strokeWidth={1.5} />
-            <span>Report Issue on GitHub</span>
-          </button>
+      {ISSUES_URL && (
+        <div className="section">
+          <h4>Report Issue</h4>
+          <div className="report-section">
+            <p>Found a bug? Help us improve {APP_NAME} by reporting this error.</p>
+            <button
+              className="report-button"
+              onClick={handleReportIssue}
+              title="Report this error"
+            >
+              <IconBrandGithub size={16} strokeWidth={1.5} />
+              <span>Report Issue</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

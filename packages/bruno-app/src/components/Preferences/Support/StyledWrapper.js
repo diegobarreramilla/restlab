@@ -9,6 +9,12 @@ const StyledWrapper = styled.div`
 
   color: ${(props) => props.theme.text};
 
+  .support-empty {
+    margin: 12px 0;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
   .support-group {
     display: flex;
     flex-direction: column;

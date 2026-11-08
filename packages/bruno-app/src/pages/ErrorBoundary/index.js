@@ -1,6 +1,7 @@
 import React from 'react';
 
 import BrandLogo from 'components/BrandLogo';
+import { ISSUES_URL } from 'utils/branding';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -53,14 +54,14 @@ class ErrorBoundary extends React.Component {
             <p className="mb-2">
               If you are using an official production build: the above error is most likely a bug!
               <br />
-              Please report this under:
-              <a
-                className="text-link hover:underline cursor-pointer ml-2"
-                href="https://github.com/usebruno/bruno/issues"
-                target="_blank"
-              >
-                https://github.com/usebruno/bruno/issues
-              </a>
+              {ISSUES_URL && (
+                <>
+                  Please report this under:
+                  <a className="text-link hover:underline cursor-pointer ml-2" href={ISSUES_URL} target="_blank">
+                    {ISSUES_URL}
+                  </a>
+                </>
+              )}
             </p>
 
             <div className="inline-flex flex-col items-center mt-4">

@@ -109,8 +109,7 @@ const template = [
           aboutWindow.removeMenu();
           aboutWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(aboutBruno({ version }))}`);
         }
-      },
-      { label: 'Documentation', click: () => ipcMain.emit('main:open-docs') }
+      }
     ]
   }
 ];

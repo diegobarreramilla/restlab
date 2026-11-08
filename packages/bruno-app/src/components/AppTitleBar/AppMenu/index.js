@@ -125,11 +125,6 @@ const AppMenu = () => {
           id: 'about',
           label: `About ${APP_NAME}`,
           onClick: () => ipcRenderer?.invoke('renderer:open-about')
-        },
-        {
-          id: 'documentation',
-          label: 'Documentation',
-          onClick: () => ipcRenderer?.invoke('renderer:open-docs')
         }
       ]
     }
