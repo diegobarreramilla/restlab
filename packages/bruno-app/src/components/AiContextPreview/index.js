@@ -10,10 +10,14 @@ export const formatTokens = (tokens) => {
   return `${(tokens / 1000).toFixed(1).replace(/\.0$/, '')}k`;
 };
 
+// Each place where something was held back counts once, even when it is the same value shown twice
+// (an API key in the URL and again in the parameter list), so the wording says "places", not "values".
 export const describeHidden = (count) => {
-  if (count === 0) return 'no values hidden';
-  return count === 1 ? '1 value hidden' : `${count} values hidden`;
+  if (count === 0) return 'nothing hidden';
+  return count === 1 ? 'hidden in 1 place' : `hidden in ${count} places`;
 };
+
+const HIDDEN_COUNT_HINT = 'Each place where a value was held back counts once, even if it is the same value shown twice.';
 
 // Hidden values are drawn as marks so the user can see where something was held back.
 const MarkedText = ({ text }) => text.split(HIDDEN_VALUE_PATTERN).map((part, index) => (
@@ -27,7 +31,8 @@ const MarkedText = ({ text }) => text.split(HIDDEN_VALUE_PATTERN).map((part, ind
  * main process already built with the same code as the real request; it never builds one itself.
  *
  * With `onConfirm` it becomes a review step and asks for approval; without it, it is a read-only
- * look that the user can close.
+ * look that the user can close. A host that already has its own way back (a Back button, say) can
+ * pass `showClose={false}` so the panel does not offer a second one.
  */
 const AiContextPreview = ({
   preview,
@@ -35,6 +40,7 @@ const AiContextPreview = ({
   isLoading = false,
   title = 'What will be sent',
   confirmLabel = 'Send',
+  showClose = true,
   onConfirm,
   onClose
 }) => {
@@ -47,12 +53,12 @@ const AiContextPreview = ({
         <div className="ctx-heading">
           <span className="ctx-title">{title}</span>
           {preview && (
-            <span className="ctx-summary" data-testid="ai-context-preview-summary">
+            <span className="ctx-summary" data-testid="ai-context-preview-summary" title={HIDDEN_COUNT_HINT}>
               {`about ${formatTokens(preview.totals.approximateTokens)} tokens · ${describeHidden(preview.totals.hidden)}`}
             </span>
           )}
         </div>
-        {!isReview && (
+        {!isReview && showClose && (
           <button
             type="button"
             className="ctx-close"
@@ -88,8 +94,8 @@ const AiContextPreview = ({
         ))}
 
         {!isLoading && !error && preview && preview.onDemand.length > 0 && (
-          <div className="ctx-on-demand">
-            <div className="ctx-on-demand-title">The assistant may also ask for</div>
+          <details className="ctx-on-demand" data-testid="ai-context-on-demand">
+            <summary className="ctx-on-demand-title">The assistant may also ask for</summary>
             <ul>
               {preview.onDemand.map((tool) => (
                 <li key={tool.name}>
@@ -98,7 +104,7 @@ const AiContextPreview = ({
                 </li>
               ))}
             </ul>
-          </div>
+          </details>
         )}
       </div>
 

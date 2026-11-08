@@ -27,9 +27,9 @@ describe('formatting helpers', () => {
   });
 
   it('says plainly how many values were held back', () => {
-    expect(describeHidden(0)).toBe('no values hidden');
-    expect(describeHidden(1)).toBe('1 value hidden');
-    expect(describeHidden(5)).toBe('5 values hidden');
+    expect(describeHidden(0)).toBe('nothing hidden');
+    expect(describeHidden(1)).toBe('hidden in 1 place');
+    expect(describeHidden(5)).toBe('hidden in 5 places');
   });
 });
 
@@ -37,7 +37,7 @@ describe('AiContextPreview as a read-only look', () => {
   it('summarizes the size and the hidden values', () => {
     render(<AiContextPreview preview={preview} onClose={jest.fn()} />);
 
-    expect(screen.getByTestId('ai-context-preview-summary')).toHaveTextContent('about 320 tokens · 1 value hidden');
+    expect(screen.getByTestId('ai-context-preview-summary')).toHaveTextContent('about 320 tokens · hidden in 1 place');
   });
 
   it('lists every section with its title and size, and marks how many values were hidden', () => {
@@ -77,6 +77,25 @@ describe('AiContextPreview as a read-only look', () => {
 
     expect(container.querySelectorAll('mark.ctx-hidden-value')).toHaveLength(1);
     expect(screen.getByTestId('ai-context-section-instructions')).toHaveTextContent('Secrets come back as <redacted>.');
+  });
+
+  it('explains that the same value shown twice counts twice', () => {
+    render(<AiContextPreview preview={preview} onClose={jest.fn()} />);
+
+    expect(screen.getByTestId('ai-context-preview-summary')).toHaveAttribute('title', expect.stringContaining('same value shown twice'));
+  });
+
+  it('can leave out its own close button when the host already offers a way back', () => {
+    render(<AiContextPreview preview={preview} showClose={false} onClose={jest.fn()} />);
+
+    expect(screen.queryByTestId('ai-context-preview-close')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ai-context-preview')).toBeInTheDocument();
+  });
+
+  it('folds the list of on-demand requests at first to save room', () => {
+    render(<AiContextPreview preview={preview} onClose={jest.fn()} />);
+
+    expect(screen.getByTestId('ai-context-on-demand')).not.toHaveAttribute('open');
   });
 
   it('lists what the assistant may ask for on demand', () => {

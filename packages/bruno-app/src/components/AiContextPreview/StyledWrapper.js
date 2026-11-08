@@ -161,21 +161,54 @@ const StyledWrapper = styled.div`
   }
 
   .ctx-on-demand {
-    padding: 10px 12px 12px;
+    padding: 8px 12px 10px;
     border-top: 1px solid ${(props) => props.theme.border.border1};
 
     .ctx-on-demand-title {
-      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-size: 11px;
       font-weight: 500;
       color: ${(props) => props.theme.colors.text.muted};
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+
+      &::before {
+        content: '';
+        flex: none;
+        width: 5px;
+        height: 5px;
+        border-right: 1.5px solid currentColor;
+        border-bottom: 1.5px solid currentColor;
+        transform: translateY(-1px) rotate(-45deg);
+        transition: transform 120ms ease;
+      }
+
+      &:hover {
+        color: ${(props) => props.theme.text};
+      }
+
+      &:focus-visible {
+        outline: 1px solid ${(props) => props.theme.brand};
+        outline-offset: 2px;
+      }
+    }
+
+    &[open] .ctx-on-demand-title::before {
+      transform: translateY(-2px) rotate(45deg);
     }
 
     ul {
       display: flex;
       flex-direction: column;
       gap: 5px;
-      margin: 0;
+      margin: 8px 0 0;
       padding: 0;
       list-style: none;
     }
@@ -203,7 +236,8 @@ const StyledWrapper = styled.div`
 
   @media (prefers-reduced-motion: reduce) {
     .ctx-section summary::before,
-    .ctx-section .ctx-section-title {
+    .ctx-section .ctx-section-title,
+    .ctx-on-demand .ctx-on-demand-title::before {
       transition: none;
     }
   }
