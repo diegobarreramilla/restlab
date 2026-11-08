@@ -1,6 +1,6 @@
 # RestLab v1 — Plan de implementación
 
-Fecha: 2026-11-07 · Estado: **propuesta, depende de que el diseño `specs/2026-11-07-restlab-v1-design.md` sea aprobado**
+Fecha: 2026-11-07 · Estado: **en ejecución**. El orden, el avance y las metas siguientes están en `2026-11-07-restlab-v1-roadmap.md`.
 
 Basado en: el diseño de la v1, el informe `reports/Debilidades de Bruno Postman Insomnia.md` y una revisión del código actual.
 

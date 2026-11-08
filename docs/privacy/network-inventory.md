@@ -55,6 +55,22 @@ La dirección de retorno por defecto es `http://127.0.0.1:47831/oauth2/callback`
 - El servidor mock escucha solo en `127.0.0.1` (`mock-server.js`).
 - El aviso "Offline mode" no hace ninguna petición. En Linux lee `/proc/net/route` y `/proc/net/ipv6_route` cada 3 segundos para saber si existe una ruta por defecto (`ipc/network-status.js`), porque `navigator.onLine` sigue en verdadero con interfaces de Docker activas.
 
+- La vista previa de lo que se envía a la IA (`renderer:ai-chat-preview` y `renderer:ai-generate-preview`) solo arma texto en el proceso principal con el mismo código que el envío real. No contacta a ningún proveedor, y las pruebas lo verifican.
+- Con la IA apagada, ningún manejador llega a un proveedor (`ipc/ai/ai-disabled.spec.js`). El autocompletado de scripts necesita además su propio interruptor.
+
+## Qué se oculta antes de llegar a un proveedor
+
+Todo lo que sale hacia un proveedor de IA pasa por `ipc/ai/context.js`, que oculta:
+
+- Cabeceras y parámetros con nombre sensible, y los parámetros y la contraseña (`usuario:clave@`) de las URL.
+- Valores con forma de credencial (JWT, claves `sk-`, Stripe, GitHub, AWS, Slack, Google, claves privadas, `Bearer`/`Basic`) en cualquier parte: cuerpos, scripts, tests, documentación y las URL de las demás peticiones de la colección.
+- Literales entre comillas asignados a un nombre sensible en el código, y pares `clave=valor` y elementos XML sensibles en los cuerpos de texto.
+- De las respuestas, solo la estructura: claves y tipos, sin valores.
+
+En scripts, tests, documentación y apps la ocultación es **reversible**: cada valor oculto recibe un marcador numerado (`<redacted:1>`) y los valores reales se restauran en lo que el asistente escribe, para que "Aplicar" no pueda borrar un valor real.
+
+Límite conocido: un secreto sin forma reconocible dentro de texto libre, o repetido bajo un nombre que no parece sensible, no se detecta. Para eso existe la vista previa.
+
 ## Pendiente de verificar
 
 - Arrancar la app con la red bloqueada y confirmar que no hay errores ni avisos.
