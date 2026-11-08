@@ -83,7 +83,7 @@ const AiContextPreview = ({
                 {section.hidden > 0 && <span className="ctx-section-hidden">{` · ${section.hidden} hidden`}</span>}
               </span>
             </summary>
-            <pre className="ctx-section-text"><MarkedText text={section.text} /></pre>
+            <pre className="ctx-section-text">{section.hidden > 0 ? <MarkedText text={section.text} /> : section.text}</pre>
           </details>
         ))}
 

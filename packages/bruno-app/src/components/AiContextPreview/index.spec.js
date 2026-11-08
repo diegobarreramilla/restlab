@@ -65,6 +65,20 @@ describe('AiContextPreview as a read-only look', () => {
     expect(marks[0]).toHaveTextContent('<redacted:1>');
   });
 
+  it('does not mark placeholder-looking text in a section that hid nothing, such as the fixed instructions', () => {
+    const withMention = {
+      ...preview,
+      sections: [
+        { id: 'instructions', kind: 'instructions', title: 'Instructions to the assistant', text: 'Secrets come back as <redacted>.', characters: 32, hidden: 0 },
+        ...preview.sections.slice(1)
+      ]
+    };
+    const { container } = render(<AiContextPreview preview={withMention} onClose={jest.fn()} />);
+
+    expect(container.querySelectorAll('mark.ctx-hidden-value')).toHaveLength(1);
+    expect(screen.getByTestId('ai-context-section-instructions')).toHaveTextContent('Secrets come back as <redacted>.');
+  });
+
   it('lists what the assistant may ask for on demand', () => {
     render(<AiContextPreview preview={preview} onClose={jest.fn()} />);
 

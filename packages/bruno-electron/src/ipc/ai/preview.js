@@ -24,7 +24,8 @@ const describePreview = (sections, onDemand) => {
   const described = sections.map((section) => ({
     ...section,
     characters: section.text.length,
-    hidden: countHiddenValues(section.text)
+    // The instructions are fixed text that explains the placeholders. They are not data of the user.
+    hidden: section.kind === 'instructions' ? 0 : countHiddenValues(section.text)
   }));
   const characters = described.reduce((total, section) => total + section.characters, 0);
 
