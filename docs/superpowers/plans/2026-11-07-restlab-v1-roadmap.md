@@ -44,6 +44,24 @@ Es lo único que convierte "pasa las pruebas" en "funciona". Lista concreta:
 
 **Listo cuando:** cada punto tiene un resultado anotado, y lo que falle pasa a la lista de correcciones.
 
+**Resultado (2026-11-07), con la app real y Playwright:**
+
+| Punto | Resultado |
+|---|---|
+| Etiqueta "Offline mode" y "Back online" | Comprobado en los temas claro y oscuro: aparece sin ícono, cambia a "Back online" y desaparece sola |
+| IA apagada | Comprobado: sin botón, panel ni composer en ninguna pestaña |
+| Vista previa "What's sent" en Generar y en el chat | Comprobado: oculta la credencial de la URL y marca el valor oculto |
+| "Review before sending" en Generar | Comprobado: retiene la petición, Cancel vuelve al texto escrito |
+| Interruptor "Review before sending" en Preferencias | Comprobado |
+| Nombre RestLab en la barra y el modal de bienvenida | Comprobado (5 pruebas del modal) |
+| OAuth2 con un proveedor real | **Pendiente**: necesita una cuenta de un proveedor |
+| IA con un proveedor real u Ollama respondiendo | **Pendiente**: la vista previa no llama al modelo, y esa llamada sigue sin verse en vivo |
+| Red desconectada de verdad (wifi) | **Pendiente**: las pruebas simulan los eventos del navegador; la detección de ruta se probó solo con el sistema real conectado |
+
+**Defecto encontrado al hacerlo:** el contador de valores ocultos incluía la mención de `<redacted>` en las instrucciones fijas. Corregido y cubierto con pruebas.
+
+**Para ejecutar las pruebas end-to-end en un escritorio Wayland:** `PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" npx playwright test ...` (ver `.claude/rules/testing.md`).
+
 ### A2. Cerrar lo que sigue apuntando a Bruno · S–M
 Evidencia: confianza (A) y condición 3 de la v1. Detalle en `docs/branding.md`.
 
