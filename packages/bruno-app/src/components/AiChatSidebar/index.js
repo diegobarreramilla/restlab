@@ -12,6 +12,7 @@ import {
   IconPlus,
   IconTrash,
   IconExternalLink,
+  IconEye,
   IconLayoutSidebarRightExpand
 } from '@tabler/icons';
 import IconSparkles from 'components/Icons/IconSparkles';
@@ -19,12 +20,16 @@ import get from 'lodash/get';
 import find from 'lodash/find';
 import MenuDropdown from 'ui/MenuDropdown';
 import Button from 'ui/Button';
+import AiContextPreview from 'components/AiContextPreview';
+import useAiPreview from 'hooks/useAiPreview';
+import useDebounce from 'hooks/useDebounce';
 import { focusTab } from 'providers/ReduxStore/slices/tabs';
 import {
   closeAiSidebar,
   popOutAiChat,
   dockAiChat,
   sendAiMessage,
+  fetchAiChatPreview,
   stopAiStream,
   setChatBinding,
   startNewConversation,
@@ -431,6 +436,23 @@ const AiChatSidebar = ({ collection, variant = 'sidebar' }) => {
 
   const aiRequests = useMemo(() => buildAiRequestsPayload(collection), [collection]);
 
+  const reviewBeforeSend = get(preferences, 'ai.security.reviewBeforeSend', false);
+
+  // The preview is built by the main process from the same payload the send uses.
+  const fetchChatPreview = useCallback(
+    (text) => dispatch(fetchAiChatPreview(activeTabUid, text, allContent, requestContext, contentType, aiVariables, appEnabled, aiRequests)),
+    [dispatch, activeTabUid, allContent, requestContext, contentType, aiVariables, appEnabled, aiRequests]
+  );
+  const { state: previewState, open: openPreview, close: closePreview } = useAiPreview(fetchChatPreview);
+
+  // An open read-only preview follows what the user is typing.
+  const debouncedInput = useDebounce(input, 400);
+  useEffect(() => {
+    if (previewState?.mode === 'look') {
+      openPreview('look', debouncedInput.trim());
+    }
+  }, [debouncedInput]);
+
   const chatsWithMessages = useMemo(() => {
     if (!collection) return [];
     return Object.entries(allChats)
@@ -545,11 +567,8 @@ const AiChatSidebar = ({ collection, variant = 'sidebar' }) => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e?.preventDefault();
-    if (!input.trim() || isLoading || availableModels.length === 0) return;
-
-    const text = input.trim();
+  const sendMessage = async (text) => {
+    closePreview();
     setInput('');
     setProcessingStage('sending');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
@@ -561,6 +580,26 @@ const AiChatSidebar = ({ collection, variant = 'sidebar' }) => {
     } catch (err) {
       console.error('Failed to send AI message:', err);
       setProcessingStage(null);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading || availableModels.length === 0) return;
+
+    // With "Review before sending" on, the message waits for the user's approval of the preview.
+    if (reviewBeforeSend) {
+      openPreview('review', input.trim());
+      return;
+    }
+    await sendMessage(input.trim());
+  };
+
+  const handleTogglePreview = () => {
+    if (previewState) {
+      closePreview();
+    } else {
+      openPreview('look', input.trim());
     }
   };
 
@@ -953,46 +992,72 @@ const AiChatSidebar = ({ collection, variant = 'sidebar' }) => {
               No AI models available. Configure a provider and enable models in Preferences &gt; AI.
             </div>
           ) : (
-            <div className="input-container">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleTextareaChange}
-                onKeyDown={handleKeyDown}
-                placeholder={placeholder}
-                disabled={isLoading}
-                rows={1}
-              />
-              <div className="input-actions">
-                <div className="model-selector">
-                  <MenuDropdown items={modelMenuItems} placement="top-start" selectedItemId={selectedModel}>
-                    <ModelSelectorTrigger />
-                  </MenuDropdown>
+            <>
+              {previewState && (
+                <div className="preview-slot" onKeyDown={(e) => e.key === 'Escape' && closePreview()}>
+                  <AiContextPreview
+                    preview={previewState.preview}
+                    error={previewState.error}
+                    isLoading={previewState.status === 'loading' && !previewState.preview}
+                    title={previewState.mode === 'review' ? 'Review before sending' : 'What will be sent'}
+                    onConfirm={previewState.mode === 'review' ? () => sendMessage(previewState.arg) : undefined}
+                    onClose={closePreview}
+                  />
                 </div>
-                {isLoading ? (
-                  <Button
-                    variant="filled"
-                    color="danger"
-                    size="xs"
-                    rounded="sm"
-                    icon={<IconPlayerStop size={12} />}
-                    onClick={handleStop}
-                    title="Stop generating"
-                  >
-                    Stop
-                  </Button>
-                ) : (
-                  <button
-                    className="send-btn"
-                    onClick={handleSubmit}
-                    title="Send (Enter)"
-                    disabled={!input.trim()}
-                  >
-                    Send <IconCornerDownLeft size={12} />
-                  </button>
-                )}
+              )}
+              <div className="input-container">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={handleTextareaChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={placeholder}
+                  disabled={isLoading || previewState?.mode === 'review'}
+                  rows={1}
+                />
+                <div className="input-actions">
+                  <div className="model-selector">
+                    <MenuDropdown items={modelMenuItems} placement="top-start" selectedItemId={selectedModel}>
+                      <ModelSelectorTrigger />
+                    </MenuDropdown>
+                  </div>
+                  {!isLoading && previewState?.mode !== 'review' && (
+                    <button
+                      type="button"
+                      className="preview-btn"
+                      onClick={handleTogglePreview}
+                      aria-pressed={previewState?.mode === 'look'}
+                      title="See exactly what will be sent"
+                      data-testid="ai-preview-toggle"
+                    >
+                      <IconEye size={12} /> Preview
+                    </button>
+                  )}
+                  {isLoading ? (
+                    <Button
+                      variant="filled"
+                      color="danger"
+                      size="xs"
+                      rounded="sm"
+                      icon={<IconPlayerStop size={12} />}
+                      onClick={handleStop}
+                      title="Stop generating"
+                    >
+                      Stop
+                    </Button>
+                  ) : (
+                    <button
+                      className="send-btn"
+                      onClick={handleSubmit}
+                      title="Send (Enter)"
+                      disabled={!input.trim() || previewState?.mode === 'review'}
+                    >
+                      Send <IconCornerDownLeft size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import React from 'react';
-import { render, act, waitFor } from '@testing-library/react';
+import { render, act, waitFor, fireEvent, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
 import { ThemeProvider } from 'styled-components';
@@ -18,7 +18,8 @@ jest.mock('utils/ai', () => ({
     availableModels: [{ id: 'gpt-mock', label: 'GPT Mock', provider: 'mock' }]
   }),
   buildAiVariablesPayload: jest.fn(() => []),
-  buildAiRequestsPayload: jest.fn(() => [])
+  buildAiRequestsPayload: jest.fn(() => []),
+  previewAiChat: jest.fn()
 }));
 
 jest.mock('components/AiChatSidebar/DiffView', () => () => null);
@@ -41,6 +42,7 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = jest.fn();
 }
 
+import { previewAiChat } from 'utils/ai';
 import AiChatSidebar from './index';
 
 const COLLECTION = {
@@ -51,7 +53,7 @@ const COLLECTION = {
   items: []
 };
 
-const buildStore = ({ isLoading = false, isOpen = true } = {}) => {
+const buildStore = ({ isLoading = false, isOpen = true, reviewBeforeSend = false } = {}) => {
   const chatSlice = createSlice({
     name: 'chat',
     initialState: {
@@ -91,7 +93,7 @@ const buildStore = ({ isLoading = false, isOpen = true } = {}) => {
 
   const appSlice = createSlice({
     name: 'app',
-    initialState: { preferences: { ai: { enabled: true } } },
+    initialState: { preferences: { ai: { enabled: true, security: { reviewBeforeSend } } } },
     reducers: {}
   });
 
@@ -178,5 +180,122 @@ describe('AiChatSidebar prompt-input focus', () => {
     // Nothing to focus — assertion is that dispatch didn't blow up and no
     // element was force-focused elsewhere.
     expect(document.activeElement).toBe(document.body);
+  });
+});
+
+describe('AiChatSidebar preview of what will be sent', () => {
+  const PREVIEW = {
+    sections: [
+      { id: 'instructions', kind: 'instructions', title: 'Instructions to the assistant', text: 'You help.', characters: 9, hidden: 0 },
+      { id: 'message-0', kind: 'conversation', title: 'Your message', text: 'add a test', characters: 10, hidden: 0 }
+    ],
+    onDemand: [],
+    totals: { characters: 19, approximateTokens: 5, hidden: 0 }
+  };
+
+  const streamCalls = () => window.ipcRenderer.send.mock.calls.filter(([channel]) => channel === 'renderer:ai-chat-stream');
+
+  const typeMessage = async (container, text) => {
+    const textarea = await waitFor(() => {
+      const el = container.querySelector('.ai-sidebar-input textarea');
+      if (!el) throw new Error('textarea not rendered yet');
+      return el;
+    });
+    fireEvent.change(textarea, { target: { value: text } });
+    return textarea;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    previewAiChat.mockResolvedValue(PREVIEW);
+    window.ipcRenderer = { send: jest.fn(), on: jest.fn(() => jest.fn()), invoke: jest.fn().mockResolvedValue(null) };
+  });
+
+  afterEach(() => {
+    delete window.ipcRenderer;
+  });
+
+  it('opens a read-only look on demand, built from the message being typed, and closes again', async () => {
+    const { container } = renderSidebar({ isOpen: true });
+    await typeMessage(container, 'add a test');
+
+    fireEvent.click(screen.getByTestId('ai-preview-toggle'));
+
+    expect(await screen.findByTestId('ai-context-preview')).toBeInTheDocument();
+    expect(screen.queryByTestId('ai-context-preview-confirm')).not.toBeInTheDocument();
+    const payload = previewAiChat.mock.calls[0][0];
+    expect(payload.messages).toEqual([{ role: 'user', content: 'add a test' }]);
+    expect(streamCalls()).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId('ai-preview-toggle'));
+    expect(screen.queryByTestId('ai-context-preview')).not.toBeInTheDocument();
+  });
+
+  it('shows the error when the preview cannot be prepared', async () => {
+    previewAiChat.mockResolvedValue({ error: 'AI features are disabled.' });
+    const { container } = renderSidebar({ isOpen: true });
+    await typeMessage(container, 'hello');
+
+    fireEvent.click(screen.getByTestId('ai-preview-toggle'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('AI features are disabled.');
+  });
+
+  it('sends straight away when review is off, without asking for a preview', async () => {
+    const { container } = renderSidebar({ isOpen: true });
+    const textarea = await typeMessage(container, 'add a test');
+
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    await waitFor(() => expect(streamCalls()).toHaveLength(1));
+    expect(previewAiChat).not.toHaveBeenCalled();
+  });
+
+  it('holds the message for approval when review before sending is on', async () => {
+    const { container } = renderSidebar({ isOpen: true, reviewBeforeSend: true });
+    const textarea = await typeMessage(container, 'add a test');
+
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    expect(await screen.findByTestId('ai-context-preview-confirm')).toBeInTheDocument();
+    expect(screen.getByText('Review before sending')).toBeInTheDocument();
+    expect(streamCalls()).toHaveLength(0);
+    expect(textarea).toBeDisabled();
+  });
+
+  it('sends the reviewed message once the user approves it', async () => {
+    const { container } = renderSidebar({ isOpen: true, reviewBeforeSend: true });
+    const textarea = await typeMessage(container, 'add a test');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    fireEvent.click(await screen.findByTestId('ai-context-preview-confirm'));
+
+    await waitFor(() => expect(streamCalls()).toHaveLength(1));
+    expect(streamCalls()[0][1].messages).toEqual([{ role: 'user', content: 'add a test' }]);
+    expect(screen.queryByTestId('ai-context-preview')).not.toBeInTheDocument();
+  });
+
+  it('sends nothing when the user backs out of the review, and keeps what they typed', async () => {
+    const { container } = renderSidebar({ isOpen: true, reviewBeforeSend: true });
+    const textarea = await typeMessage(container, 'add a test');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+
+    fireEvent.click(await screen.findByTestId('ai-context-preview-cancel'));
+
+    expect(streamCalls()).toHaveLength(0);
+    expect(screen.queryByTestId('ai-context-preview')).not.toBeInTheDocument();
+    expect(textarea).toHaveValue('add a test');
+    expect(textarea).toBeEnabled();
+  });
+
+  it('closes the preview with Escape', async () => {
+    const { container } = renderSidebar({ isOpen: true });
+    await typeMessage(container, 'hello');
+    fireEvent.click(screen.getByTestId('ai-preview-toggle'));
+    const panel = await screen.findByTestId('ai-context-preview');
+
+    fireEvent.keyDown(panel, { key: 'Escape' });
+
+    expect(screen.queryByTestId('ai-context-preview')).not.toBeInTheDocument();
   });
 });

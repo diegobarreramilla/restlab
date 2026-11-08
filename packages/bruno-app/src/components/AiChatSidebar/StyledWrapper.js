@@ -821,6 +821,39 @@ const StyledWrapper = styled.div`
         cursor: not-allowed;
       }
     }
+
+    .preview-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      margin-right: 6px;
+      padding: 4px 6px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      font-size: 11px;
+      color: ${(props) => props.theme.colors.text.muted};
+      cursor: pointer;
+      transition: color 120ms ease;
+
+      &:hover,
+      &[aria-pressed='true'] {
+        color: ${(props) => props.theme.text};
+      }
+
+      &:focus-visible {
+        outline: 1px solid ${(props) => props.theme.brand};
+      }
+    }
+
+    .preview-slot {
+      display: flex;
+      flex-direction: column;
+      max-height: 55vh;
+      min-height: 0;
+      margin-bottom: 8px;
+    }
   }
 
   @keyframes fadeIn {
