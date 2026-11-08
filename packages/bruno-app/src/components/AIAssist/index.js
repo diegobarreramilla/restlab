@@ -238,17 +238,30 @@ const AIAssist = ({ scriptType, currentScript, requestContext, docsContext, vari
             </div>
 
             {previewState ? (
-              <div className="popup-context-preview">
-                <AiContextPreview
-                  preview={previewState.preview}
-                  error={previewState.error}
-                  isLoading={previewState.status === 'loading' && !previewState.preview}
-                  title={previewState.mode === 'review' ? 'Review before sending' : 'What will be sent'}
-                  confirmLabel="Generate"
-                  onConfirm={previewState.mode === 'review' ? () => handleGenerate(previewState.arg, { reviewed: true }) : undefined}
-                  onClose={closePreview}
-                />
-              </div>
+              <>
+                <div className="popup-context-preview">
+                  {/* The popup already has its own close button and, in the read-only look, a Back button. */}
+                  <AiContextPreview
+                    preview={previewState.preview}
+                    error={previewState.error}
+                    isLoading={previewState.status === 'loading' && !previewState.preview}
+                    title={previewState.mode === 'review' ? 'Review before sending' : 'What will be sent'}
+                    confirmLabel="Generate"
+                    showClose={false}
+                    onConfirm={previewState.mode === 'review' ? () => handleGenerate(previewState.arg, { reviewed: true }) : undefined}
+                    onClose={closePreview}
+                  />
+                </div>
+                {previewState.mode === 'look' && (
+                  <div className="popup-footer">
+                    <button className="btn-secondary" type="button" onClick={closePreview} data-testid="ai-assist-preview-back">
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <IconArrowBackUp size={12} /> Back
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </>
             ) : generated == null ? (
               <>
                 <div className="popup-body">

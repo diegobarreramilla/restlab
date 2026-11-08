@@ -460,6 +460,21 @@ describe('AIAssist preview of what will be sent', () => {
     expect(aiGenerateScript).not.toHaveBeenCalled();
   });
 
+  it('offers a single way back in the read-only look: the Back button, not a second close', async () => {
+    renderAIAssist();
+    openPopup();
+    fireEvent.click(screen.getByTestId('ai-assist-preview-toggle'));
+    await screen.findByTestId('ai-context-preview');
+
+    expect(screen.queryByTestId('ai-context-preview-close')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
+
+    fireEvent.click(screen.getByTestId('ai-assist-preview-back'));
+
+    expect(screen.queryByTestId('ai-context-preview')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Describe what you want to generate...')).toBeInTheDocument();
+  });
+
   it('closes the preview first with Escape, and only then the popup', async () => {
     renderAIAssist();
     openPopup();
