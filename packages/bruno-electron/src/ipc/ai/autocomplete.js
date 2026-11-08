@@ -4,6 +4,7 @@ const { getPreferences } = require('../../store/preferences');
 const { aiKeyStore } = require('../../store/ai-keys');
 const { getModel, getAvailableModels, isReasoningModel, isOpenAiReasoningModel } = require('./providers');
 const { buildSystemPrompt, buildUserPrompt, STOP_SEQUENCES, sanitizeSuggestion } = require('./autocomplete-prompts');
+const { createCodeRedactor } = require('./context');
 
 const SUPPORTED_SCRIPT_TYPES = ['tests', 'pre-request', 'post-response'];
 
@@ -149,12 +150,13 @@ const registerAutocompleteIpc = () => {
 
     const reasoning = isReasoningModel(modelId);
     const openAiReasoning = isOpenAiReasoningModel(modelId);
+    const redactor = createCodeRedactor(security);
 
     try {
       const { text } = await generateText({
         model,
         system: buildSystemPrompt(scriptType),
-        prompt: buildUserPrompt({ prefix, suffix, scriptType, requestContext, variableNames, siblingScripts, security }),
+        prompt: buildUserPrompt({ prefix, suffix, scriptType, requestContext, variableNames, siblingScripts, security, redactor }),
         maxOutputTokens: openAiReasoning ? 1500 : 200,
         ...(reasoning ? {} : { temperature: 0.2, stopSequences: STOP_SEQUENCES }),
         ...(openAiReasoning
@@ -163,7 +165,7 @@ const registerAutocompleteIpc = () => {
         abortSignal: controller.signal
       });
 
-      const suggestion = sanitizeSuggestion({ text, prefix, scriptType });
+      const suggestion = sanitizeSuggestion({ text: redactor.restore(text), prefix, scriptType });
       if (suggestion) cacheSet(key, suggestion);
       return { suggestion, modelId };
     } catch (err) {

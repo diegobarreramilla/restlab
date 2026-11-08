@@ -103,15 +103,19 @@ const SECRET_VALUE_PATTERNS = [
 ];
 
 // Capitalized and digit-bearing on purpose, so prose such as "Basic authentication" is left alone.
-const AUTH_SCHEME_PATTERN = /\b(Bearer|Basic)\s+(?=[A-Za-z0-9._~+/=-]*[0-9+/=._~-])[A-Za-z0-9._~+/=-]{12,}/g;
+const AUTH_SCHEME_PATTERN = /\b(Bearer|Basic)(\s+)((?=[A-Za-z0-9._~+/=-]*[0-9+/=._~-])[A-Za-z0-9._~+/=-]{12,})/g;
 
-const scrubSecretValues = (text) => {
+// `replacement` turns each hidden value into the text that stands in for it. One-way redaction uses
+// the same placeholder for everything; a code redactor hands out numbered placeholders it can undo.
+const fixedPlaceholder = () => REDACTED_VALUE;
+
+const scrubSecretValues = (text, replacement = fixedPlaceholder) => {
   if (typeof text !== 'string' || !text) return text;
   let out = text;
   for (const pattern of SECRET_VALUE_PATTERNS) {
-    out = out.replace(pattern, REDACTED_VALUE);
+    out = out.replace(pattern, (match) => replacement(match));
   }
-  return out.replace(AUTH_SCHEME_PATTERN, `$1 ${REDACTED_VALUE}`);
+  return out.replace(AUTH_SCHEME_PATTERN, (match, scheme, space, token) => `${scheme}${space}${replacement(token)}`);
 };
 
 const SENSITIVE_WORD = '(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|credential|private[_-]?key|signature|session|jwt|bearer)';
@@ -136,16 +140,49 @@ const redactFreeText = (text, policy) => {
 // Code that only reads a value (`const token = await getToken()`) has no literal and stays as it is.
 const CODE_LITERAL_PATTERN = new RegExp(`(\\b[\\w.$-]*${SENSITIVE_WORD}[\\w.$-]*["']?\\s*[:=]\\s*)(["'\`])([^"'\`\\n]{4,}?)\\2`, 'gi');
 
+const isPlaceholder = (value) => /^<redacted(?::\d+)?>$/.test(value);
+
 // Scripts, tests, docs and app code go to the model as context, and users paste credentials into
 // them too. Mask credential-shaped values and string literals assigned to sensitive names, and
 // leave the rest of the code intact so the model can still work with it.
-const redactCodeContent = (text, security = null) => {
-  const policy = buildRedactionPolicy(security);
+const redactCode = (text, policy, replacement = fixedPlaceholder) => {
   if (!policy.redactBody || typeof text !== 'string' || !text) return text;
 
-  return scrubSecretValues(text)
+  return scrubSecretValues(text, replacement)
     .replace(CODE_LITERAL_PATTERN, (match, prefix, quote, value) =>
-      (isVariableReference(value) || value === REDACTED_VALUE ? match : `${prefix}${quote}${REDACTED_VALUE}${quote}`));
+      (isVariableReference(value) || isPlaceholder(value) ? match : `${prefix}${quote}${replacement(value)}${quote}`));
+};
+
+// One-way: for text the model only reads and never writes back (autocomplete context, for one).
+const redactCodeContent = (text, security = null) => redactCode(text, buildRedactionPolicy(security));
+
+const REDACTED_TOKEN_PATTERN = /<redacted:\d+>/g;
+
+// The assistant rewrites whole files, so a plain `<redacted>` in its input would come back in its
+// output and overwrite the user's real value on Apply. A redactor numbers each hidden value
+// (`<redacted:1>`, `<redacted:2>`) and restores the originals in whatever the model writes.
+// Use one redactor per request, so the same value always gets the same number.
+const createCodeRedactor = (security = null) => {
+  const policy = buildRedactionPolicy(security);
+  const tokenByValue = new Map();
+  const valueByToken = new Map();
+
+  const tokenFor = (value) => {
+    if (!tokenByValue.has(value)) {
+      const token = `<redacted:${tokenByValue.size + 1}>`;
+      tokenByValue.set(value, token);
+      valueByToken.set(token, value);
+    }
+    return tokenByValue.get(value);
+  };
+
+  return {
+    redact: (text) => redactCode(text, policy, tokenFor),
+    restore: (text) => (typeof text === 'string'
+      ? text.replace(REDACTED_TOKEN_PATTERN, (token) => valueByToken.get(token) ?? token)
+      : text),
+    hiddenCount: () => tokenByValue.size
+  };
 };
 
 // The URL carries credentials that the separate parameter lists never see: the query string and
@@ -575,6 +612,7 @@ module.exports = {
   maskValue,
   scrubSecretValues,
   redactCodeContent,
+  createCodeRedactor,
   redactFreeText,
   redactUrl,
   buildRedactionPolicy,

@@ -1,7 +1,7 @@
 // Scripts, tests, docs and app code are sent to the model as context, and users paste credentials
 // into them too. Quoted literals under a sensitive-looking name and credential-shaped values must
 // not reach the provider, while the code around them has to stay readable.
-const { redactCodeContent } = require('./context');
+const { redactCodeContent, createCodeRedactor } = require('./context');
 
 const OPENAI_KEY = 'sk-proj-abcdefghijklmnopqrstuvwxyz0123456789';
 const JWT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
@@ -65,5 +65,84 @@ describe('redactCodeContent', () => {
   it('returns non-strings and empty text unchanged', () => {
     expect(redactCodeContent('')).toBe('');
     expect(redactCodeContent(undefined)).toBeUndefined();
+  });
+});
+
+describe('createCodeRedactor', () => {
+  const script = [
+    'const apiKey = \'hunter2hunter2\';',
+    `const other = '${OPENAI_KEY}';`,
+    'const apiKeyCopy = \'hunter2hunter2\';',
+    'const page = 2;'
+  ].join('\n');
+
+  it('hides each value behind a numbered placeholder and gives the same value the same number', () => {
+    const redactor = createCodeRedactor();
+    const out = redactor.redact(script);
+
+    expect(out).not.toContain('hunter2hunter2');
+    expect(out).not.toContain(OPENAI_KEY);
+    const placeholder = out.match(/const apiKey = '(<redacted:\d+>)';/)[1];
+    expect(out).toContain(`const apiKeyCopy = '${placeholder}';`);
+    expect(out).toMatch(/const other = '<redacted:\d+>';/);
+    expect(redactor.hiddenCount()).toBe(2);
+  });
+
+  it('puts the original values back into a file the model rewrote, so Apply cannot erase them', () => {
+    const redactor = createCodeRedactor();
+    const seenByModel = redactor.redact(script);
+
+    const writtenByModel = `${seenByModel}\nconsole.log(apiKey.length);`;
+
+    expect(redactor.restore(writtenByModel)).toBe(`${script}\nconsole.log(apiKey.length);`);
+  });
+
+  it('numbers values consistently across several pieces of one request', () => {
+    const redactor = createCodeRedactor();
+    const first = redactor.redact('const apiKey = \'hunter2hunter2\';');
+    const second = redactor.redact('const token2 = \'other-value-here\';\nconst apiKey2 = \'hunter2hunter2\';');
+
+    expect(first).toBe('const apiKey = \'<redacted:1>\';');
+    expect(second).toContain('const token2 = \'<redacted:2>\';');
+    expect(second).toContain('const apiKey2 = \'<redacted:1>\';');
+  });
+
+  it('does not hide a repeated value that sits under an ordinary name, which only the preview can show', () => {
+    const redactor = createCodeRedactor();
+    redactor.redact('const apiKey = \'hunter2hunter2\';');
+
+    expect(redactor.redact('const copy = \'hunter2hunter2\';')).toBe('const copy = \'hunter2hunter2\';');
+  });
+
+  it('leaves a placeholder it did not issue untouched', () => {
+    const redactor = createCodeRedactor();
+    redactor.redact('const apiKey = \'hunter2hunter2\';');
+
+    expect(redactor.restore('const x = \'<redacted:9>\';')).toBe('const x = \'<redacted:9>\';');
+  });
+
+  it('does nothing when body redaction is turned off', () => {
+    const redactor = createCodeRedactor({ redactBody: false });
+
+    expect(redactor.redact(script)).toBe(script);
+    expect(redactor.restore(script)).toBe(script);
+    expect(redactor.hiddenCount()).toBe(0);
+  });
+
+  it('keeps independent requests independent', () => {
+    const first = createCodeRedactor();
+    const second = createCodeRedactor();
+    first.redact('const apiKey = \'aaaa-aaaa\';');
+    second.redact('const apiKey = \'bbbb-bbbb\';');
+
+    expect(first.restore('<redacted:1>')).toBe('aaaa-aaaa');
+    expect(second.restore('<redacted:1>')).toBe('bbbb-bbbb');
+  });
+
+  it('passes non-strings through', () => {
+    const redactor = createCodeRedactor();
+
+    expect(redactor.redact(undefined)).toBeUndefined();
+    expect(redactor.restore(null)).toBeNull();
   });
 });

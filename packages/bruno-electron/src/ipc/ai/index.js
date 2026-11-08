@@ -27,7 +27,8 @@ const {
 const {
   formatResponseShape,
   searchVariables,
-  formatSearchVariablesResult
+  formatSearchVariablesResult,
+  createCodeRedactor
 } = require('./context');
 const registerChatIpc = require('./chat');
 
@@ -227,6 +228,7 @@ const registerAiIpc = (mainWindow) => {
     }
 
     const security = getSecurityPrefs();
+    const redactor = createCodeRedactor(security);
     const controller = streamId ? new AbortController() : null;
     if (streamId && controller) {
       activeStreams.set(streamId, controller);
@@ -279,7 +281,8 @@ const registerAiIpc = (mainWindow) => {
           docsContext,
           variables,
           scriptType,
-          security
+          security,
+          redactor
         }),
         tools,
         // Cap tool-call iteration — the model gets a few chances to look
@@ -319,7 +322,7 @@ const registerAiIpc = (mainWindow) => {
       if (!content || !content.trim()) {
         return { error: 'No content was generated. Try rephrasing your prompt.' };
       }
-      return { content, modelId };
+      return { content: redactor.restore(content), modelId };
     } catch (err) {
       if (err?.name === 'AbortError' || controller?.signal.aborted) {
         return { stopped: true };

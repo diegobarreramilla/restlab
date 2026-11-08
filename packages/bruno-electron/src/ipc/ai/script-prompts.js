@@ -311,7 +311,7 @@ const formatDocsContext = (ctx, security = null) => {
   return parts.join('\n\n');
 };
 
-const { formatRequestContext, formatVariablesList, redactCodeContent, redactUrl, buildRedactionPolicy } = require('./context');
+const { formatRequestContext, formatVariablesList, createCodeRedactor, redactUrl, buildRedactionPolicy } = require('./context');
 
 const buildScriptUserPrompt = ({
   userPrompt,
@@ -320,7 +320,10 @@ const buildScriptUserPrompt = ({
   docsContext,
   variables,
   scriptType,
-  security
+  security,
+  // The model rewrites the whole script, so the caller keeps this redactor to restore the original
+  // values in what comes back.
+  redactor = createCodeRedactor(security)
 }) => {
   const sections = [];
   const docsContextStr = formatDocsContext(docsContext, security);
@@ -347,7 +350,7 @@ const buildScriptUserPrompt = ({
       existingLabel = 'Existing App';
       fenceLang = 'html';
     }
-    sections.push(`${existingLabel}\n\`\`\`${fenceLang}\n${redactCodeContent(currentScript, security)}\n\`\`\``);
+    sections.push(`${existingLabel}\n\`\`\`${fenceLang}\n${redactor.redact(currentScript)}\n\`\`\``);
   }
   sections.push(`User Request\n${userPrompt}`);
   return sections.join('\n\n');

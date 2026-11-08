@@ -80,7 +80,7 @@ const truncateLinesFromStart = (text, maxLines) => {
   return lines.slice(0, maxLines).join('\n');
 };
 
-const { redactJsonBodyString, redactFreeText, redactUrl, redactCodeContent, buildRedactionPolicy } = require('./context');
+const { redactJsonBodyString, redactFreeText, redactUrl, createCodeRedactor, buildRedactionPolicy } = require('./context');
 
 const formatRequestContext = (ctx, security) => {
   if (!ctx) return '';
@@ -119,23 +119,33 @@ const formatVariableNames = (vars) => {
   return entries.join('\n');
 };
 
-const formatSiblingScripts = (siblings, security = null) => {
+const formatSiblingScripts = (siblings, redactor) => {
   if (!Array.isArray(siblings) || !siblings.length) return '';
   return siblings
     .map((s) => {
       if (!s || !s.script || !s.script.trim()) return null;
-      const code = redactCodeContent(s.script, security).slice(0, 400);
+      const code = redactor.redact(s.script).slice(0, 400);
       return `// ${s.name || 'sibling'} (${s.type || 'script'})\n${code}${s.script.length > 400 ? '\n// …' : ''}`;
     })
     .filter(Boolean)
     .join('\n\n');
 };
 
-const buildUserPrompt = ({ prefix, suffix, scriptType, requestContext, variableNames, siblingScripts, security }) => {
+const buildUserPrompt = ({
+  prefix,
+  suffix,
+  scriptType,
+  requestContext,
+  variableNames,
+  siblingScripts,
+  security,
+  // The caller keeps this redactor to restore the original values in the suggestion it gets back.
+  redactor = createCodeRedactor(security)
+}) => {
   // Keep recent context in the prefix (last 80 lines) and a short forward window (30 lines).
   // Cloud LLMs can handle more, but trimming keeps latency low and the model focused.
-  const trimmedPrefix = truncateLines(redactCodeContent(prefix || '', security), 80);
-  const trimmedSuffix = truncateLinesFromStart(redactCodeContent(suffix || '', security), 30);
+  const trimmedPrefix = truncateLines(redactor.redact(prefix || ''), 80);
+  const trimmedSuffix = truncateLinesFromStart(redactor.redact(suffix || ''), 30);
 
   const sections = [];
 
@@ -145,7 +155,7 @@ const buildUserPrompt = ({ prefix, suffix, scriptType, requestContext, variableN
   const varStr = formatVariableNames(variableNames);
   if (varStr) sections.push(`### Available variable names (use these in bru.getEnvVar / bru.getVar / interpolate)\n${varStr}`);
 
-  const siblingStr = formatSiblingScripts(siblingScripts, security);
+  const siblingStr = formatSiblingScripts(siblingScripts, redactor);
   if (siblingStr) sections.push(`### Sibling ${scriptType} scripts in the same collection (style reference)\n${siblingStr}`);
 
   sections.push(`### Cursor\n\`\`\`javascript\n${trimmedPrefix}<CURSOR>${trimmedSuffix}\n\`\`\``);
