@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { closeTabs } from './tabs';
+import { previewAiChat } from 'utils/ai';
 import {
   newConversationId,
   saveConversation,
@@ -245,6 +246,52 @@ export const persistCurrentConversation = (tabUid) => async (_dispatch, getState
   if (chat) await persistChat(chat);
 };
 
+// The payload of one chat turn. Sending and previewing both build it here, so the preview is
+// computed from exactly what would be sent.
+export const buildChatPayload = ({
+  priorMessages,
+  userMessage,
+  allContent,
+  contentType,
+  requestContext,
+  variables,
+  requests,
+  appEnabled
+}) => ({
+  messages: [...priorMessages, { role: 'user', content: userMessage }],
+  allContent: typeof allContent === 'object' ? allContent : { [contentType]: allContent },
+  contentType,
+  requestContext,
+  variables,
+  requests,
+  appEnabled
+});
+
+const getPriorMessages = (chat) => (chat?.messages || [])
+  .filter((m) => !m.isStreaming)
+  .map((m) => ({ role: m.role, content: m.content }));
+
+/** What the next message would send, without sending it. */
+export const fetchAiChatPreview = (
+  tabUid,
+  userMessage,
+  allContent,
+  requestContext,
+  contentType = 'app',
+  variables = [],
+  appEnabled = true,
+  requests = []
+) => (_dispatch, getState) => previewAiChat(buildChatPayload({
+  priorMessages: getPriorMessages(getState().chat.chats[tabUid]),
+  userMessage,
+  allContent,
+  contentType,
+  requestContext,
+  variables,
+  requests,
+  appEnabled
+}));
+
 export const sendAiMessage = (
   tabUid,
   userMessage,
@@ -270,10 +317,7 @@ export const sendAiMessage = (
   const now = Date.now();
   const requestId = `${tabUid}-${now}`;
 
-  const existing = existingChat?.messages || [];
-  const priorMessages = existing
-    .filter((m) => !m.isStreaming)
-    .map((m) => ({ role: m.role, content: m.content }));
+  const priorMessages = getPriorMessages(existingChat);
 
   dispatch(addAiMessage({ tabUid, message: { role: 'user', content: userMessage }, timestamp: now }));
   dispatch(addAiMessage({ tabUid, message: { role: 'assistant', content: '', isStreaming: true }, timestamp: now }));
@@ -376,25 +420,10 @@ export const sendAiMessage = (
     ];
     const cleanup = () => unsubs.forEach((u) => u && u());
 
-    const messages = [
-      ...priorMessages,
-      { role: 'user', content: userMessage }
-    ];
-
-    const normalizedContent = typeof allContent === 'object'
-      ? allContent
-      : { [contentType]: allContent };
-
     ipcRenderer.send('renderer:ai-chat-stream', {
-      messages,
-      allContent: normalizedContent,
-      contentType,
-      requestContext,
-      variables,
-      requests,
+      ...buildChatPayload({ priorMessages, userMessage, allContent, contentType, requestContext, variables, requests, appEnabled }),
       requestId,
-      model,
-      appEnabled
+      model
     });
   });
 };

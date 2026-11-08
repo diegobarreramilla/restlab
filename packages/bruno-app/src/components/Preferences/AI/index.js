@@ -58,7 +58,8 @@ const aiPreferencesSchema = Yup.object().shape({
     redactVariables: Yup.boolean(),
     redactResponse: Yup.boolean(),
     customRedactedHeaders: Yup.array().of(Yup.string().max(200)).max(200),
-    customRedactedVariables: Yup.array().of(Yup.string().max(200)).max(200)
+    customRedactedVariables: Yup.array().of(Yup.string().max(200)).max(200),
+    reviewBeforeSend: Yup.boolean()
   })
 });
 
@@ -119,7 +120,8 @@ const AI = () => {
         redactVariables: get(preferences, 'ai.security.redactVariables', true),
         redactResponse: get(preferences, 'ai.security.redactResponse', true),
         customRedactedHeaders: get(preferences, 'ai.security.customRedactedHeaders', []),
-        customRedactedVariables: get(preferences, 'ai.security.customRedactedVariables', [])
+        customRedactedVariables: get(preferences, 'ai.security.customRedactedVariables', []),
+        reviewBeforeSend: get(preferences, 'ai.security.reviewBeforeSend', false)
       }
     },
     validationSchema: aiPreferencesSchema,
@@ -152,7 +154,8 @@ const AI = () => {
                 : [],
               customRedactedVariables: Array.isArray(values.security?.customRedactedVariables)
                 ? values.security.customRedactedVariables
-                : []
+                : [],
+              reviewBeforeSend: values.security?.reviewBeforeSend === true
             }
           }
         })
@@ -533,6 +536,8 @@ const AI = () => {
             redactResponse={formik.values.security?.redactResponse !== false}
             customRedactedHeaders={formik.values.security?.customRedactedHeaders || []}
             customRedactedVariables={formik.values.security?.customRedactedVariables || []}
+            reviewBeforeSend={formik.values.security?.reviewBeforeSend === true}
+            onToggleReviewBeforeSend={(next) => saveSecurityImmediate({ reviewBeforeSend: next })}
             onToggleRedactHeaders={(next) => saveSecurityImmediate({ redactHeaders: next })}
             onToggleRedactBody={(next) => saveSecurityImmediate({ redactBody: next })}
             onToggleRedactVariables={(next) => saveSecurityImmediate({ redactVariables: next })}

@@ -116,6 +116,8 @@ const SecurityPane = ({
   redactResponse,
   customRedactedHeaders,
   customRedactedVariables,
+  reviewBeforeSend,
+  onToggleReviewBeforeSend,
   onToggleRedactHeaders,
   onToggleRedactBody,
   onToggleRedactVariables,
@@ -140,6 +142,21 @@ const SecurityPane = ({
       </div>
 
       <div className="security-card">
+        <div className="security-row flex items-center justify-between gap-3 px-3.5 py-3">
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-[12.5px] font-semibold">Review before sending</span>
+            <span className="security-sub text-[11px]">
+              Shows exactly what will be sent and waits for your approval each time. You can always open the same preview on demand, with or without this switch.
+            </span>
+          </div>
+          <ToggleSwitch
+            size="xs"
+            isOn={reviewBeforeSend}
+            handleToggle={() => onToggleReviewBeforeSend(!reviewBeforeSend)}
+            data-testid="ai-security-review-toggle"
+          />
+        </div>
+
         <div className="security-row flex items-center justify-between gap-3 px-3.5 py-3">
           <div className="flex flex-col gap-0.5 min-w-0">
             <span className="text-[12.5px] font-semibold">Redact sensitive header values</span>

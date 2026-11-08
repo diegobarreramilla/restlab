@@ -102,7 +102,8 @@ const defaultPreferences = {
       redactVariables: true,
       redactResponse: true,
       customRedactedHeaders: [],
-      customRedactedVariables: []
+      customRedactedVariables: [],
+      reviewBeforeSend: false
     }
   }
 };
@@ -235,7 +236,8 @@ const preferencesSchema = Yup.object().shape({
       redactVariables: Yup.boolean(),
       redactResponse: Yup.boolean(),
       customRedactedHeaders: Yup.array().of(Yup.string().max(200)).max(200),
-      customRedactedVariables: Yup.array().of(Yup.string().max(200)).max(200)
+      customRedactedVariables: Yup.array().of(Yup.string().max(200)).max(200),
+      reviewBeforeSend: Yup.boolean()
     }).optional()
   }).optional()
 });

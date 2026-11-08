@@ -92,7 +92,8 @@ const initialState = {
         redactVariables: true,
         redactResponse: true,
         customRedactedHeaders: [],
-        customRedactedVariables: []
+        customRedactedVariables: [],
+        reviewBeforeSend: false
       }
     }
   },

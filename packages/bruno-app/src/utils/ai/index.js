@@ -38,6 +38,14 @@ export const aiGenerateText = (params) =>
 export const aiGenerateScript = (params) =>
   callIpc('renderer:ai-generate-script', params);
 
+// What the main process would send for the same parameters, built by the same code as the real
+// request. Neither call contacts a provider.
+export const previewAiChat = (params) =>
+  callIpc('renderer:ai-chat-preview', params);
+
+export const previewAiGeneration = (params) =>
+  callIpc('renderer:ai-generate-preview', params);
+
 export const stopAiGeneration = (streamId) => {
   const { ipcRenderer } = window;
   if (ipcRenderer && streamId) {
