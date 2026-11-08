@@ -99,6 +99,111 @@ const StyledWrapper = styled.div`
       text-decoration: underline;
     }
   }
+
+  .privacy-block-title {
+    font-size: ${(props) => props.theme.font.size.xs};
+    font-weight: 600;
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
+  .privacy-data-lives {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .privacy-path-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .privacy-path-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .privacy-path-label {
+    font-size: ${(props) => props.theme.font.size.sm};
+    color: ${(props) => props.theme.text};
+  }
+
+  .privacy-path-hint {
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
+  .privacy-path {
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.colors.text.muted};
+    overflow-wrap: anywhere;
+  }
+
+  .privacy-path-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+    padding-top: 0.125rem;
+  }
+
+  .privacy-path-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: ${(props) => props.theme.font.size.sm};
+    color: ${(props) => props.theme.textLink};
+    cursor: pointer;
+
+    &:not(:disabled):hover {
+      text-decoration: underline;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+  }
+
+  .privacy-connects {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .privacy-connect-list {
+    margin: 0;
+    padding-left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+
+    li {
+      font-size: ${(props) => props.theme.font.size.xs};
+      color: ${(props) => props.theme.text};
+    }
+  }
+
+  .privacy-inventory-note {
+    margin: 0;
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.colors.text.muted};
+
+    code {
+      color: ${(props) => props.theme.text};
+    }
+
+    a {
+      color: ${(props) => props.theme.textLink};
+    }
+  }
 `;
 
 export default StyledWrapper;

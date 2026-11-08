@@ -1,22 +1,41 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import get from 'lodash/get';
 import debounce from 'lodash/debounce';
 import { useFormik } from 'formik';
 import { useSelector, useDispatch } from 'react-redux';
 import { savePreferences } from 'providers/ReduxStore/slices/app';
-import { browseDirectory } from 'providers/ReduxStore/slices/collections/actions';
+import { browseDirectory, showInFolder } from 'providers/ReduxStore/slices/collections/actions';
 import StyledWrapper from './StyledWrapper';
 import * as Yup from 'yup';
 import toast from 'react-hot-toast';
-import { IconTrash, IconUpload } from '@tabler/icons';
+import { IconTrash, IconUpload, IconCopy } from '@tabler/icons';
 import path from 'utils/common/path';
+import { getRevealInFolderLabel } from 'utils/common/platform';
+import { REPOSITORY_URL } from 'utils/branding';
 import { SettingsGroup, CheckboxSetting, SettingsField } from '../SettingsLayout';
 
 const General = () => {
   const preferences = useSelector((state) => state.app.preferences);
+  const collections = useSelector((state) => state.collections.collections);
   const dispatch = useDispatch();
   // The file input is hidden; the visible button forwards its click here.
   const inputFileCaCertificateRef = useRef();
+  // The main process owns the app data folder; the renderer only reads its path.
+  const [userDataPath, setUserDataPath] = useState('');
+  const revealInFolderLabel = getRevealInFolderLabel();
+
+  useEffect(() => {
+    let isSubscribed = true;
+    window?.ipcRenderer
+      ?.invoke('renderer:get-user-data-path')
+      .then((dataPath) => {
+        if (isSubscribed && typeof dataPath === 'string') setUserDataPath(dataPath);
+      })
+      .catch((error) => console.error('Could not read the app data folder path', error));
+    return () => {
+      isSubscribed = false;
+    };
+  }, []);
 
   const preferencesSchema = Yup.object().shape({
     sslVerification: Yup.boolean(),
@@ -180,10 +199,33 @@ const General = () => {
       });
   };
 
+  const copyPathToClipboard = (value) => {
+    navigator.clipboard
+      .writeText(value)
+      .then(() => toast.success('Copied'))
+      .catch(() => toast.error('Failed to copy path'));
+  };
+
+  const revealPathInFolder = (pathname) => {
+    dispatch(showInFolder(pathname)).catch(() => {
+      toast.error('Error opening the folder');
+    });
+  };
+
   const customCaCertificateEnabled = formik.values.customCaCertificate.enabled;
   const customCaCertificatePath = formik.values.customCaCertificate.filePath;
   const keepDefaultCaCertificatesDisabled = !(customCaCertificateEnabled && customCaCertificatePath);
   const autoSaveEnabled = formik.values.autoSave.enabled;
+
+  // Privacy: where collections live on this machine, deduped, in the order they were loaded.
+  const openCollectionFolders = [];
+  const seenCollectionPaths = new Set();
+  collections.forEach((collection) => {
+    if (!collection?.pathname || seenCollectionPaths.has(collection.pathname)) return;
+    seenCollectionPaths.add(collection.pathname);
+    openCollectionFolders.push({ name: collection.name, pathname: collection.pathname });
+  });
+  const aiEnabled = get(preferences, 'ai.enabled', false);
 
   // gate typed field errors on touched so they are not flashed on every keystroke
   const autoSaveIntervalTouched = get(formik.touched, 'autoSave.interval', false);
@@ -259,7 +301,10 @@ const General = () => {
           </CheckboxSetting>
         </SettingsGroup>
 
-        <SettingsGroup title="Privacy">
+        <SettingsGroup
+          title="Privacy"
+          description="RestLab keeps everything on your machine and sends nothing you did not start."
+        >
           <CheckboxSetting
             id="fetchNotifications"
             name="fetchNotifications"
@@ -269,6 +314,102 @@ const General = () => {
             checked={formik.values.fetchNotifications}
             onChange={formik.handleChange}
           />
+
+          <div className="privacy-data-lives" data-testid="privacy-data-lives">
+            <div className="privacy-block-title">Where your data lives</div>
+            <div className="privacy-path-row" data-testid="privacy-user-data-path">
+              <div className="privacy-path-info">
+                <span className="privacy-path-label">App data folder</span>
+                <span className="privacy-path-hint">Preferences, global environments, sessions and other app data</span>
+                <span className="privacy-path" title={userDataPath}>
+                  {userDataPath || '…'}
+                </span>
+              </div>
+              <div className="privacy-path-actions">
+                <button
+                  type="button"
+                  className="privacy-path-action"
+                  data-testid="privacy-copy-user-data"
+                  disabled={!userDataPath}
+                  onClick={() => copyPathToClipboard(userDataPath)}
+                >
+                  <IconCopy strokeWidth={1.5} size={14} aria-hidden="true" />
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  className="privacy-path-action"
+                  data-testid="privacy-reveal-user-data"
+                  disabled={!userDataPath}
+                  onClick={() => revealPathInFolder(userDataPath)}
+                >
+                  {revealInFolderLabel}
+                </button>
+              </div>
+            </div>
+            {openCollectionFolders.length > 0 ? (
+              openCollectionFolders.map((collection) => (
+                <div className="privacy-path-row" data-testid="privacy-collection-path" key={collection.pathname}>
+                  <div className="privacy-path-info">
+                    <span className="privacy-path-label">{collection.name}</span>
+                    <span className="privacy-path-hint">Collection</span>
+                    <span className="privacy-path" title={collection.pathname}>
+                      {collection.pathname}
+                    </span>
+                  </div>
+                  <div className="privacy-path-actions">
+                    <button
+                      type="button"
+                      className="privacy-path-action"
+                      data-testid="privacy-copy-collection"
+                      onClick={() => copyPathToClipboard(collection.pathname)}
+                    >
+                      <IconCopy strokeWidth={1.5} size={14} aria-hidden="true" />
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      className="privacy-path-action"
+                      onClick={() => revealPathInFolder(collection.pathname)}
+                    >
+                      {revealInFolderLabel}
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <span className="privacy-path-hint" data-testid="privacy-no-collections">
+                No collections open
+              </span>
+            )}
+          </div>
+
+          <div className="privacy-connects" data-testid="privacy-connects">
+            <div className="privacy-block-title">What can connect</div>
+            <ul className="privacy-connect-list">
+              <li>The requests you send, to the servers you enter.</li>
+              <li>
+                OAuth2 token requests, when you ask for a token: the reply is received by default on a
+                loopback address of this machine, as documented in the inventory below.
+              </li>
+              <li data-testid="privacy-ai-state">
+                AI providers, only while AI is turned on with your own key. Currently: {aiEnabled ? 'on' : 'off'}.
+              </li>
+            </ul>
+            <p className="privacy-inventory-note" data-testid="privacy-inventory-note">
+              {REPOSITORY_URL ? (
+                <>
+                  Complete list of every outbound connection:{' '}
+                  <a href={`${REPOSITORY_URL}/blob/main/docs/privacy/network-inventory.md`}>network inventory</a>.
+                </>
+              ) : (
+                <>
+                  Complete list of every outbound connection: <code>docs/privacy/network-inventory.md</code> in the
+                  RestLab repository.
+                </>
+              )}
+            </p>
+          </div>
         </SettingsGroup>
 
         <SettingsGroup title="Cookies & Authorization">
