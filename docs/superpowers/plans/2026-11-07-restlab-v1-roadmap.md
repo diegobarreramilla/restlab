@@ -1,5 +1,7 @@
 # RestLab v1 — Roadmap
 
+> El roadmap completo (v1 y después) está en `docs/ROADMAP.md`. La meta A2 de abajo ya se hizo: ver `docs/branding.md`, sección "Decisiones tomadas".
+
 Fecha: 2026-11-07 · Complementa `2026-11-07-restlab-v1-plan.md` (qué contiene cada hito) y `specs/2026-11-07-restlab-v1-design.md` (por qué).
 
 Sin fechas: el tamaño de cada meta va en **S / M / L** (pequeña, mediana, grande). El orden sale de la evidencia del informe `reports/Debilidades de Bruno Postman Insomnia.md`.

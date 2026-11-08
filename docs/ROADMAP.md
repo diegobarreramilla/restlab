@@ -1,0 +1,358 @@
+# RestLab — Roadmap completo
+
+Fecha: 2026-11-07 · Rama de trabajo: `restlab/v1-local-first`
+
+Este documento ordena **todo** el trabajo, desde lo ya hecho hasta las ideas de largo plazo (extensiones, IA que diagnostica, sincronización). Cada meta se puede ejecutar leyendo solo su sección.
+
+Documentos relacionados, para no repetir:
+- Por qué existe el proyecto y qué se decidió: `docs/superpowers/specs/2026-11-07-restlab-v1-design.md`
+- Qué contiene cada hito de la v1: `docs/superpowers/plans/2026-11-07-restlab-v1-plan.md`
+- Versión previa y más corta de este roadmap: `docs/superpowers/plans/2026-11-07-restlab-v1-roadmap.md`
+- Evidencia de usuarios: `reports/Debilidades de Bruno Postman Insomnia.md`
+- Qué conserva el nombre Bruno y qué falta de la marca: `docs/branding.md`
+- Qué llamadas de red existen: `docs/privacy/network-inventory.md`
+
+---
+
+## 1. Cómo usar este documento
+
+**Tamaños**, sin fechas: **S** (horas), **M** (un par de días), **L** (una semana o más).
+
+**Evidencia** que respalda cada meta, tomada del informe: **A** demanda directa y repetida · **B** demanda directa pero escasa · **C** hueco inferido, sin petición de usuarios · **P** propuesta del proyecto (tuya o mía).
+
+**Cada meta tiene el mismo formato:** objetivo, por qué, pasos numerados, dónde se toca, cómo se comprueba y "listo cuando". Si un paso dice *Verificar primero*, hay que comprobar el punto antes de escribir código, porque puede que el fork ya lo traiga resuelto.
+
+### Reglas que valen para todas las metas
+
+1. **Un commit por módulo o tarea**, en la rama `restlab/*`, con mensaje que diga qué cambia. **Sin línea `Co-Authored-By`.**
+2. **Promesa local-first.** Ninguna llamada de red que el usuario no haya iniciado, salvo opción apagada por defecto. Toda llamada nueva se anota en `docs/privacy/network-inventory.md` en el mismo commit.
+3. **Comprobar en la app real.** Pasar las pruebas no basta para lo visual: se abre la app y se mira (`PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11"` en Wayland, ver `.claude/rules/testing.md`).
+4. **Prueba de mutación** en cada comportamiento delicado: se rompe a propósito la línea que lo protege, se confirma que la prueba falla y se restaura.
+5. **Formato en disco intacto.** Una colección guardada por Bruno debe abrirse y guardarse sin perder campos (`.claude/rules/dsl-changes.md`). Si una meta pide cambiar el formato, se detiene y se decide antes.
+6. **Gemelos.** Si un cambio toca la app, revisar su par en la CLI (`.claude/rules/feature-parity.md`) o declarar por qué no.
+7. **Orden de comandos útiles:** `npm run lint:fix`, `npm test --workspace=packages/<paquete> -- <archivo>`, `npx playwright test <archivo> --project=default`.
+8. **No renombrar** paquetes `@usebruno/*`, `.bru`, `bruno.json` ni `bru.*` (ver `docs/branding.md`).
+
+---
+
+## 2. Dónde estamos
+
+| Etapa | Estado |
+|---|---|
+| **0. Base y marca** (nombre RestLab, logo provisional, `appId`, esquema `restlab://`, copyright, changelog propio, enlaces ajenos fuera) | Hecho |
+| **1. Local-first** (sin telemetría, anuncios opt-in, OAuth2 por dirección local, aviso sin conexión, documentación generada sin red) | Hecho en código y pruebas; falta probar con un proveedor OAuth2 real y con la red desconectada de verdad |
+| **2. IA opcional** (apagada por defecto, claves propias, Ollama, redacción reversible de secretos, vista previa "What's sent", "Review before sending") | Hecho en código y pruebas; falta verla responder con un proveedor real |
+| **3. Rendimiento** | Sin empezar |
+| **4. Fallos del fork y calidad de vida** | Sin empezar |
+| **5. Apuestas** (rutas desde OpenAPI, archivos) | Sin empezar, sujetas a validación |
+| **6. Interfaz** | Sin empezar |
+| **7. Salida de la v1** | Sin empezar |
+| **8 en adelante** (extensiones, IA que diagnostica, sincronización, versión de empresa) | Ideas ordenadas abajo |
+
+Fallos conocidos y anteriores a este trabajo: 2 pruebas de `humanizeDate` que dependen de la zona horaria (`bruno-app`) y 3 pruebas de QuickJS con saltos de línea CRLF/CR (`bruno-electron/tests/utils/collection.spec.js`). Están documentados para que no se confundan con regresiones.
+
+---
+
+## 3. Etapa 1 — Cierre de confianza (lo que falta de la v1 local-first)
+
+### 3.1 Verificaciones que necesitan algo externo · S · P
+
+**Por qué:** convierte "pasa las pruebas" en "funciona". Son los únicos puntos de las etapas 1 y 2 que no he podido ver con mis propios ojos.
+
+**Pasos**
+1. **OAuth2 con un proveedor real.** Crear una aplicación OAuth2 en cualquier proveedor (GitHub sirve) con la dirección de retorno `http://127.0.0.1:47831/oauth2/callback`. Configurar una petición con Authorization Code, pulsar *Get token*, completar el inicio de sesión en el navegador del sistema. Comprobar que vuelve a la app y que el token aparece.
+2. **IA con un proveedor real.** Preferencias, IA: activar, pegar una clave, abrir una petición, usar *Generate* y el chat. Comprobar con "What's sent" que lo mostrado es lo enviado.
+3. **IA local.** Instalar Ollama, bajar un modelo pequeño, elegir el preajuste de Ollama (sin clave) y repetir. Confirmar con `ss -tnp` o un monitor de red que el tráfico solo va a `127.0.0.1`.
+4. **Red desconectada de verdad.** Apagar el wifi (y, aparte, probar con Docker activo). Comprobar que aparece "Offline mode", que al volver sale "Back online" y que los reintentos ocurren solos.
+5. **Documentación generada.** Generar la documentación de una colección, abrirla en el navegador **sin red** y comprobar que se ve completa.
+
+**Listo cuando:** cada punto tiene resultado anotado en `docs/superpowers/plans/2026-11-07-restlab-v1-roadmap.md` (tabla A1). Lo que falle pasa a la lista de la etapa 4.
+
+### 3.2 Pendientes de marca · S · P
+
+Ver tabla "Pendiente" de `docs/branding.md`. Resumen:
+1. Cuando exista el repositorio público: dar valor a `ISSUES_URL` y `REPOSITORY_URL` en `packages/bruno-app/src/utils/branding/index.js`. Con eso reaparecen solos el reporte de errores, el botón de código fuente y la sección Soporte.
+2. Cuando exista la documentación propia: dar valor a `DOCS_URL` y devolver "Documentation" al menú Ayuda.
+3. Decidir qué hacer con los anuncios (`appinfo.usebruno.com`, apagados por defecto): eliminarlos del todo es lo más coherente con la promesa; mantenerlos apuntando a un servicio propio solo si algún día hay algo que anunciar.
+4. Reemplazar iconos y logo cuando existan los oficiales (tabla en `docs/branding.md`).
+5. Reescribir `readme.md` y `docs/` que aún hablan de Bruno.
+
+---
+
+## 4. Etapa 2 — Rendimiento
+
+### 4.1 Medir antes de corregir · M · A
+
+**Objetivo:** números de línea base y solo dos correcciones.
+
+**Pasos**
+1. Crear `docs/perf/README.md` con la máquina usada (CPU, RAM, sistema) y el método.
+2. Preparar tres escenarios y guardarlos como fixtures en `tests/perf/`:
+   - Arranque en frío hasta tener la primera colección visible.
+   - Colección de **más de 500 peticiones** (generar con un script, para que sea reproducible).
+   - Respuesta JSON de **5 a 10 MB** servida desde un servidor local de prueba.
+3. Usar el montaje existente: `playwright.benchmark.config.ts` y `npm run build:electron:benchmark`. Registrar tiempo de arranque, tiempo de abrir la colección, memoria tras 5 minutos y tiempo hasta pintar la respuesta.
+4. Perfilar los dos peores en DevTools (pestaña Performance) y anotar la causa en `docs/perf/`.
+5. Corregir **solo los dos mayores**. Medir otra vez con el mismo método.
+
+**Dónde mirar primero (hipótesis, a confirmar con el perfil):** el visor de respuesta (CodeMirror con documentos grandes), el árbol de la barra lateral con muchos elementos, y la carga inicial de colecciones en `bruno-electron/src/app/collection-watcher.js`.
+
+**Listo cuando:** `docs/perf/` tiene la tabla antes/después y los dos casos mejoran. Un commit por corrección.
+
+### 4.2 Respuestas enormes que no congelan la app · M · A
+
+Cae dentro de 4.1 si el perfil lo señala; si no, se hace aparte.
+1. Fijar un límite configurable (por ejemplo 5 MB) a partir del cual la respuesta no se resalta ni se formatea en pantalla.
+2. Mostrar un aviso con tres acciones: *ver como texto sin formato*, *guardar en archivo*, *formatear de todos modos*.
+3. Prueba con la respuesta de 10 MB: la ventana debe seguir respondiendo (medir bloqueo del hilo principal).
+
+**Por qué:** "Postman congelándose con JSON de más de 1 MB" es una queja textual del informe.
+
+---
+
+## 5. Etapa 3 — Fallos del fork y calidad de vida
+
+Todas las metas de esta etapa son pequeñas o medianas. **Antes de cada una, verificar si este fork ya la trae** (la base es una versión reciente de Bruno).
+
+### 5.1 Fallos con más evidencia (del informe)
+
+| Meta | Referencia | Verificar primero | Tamaño |
+|---|---|---|---|
+| Entornos anidados | Bruno #292 (49 reacciones) | El esquema ya admite `extends` entre entornos (`packages/bruno-schema/src/collections/index.js`). Probarlo en la app antes de tocar nada; puede que solo falte descubribilidad en la interfaz | S |
+| OAuth2: reinicio del token | #4392 | Reproducir en la app: ¿se pierde el token al reiniciar? | M |
+| Certificados autofirmados | #4949 | Reproducir con un servidor HTTPS de prueba con certificado propio | M |
+| Pestañas desactivables | Bruno #1739, Insomnia #8488 | `components/Tabs` y `RequestTabs`; ver si hay ajuste ya | S–M |
+
+**Cómo ejecutar cada una:** (1) reproducir y escribir una prueba que falle, (2) corregir, (3) la prueba pasa, (4) abrir la app y verlo, (5) registrar el commit de Bruno si el arreglo viene de allí (regla de sincronización selectiva), (6) revisar el gemelo en la CLI.
+
+**Listo cuando:** se eligen **tres** con la evidencia de la etapa 2 y cada una tiene prueba y comprobación visual.
+
+### 5.2 Importación OpenAPI fiel · M · B
+
+**Por qué:** es la base de la etapa 5; sin buena importación el autocompletado no sirve. Las quejas del informe: variables de servidor que dejan cada endpoint por corregir, host y esquemas grandes.
+
+1. Reunir tres especificaciones reales en `tests/import/openapi/fixtures/`: una pequeña, una grande (más de 200 operaciones) y una con variables de servidor.
+2. Importar cada una con el código actual (`packages/bruno-converters/src/openapi/`) y anotar qué se pierde o queda mal.
+3. Corregir con pruebas de entrada y salida junto al convertidor.
+4. Comprobar la ruta de la CLI (`bru import`), que comparte el convertidor.
+
+**Listo cuando:** las tres importan sin pérdidas silenciosas y lo que no se pueda representar queda avisado (como ya hace el aviso de importación de Postman).
+
+### 5.3 Mejoras pequeñas sacadas de la investigación
+
+Cada una está pensada para que quien la use la note sin que la pida. Se ordenan por relación entre valor y esfuerzo.
+
+| Mejora | Motivo en la investigación | Esfuerzo | Notas |
+|---|---|---|---|
+| **Copia de seguridad visible antes de migrar de formato o actualizar** | El miedo a perder datos tras actualizar es de las quejas más fuertes contra Insomnia (#6585, 74 reacciones) | S | La migración BRU a YML ya hace copia y revierte si falla (`ipc/yml-migration.js`). Falta **decirlo** al usuario, y dónde queda la copia |
+| **"Todo está en tu disco"** en un solo lugar | La promesa de confianza es el principal motivo de elegir esta herramienta | S | Una línea en Preferencias, General, Privacy: carpeta de datos, carpeta de colecciones y lista de lo único que puede conectarse (enlace al inventario). Cero lógica nueva |
+| **Petición suelta sin colección** | Postman retiró el Scratch Pad y generó abandono | S | El proyecto ya usa colecciones "scratch" internas (`scratchCollectionUid`). Verificar si el usuario puede abrir la app y enviar una petición sin crear nada; si no, hacerlo evidente |
+| **Modo vim en el editor** | Bruno #2373 (57 reacciones) | M | CodeMirror admite el mapa de teclas vim; hace falta el ajuste, la carga diferida del módulo y probar con los atajos de la app |
+| **Pestañas de varias colecciones a la vez** | Bruno #5807 (33) | M | Comprobar primero qué ofrece el espacio de trabajo actual |
+| **Atajos de teclado y paleta de comandos** | Usuarios que "quieren que no estorbe" | M | Ya existe el buscador global; ampliarlo a acciones (nueva petición, cambiar entorno, abrir ajustes). También sienta la base de las extensiones (etapa 9) |
+| **Enviar y recibir desde la línea de comandos con la misma colección** | El agente externo del usuario ya cubre la IA ("vibecode Postman"); lo defendible es el contexto propio | M | `bru run` ya existe. Documentar el uso para agentes y, más adelante, un servidor MCP (etapa 10) |
+| **Importar desde Postman e Insomnia con informe de lo perdido** | Es el camino de entrada de quienes se van | S | Ya hay aviso de importación; añadir el recuento "N de M elementos importados" y exportar el informe a archivo |
+| **Valores por defecto sin sorpresas** | "Bait and switch" es la queja de fondo | S | Revisar que ninguna opción nueva de la base venga activa y que no existan avisos de pago ni anuncios; añadir una prueba que lo vigile (`tests/` recorriendo Preferencias) |
+| **Internacionalización** | Bruno #322 (58 reacciones) | M | La app ya usa `react-i18next`. Completar el español y dejar la guía para añadir idiomas; comprobar que lo nuevo (offline, "What's sent") usa claves y no texto fijo |
+
+**Orden recomendado dentro de 5.3:** "Todo está en tu disco", copia de seguridad visible, petición suelta, informe de importación, valores por defecto sin sorpresas. Son pequeñas, refuerzan la promesa y no tocan el formato.
+
+---
+
+## 6. Etapa 4 — Las apuestas, con validación
+
+Ninguna tiene demanda comprobada. Se construyen **pequeñas** y se validan antes de pulir. Se necesita 5.2 terminada.
+
+### 6.1 Autocompletado de rutas desde OpenAPI (M3) · L · C
+
+**Objetivo:** al escribir la URL, sugerir rutas reales del servicio.
+
+**Pasos**
+1. **Índice de rutas.** Función pura que, dada una especificación, devuelve rutas, métodos y parámetros. Va en un paquete sin dependencias de Electron (`bruno-common` si cabe en sus reglas, o `bruno-converters`). Pruebas con las tres especificaciones de 5.2.
+2. **Fuente de la especificación**, por orden de prioridad:
+   a. La especificación vinculada a la colección (ya existe la sincronización OpenAPI: `useOpenAPISyncPolling`).
+   b. Un archivo local elegido por el usuario.
+   c. Búsqueda en el servidor al escribir la URL base (`/openapi.json`, `/swagger.json`, `/v3/api-docs`). **Es una llamada de red**: apagable, apagada por defecto hasta que el usuario la active una vez, y anotada en el inventario.
+3. **Lista desplegable en la barra de URL.** Reutilizar el sistema de autocompletado de CodeMirror existente (`utils/codemirror/autocomplete.js`) en vez de crear otro. Nada inventado si no hay especificación: sin especificación, no se muestra nada.
+4. **Indicador de salud** del servidor (responde o no) al elegir una ruta, solo a petición del usuario.
+5. **Variables de ruta.** Al elegir `/users/{id}`, crear el parámetro de ruta ya nombrado.
+
+**Dónde se toca:** `packages/bruno-app/src/components/RequestPane/QueryUrl/`, `utils/codemirror/`, un módulo nuevo `utils/openapi-routes/`.
+
+**Listo cuando:** funciona con las tres especificaciones, sin especificación no aparece nada, y la búsqueda automática está apagada y registrada.
+
+### 6.2 Archivos con menos pasos (M4) · S · C
+
+1. Verificar qué deduce hoy Bruno del tipo de contenido al adjuntar archivos.
+2. Lo manual que queda es el **nombre de la clave**. Rellenarla desde, por orden: la especificación (si hay), el último uso en la colección, el nombre del archivo. **Siempre editable.**
+3. Guardar rutas **relativas a la colección** cuando el archivo está dentro de ella, para que sea portable al compartir por Git.
+
+**Listo cuando:** adjuntar un archivo requiere elegir el archivo y nada más en el caso común, y el cambio no altera el formato en disco (si lo alterara, parar y decidir).
+
+### 6.3 Sesión de validación · S · P
+
+1. Reclutar 3 a 5 desarrolladores que usen OpenAPI (decidir quiénes: ver sección 13).
+2. Darles una tarea real que use 6.1 y 6.2 **sin explicar** cómo.
+3. Anotar si lo usan solos, dónde dudan y qué dicen. Guardar en `docs/research/validation-1.md`.
+4. Regla: si no lo usan sin que se les diga, no se pule y no bloquea la v1.
+
+---
+
+## 7. Etapa 5 — Interfaz y primer uso
+
+### 7.1 UI minimalista y expresiva (M5) · M · B
+
+**Por qué:** hay evidencia contra el desorden; "expresiva" es una apuesta de diseño tuya.
+
+1. **Mockups antes de código**, contigo, con las skills `ui-taste` y `building-components`. Pantallas: lista de colecciones, editor de petición, respuesta, preferencias, primer arranque.
+2. Principios para decidir: lo que no se usa no se ve; cada pantalla con una acción principal; sin avisos que interrumpan; densidad ajustable.
+3. **Personalización más allá de temas** (idea tuya del inicio): densidad (compacta o cómoda), tamaño de fuente de la interfaz y del editor, posición del panel de respuesta (derecha o abajo, ya existe en parte), barra de pestañas activable, atajos reasignables. Cada ajuste vive en Preferencias, General o Display, con un valor por defecto sensato.
+4. **Primer uso:** que alguien nuevo cree y envíe una petición sin ayuda (el modal de bienvenida ya existe). Medirlo con la sesión 6.3.
+5. Aplicar el logo y los iconos oficiales (`docs/branding.md`).
+
+**Listo cuando:** los mockups están aprobados por ti, la implementación los sigue en claro y oscuro, y el recorrido del nuevo usuario se completó sin ayuda.
+
+---
+
+## 8. Etapa 6 — Salida de la v1
+
+### 8.1 Base interna para extensiones (ADR) · S · P
+
+Solo documento, sin API pública. Crear `docs/adr/0001-extensions-seam.md` respondiendo:
+1. **Qué puede hacer una extensión** en su primera versión: añadir comandos a la paleta, paneles laterales, pestañas propias, temas, y reaccionar a eventos (antes de enviar, al recibir respuesta).
+2. **Dónde corre:** proceso aparte con permisos explícitos, no dentro de la ventana principal.
+3. **Qué NO puede hacer sin permiso:** leer secretos, usar la red, escribir fuera de la colección.
+4. **Dónde se engancha hoy:** puntos candidatos en el código (`ipc/`, el menú, `Redux`), para no cerrar puertas con cambios de la etapa 5.
+5. Qué se aprende de Bruno #1529 y de los plugins en TypeScript de Yaak.
+
+### 8.2 Paquetes e instaladores · M · P
+
+1. Decidir plataformas del primer instalador (sección 13).
+2. Probar `npm run build:electron:linux` (y mac/win en máquinas o CI correspondientes). La configuración ya usa `APP_NAME` y `com.restlab.app`.
+3. Revisar `resources/installer.nsh` (Windows) y las entradas `.desktop` y el esquema `restlab://` en Linux.
+4. **Instalación limpia:** en una máquina virtual sin nada, instalar, abrir, comprobar la carpeta de datos esperada y que `restlab://` abre la app.
+5. **Firmas.** macOS necesita notarización; Windows, un certificado. Son decisiones de coste (sección 13).
+6. Pipeline de CI: pruebas unitarias, e2e y construcción del paquete.
+
+### 8.3 Revisión final · S · P
+
+1. `/code-review` sobre toda la rama contra la base de Bruno.
+2. `/security-review`, con foco en: redacción de secretos, servidor de retorno OAuth2, lectura de archivos del visor, esquema `restlab://`.
+3. **Inventario de red completo con la red bloqueada:** arrancar con `unshare -n` o un cortafuegos, recorrer la app y confirmar que no falla nada ni intenta salir.
+4. **Compatibilidad de formato:** abrir 3 colecciones reales de Bruno (`.bru` y `.yml`), guardar sin cambios y verificar con `git diff` que no cambia nada.
+5. Corregir las dos pruebas de fecha por zona horaria y decidir qué hacer con las 3 de QuickJS.
+
+### 8.4 Documentación mínima · S · P
+
+Qué es RestLab y la promesa local-first · cómo activar la IA y ver lo que se envía · cómo registrar la dirección de retorno de OAuth2 · dónde está cada cosa en disco · cómo reportar errores (cuando exista el repositorio).
+
+### Condiciones para llamarla "v1"
+
+1. Local-first comprobado con la red bloqueada. 2. IA opcional verificable. 3. Nada que dirija a servicios ajenos sin decirlo. 4. Mediciones de rendimiento registradas y mejoradas. 5. Instaladores que arrancan en una máquina limpia. 6. Suites en verde, salvo fallos conocidos documentados.
+
+Las apuestas (6.1, 6.2) **no son condición**: entran si 6.3 las valida.
+
+---
+
+## 9. Etapa 7 — Extensiones (después de la v1)
+
+Idea tuya del inicio: personalización profunda "como las extensiones de VS Code". Es un proyecto propio; se divide para poder entregar valor en cada paso.
+
+| Paso | Qué entrega | Tamaño |
+|---|---|---|
+| 9.1 Anfitrión de extensiones | Proceso aparte, manifiesto (`restlab-extension.json`), carga desde una carpeta del usuario, sin tienda | L |
+| 9.2 Contribuciones básicas | Comandos en la paleta, temas, paneles laterales | L |
+| 9.3 Eventos | Ganchos antes de enviar y al recibir respuesta, con permisos declarados y pedidos al usuario | L |
+| 9.4 Permisos y firma | Modelo de permisos visible, extensiones firmadas, desactivar todo con un interruptor | M |
+| 9.5 Documentación para autores y ejemplos | Plantilla, guía y 3 ejemplos que funcionen | M |
+| 9.6 Catálogo | Solo cuando haya autores. Instalación manual desde repositorio primero | L |
+
+**Ejemplos de extensiones que tú planteaste** (sirven como casos de prueba del diseño; ninguna va dentro del núcleo):
+- **Simulación de peticiones a un sitio web** (carga o tráfico de prueba): usa eventos y permisos de red explícitos.
+- **Probar una URL y sus rutas permitidas**: recorre rutas conocidas (de OpenAPI o de la colección) y reporta cuáles responden.
+- **Verificación de integridad**: comprueba que las respuestas cumplen un esquema.
+
+Regla: el núcleo sigue siendo útil sin ninguna extensión, y ninguna se instala sola.
+
+---
+
+## 10. Etapa 8 — IA que diagnostica (después de la v1)
+
+Idea tuya del inicio: un asistente al estilo de OpenCode que vea el proyecto, las peticiones y respuestas y ayude a encontrar y corregir el código que falla. Se construye sobre la IA opcional ya hecha (vista previa, redacción, claves propias).
+
+| Paso | Qué entrega | Condición |
+|---|---|---|
+| 10.1 **Explicar este fallo** | Botón en una respuesta con error: la IA recibe petición y respuesta (redactadas, con vista previa) y explica causas probables. Nada se envía sin pulsarlo | Decidir cuánto del cuerpo de la respuesta ve la IA (sección 13) |
+| 10.2 **Servidor MCP y CLI para agentes externos** | `restlab mcp` expone colecciones, entornos (sin secretos) y envío de peticiones a Claude Code, OpenCode u otro agente propio del usuario | Lo defendible según el informe: contexto propio del cliente, agente propio del usuario |
+| 10.3 **Contexto del código fuente** | El usuario indica una carpeta de proyecto; el asistente ve rutas y controladores para relacionar un fallo con el código | Solo lectura, carpeta elegida explícitamente, vista previa de lo enviado |
+| 10.4 **Propuestas de corrección** | Cambios mostrados como diff que el usuario aprueba; nunca escribe solo | Reutiliza el flujo "Apply" con restauración de valores |
+| 10.5 **Descubrir rutas desde el código** | Alternativa a OpenAPI para proyectos sin especificación | Depende de 10.3 |
+
+Reglas permanentes de la IA: apagada por defecto, nada visible cuando está apagada, claves propias, secretos redactados con vista previa, nunca corre en segundo plano.
+
+---
+
+## 11. Etapa 9 — Colaboración, nube y versión de empresa (después de la v1)
+
+Tu observación: para vender una versión a empresas o grupos grandes importan ambas cosas, Git y nube. La investigación dice que el rechazo a la nube forzada es la queja principal, así que **todo es opcional y local por defecto**.
+
+| Paso | Qué entrega | Notas |
+|---|---|---|
+| 11.1 Sincronización con Google Drive | Una carpeta de Drive del usuario como respaldo y sincronización de colecciones | Idea guardada: `docs/superpowers/ideas/2026-11-07-google-drive-sync.md`. Cuidar conflictos y secretos (nunca subirlos) |
+| 11.2 Flujo guiado con Git | Ver estado, commit y rama desde la interfaz, para quienes no usan terminal | Bruno ya tiene integración de Git; medir qué falta |
+| 11.3 Entornos y secretos compartidos | Gestor de secretos externo (Bruno ya integra varios) | Sin guardar secretos en texto plano en el repositorio |
+| 11.4 Auditoría y políticas para equipos | Registro local de qué se envió y a dónde; política de IA fijada por la organización | Es lo que una empresa pide y no cuesta privacidad |
+| 11.5 Modelo comercial | Decidir qué es gratis siempre y qué se cobra, **antes** de escribir código de pago | Riesgo: repetir el "rug pull" que el informe señala en Bruno. Publicar el compromiso por escrito |
+
+---
+
+## 12. Orden resumido
+
+```
+Hecho ─ marca, local-first, IA opcional, fin de enlaces ajenos
+  │
+  ▼
+1  Verificaciones externas (3.1) + pendientes de marca (3.2)
+2  Rendimiento: medir (4.1) → corregir 2 → respuestas grandes (4.2)
+3  Importación OpenAPI fiel (5.2) → 3 fallos del fork (5.1) → mejoras pequeñas (5.3)
+4  Apuestas pequeñas (6.1, 6.2) → sesión de validación (6.3)
+5  UI con mockups (7.1)
+6  ADR de extensiones (8.1) → instaladores (8.2) → revisión (8.3) → docs (8.4)
+   ═══════════════ v1 ═══════════════
+7  Extensiones (9.x)     8  IA que diagnostica (10.x)     9  Nube y empresa (11.x)
+```
+
+**Por qué este orden:** las etapas 1 a 3 refuerzan la promesa, que es lo que decide la elección según el informe; las apuestas van tras tener buena importación y se frenan hasta validar; la interfaz se diseña cuando ya se sabe qué funciones quedan; las extensiones y la IA que diagnostica necesitan una base estable y usuarios.
+
+**Si hay poco tiempo**, el mínimo que sostiene la promesa es: 3.1, 4.1, 5.3 (las tres primeras filas del orden recomendado), 8.2 y 8.3.
+
+---
+
+## 13. Decisiones que siguen abiertas
+
+| # | Decisión | Cuándo hace falta | Mi recomendación |
+|---|---|---|---|
+| 1 | Repositorio público de RestLab (para reportes y código fuente) | Antes de publicar | Crearlo cuando haya una versión instalable; hasta entonces el botón queda oculto |
+| 2 | Los tres fallos del fork a priorizar | Tras medir (4.1) | Pestañas desactivables, certificados autofirmados y OAuth2, salvo que 4.1 muestre otra cosa |
+| 3 | Quiénes participan en la validación | Antes de 6.3 | Tres personas que usen OpenAPI a diario; mejor externas a ti |
+| 4 | Plataformas del primer instalador | Antes de 8.2 | Linux primero (donde desarrollas); macOS y Windows cuando haya CI |
+| 5 | Firmas y certificados | Antes de publicar | Postergar mientras sea solo para ti y probadores |
+| 6 | Cuánto de la respuesta ve la IA en "Explicar este fallo" | Antes de 10.1 | Cabeceras y estado por defecto; el cuerpo solo si el usuario lo marca, con vista previa |
+| 7 | Modelo comercial | Antes de cualquier función de pago | Definir una promesa escrita de lo que siempre será gratis |
+| 8 | Qué hacer con los anuncios de Bruno | Antes de la v1 | Eliminar el código |
+| 9 | Logo e iconos oficiales | Antes de publicar | Ver `docs/branding.md` |
+
+---
+
+## 14. Apéndice — Registro de lo decidido el 2026-11-07
+
+| Tema | Resolución |
+|---|---|
+| Reporte de errores | Oculto hasta tener repositorio; la dirección vive en `utils/branding` |
+| Changelog | Propio, en `components/ChangelogTab/CHANGELOG.md` |
+| Documentación generada | Visor incrustado, sin red |
+| Enlaces a documentación de Bruno | Eliminados; falta la documentación propia |
+| `appId` y esquema | `com.restlab.app` y `restlab://` |
+| Copyright | "Copyright (c) 2026 RestLab", conservando el aviso original de Bruno exigido por la licencia MIT |
+| Metadatos de exportación | `RestLab/<versión>` (CLI: `restlab-cli/<versión>`) |
+| Commits | Uno por módulo, sin `Co-Authored-By` |
