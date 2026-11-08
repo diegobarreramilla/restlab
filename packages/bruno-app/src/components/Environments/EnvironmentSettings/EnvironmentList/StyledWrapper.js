@@ -304,11 +304,17 @@ const StyledWrapper = styled.div`
         flex: 1;
         min-width: 0;
         background: transparent;
-        border: none;
+        border: 1px solid ${(props) => props.theme.border.border1};
+        border-radius: 5px;
         outline: none;
         color: ${(props) => props.theme.text};
         font-size: 13px;
-        padding: 2px 4px;
+        padding: 2px 6px;
+        transition: border-color 0.15s ease;
+
+        &:focus {
+          border-color: ${(props) => props.theme.colors.accent};
+        }
 
         &::placeholder {
           color: ${(props) => props.theme.colors.text.muted};
@@ -328,11 +334,17 @@ const StyledWrapper = styled.div`
         flex: 1;
         min-width: 0;
         background: transparent;
-        border: none;
+        border: 1px solid ${(props) => props.theme.border.border1};
+        border-radius: 5px;
         outline: none;
         color: ${(props) => props.theme.text};
         font-size: 13px;
-        padding: 2px 4px;
+        padding: 2px 6px;
+        transition: border-color 0.15s ease;
+
+        &:focus {
+          border-color: ${(props) => props.theme.colors.accent};
+        }
 
         &::placeholder {
           color: ${(props) => props.theme.colors.text.muted};
@@ -347,34 +359,55 @@ const StyledWrapper = styled.div`
       }
     }
 
-    .inline-action-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 22px;
-      height: 22px;
-      padding: 0;
-      background: transparent;
+    .inline-confirm,
+    .inline-cancel {
+      height: 20px;
+      padding: 0 7px;
+      font-size: 11px;
+      line-height: 1;
       border: none;
       border-radius: 4px;
+      background: transparent;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
 
-      &.save {
-        color: ${(props) => props.theme.colors.text.green};
+    .inline-confirm {
+      font-weight: 600;
+      color: ${(props) => props.theme.colors.accent};
 
-        &:hover {
-          background: ${(props) => rgba(props.theme.colors.text.green, 0.1)};
-        }
+      &:hover {
+        background: ${(props) => rgba(props.theme.colors.accent, 0.12)};
       }
+    }
 
-      &.cancel {
-        color: ${(props) => props.theme.colors.text.danger};
+    .inline-cancel {
+      color: ${(props) => props.theme.colors.text.muted};
 
-        &:hover {
-          background: ${(props) => rgba(props.theme.colors.text.danger, 0.1)};
-        }
+      &:hover {
+        background: ${(props) => props.theme.sidebar.collection.item.hoverBg};
+        color: ${(props) => props.theme.text};
       }
+    }
+
+    &.just-added {
+      animation: env-just-added 1.8s ease-out;
+    }
+  }
+
+  @keyframes env-just-added {
+    0%, 35% {
+      background: ${(props) => rgba(props.theme.colors.accent, 0.18)};
+    }
+    100% {
+      background: transparent;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .environment-item.just-added {
+      animation: none;
+      background: ${(props) => rgba(props.theme.colors.accent, 0.12)};
     }
   }
 

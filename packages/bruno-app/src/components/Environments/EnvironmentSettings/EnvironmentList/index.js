@@ -38,6 +38,8 @@ import { setEnvVarSearchQuery, setEnvVarSearchExpanded } from 'providers/ReduxSt
 import { validateName, validateNameError } from 'utils/common/regex';
 import toast from 'react-hot-toast';
 import classnames from 'classnames';
+import useRecentOrder from 'hooks/useRecentOrder';
+import InlineNameActions from './InlineNameActions';
 
 const EMPTY_ARRAY = [];
 
@@ -52,6 +54,8 @@ const EnvironmentList = ({
   setShowExportModal
 }) => {
   const dispatch = useDispatch();
+  const recentOrder = useRecentOrder(`environments.${collection?.pathname || collection?.uid}`);
+  const [justAddedName, setJustAddedName] = useState(null);
   const activeTabUid = useSelector((state) => state.tabs.activeTabUid);
   const activeEnvTab = useSelector((state) => state.tabs.tabs.find((t) => t.uid === activeTabUid)?.tabState?.environment?.tab) || 'variables';
   const envSearchQuery = useSelector((state) => state.app.envVarSearch?.collection?.[activeEnvTab]?.query ?? '');
@@ -176,6 +180,7 @@ const EnvironmentList = ({
       return;
     }
     if (!isModified) {
+      recentOrder.touch(env.name);
       setSelectedEnvironment(env);
       setActiveView('environment');
       setEnvironmentsExpanded(true);
@@ -210,6 +215,7 @@ const EnvironmentList = ({
 
   const handleActivateEnvironment = useCallback((e, env) => {
     e.stopPropagation();
+    recentOrder.touch(env.name);
     dispatch(selectEnvironment(env.uid, collection.uid))
       .then(() => {
         toast.success(`Environment "${env.name}" activated`);
@@ -217,7 +223,7 @@ const EnvironmentList = ({
       .catch(() => {
         toast.error('Failed to activate environment');
       });
-  }, [dispatch, collection.uid]);
+  }, [dispatch, collection.uid, recentOrder]);
 
   const validateEnvironmentName = (name, excludeUid = null) => {
     if (!name || name.trim() === '') {
@@ -263,7 +269,12 @@ const EnvironmentList = ({
   const createEnvironment = (name) => {
     return dispatch(addEnvironment(name, collection.uid))
       .then(() => {
-        toast.success('Environment created!');
+        // The new row goes to the top and flashes, which says "created" without a message over the window
+        recentOrder.touch(name.trim());
+        setJustAddedName(name.trim());
+        setTimeout(() => setJustAddedName(null), 1800);
+        setSearchText('');
+        setCreateRowError('');
         return true;
       })
       .catch(() => {
@@ -330,9 +341,11 @@ const EnvironmentList = ({
       return;
     }
 
+    const previousName = renamingEnv?.name;
     dispatch(renameEnvironment(newEnvName, renamingEnvUid, collection.uid))
       .then(() => {
-        toast.success('Environment renamed!');
+        if (previousName) recentOrder.forget(previousName);
+        recentOrder.touch(newEnvName.trim());
         setRenamingEnvUid(null);
         setNewEnvName('');
         setEnvNameError('');
@@ -508,8 +521,11 @@ const EnvironmentList = ({
   const trimmedSearchText = searchText.trim();
 
   const filteredEnvironments = useMemo(
-    () => environments?.filter((env) => env.name.toLowerCase().includes(trimmedSearchText.toLowerCase())) || [],
-    [environments, trimmedSearchText]
+    () => recentOrder.sort(
+      environments?.filter((env) => env.name.toLowerCase().includes(trimmedSearchText.toLowerCase())) || [],
+      (env) => env.name
+    ),
+    [environments, trimmedSearchText, recentOrder.sort]
   );
 
   const showCreateRow = trimmedSearchText !== '' && filteredEnvironments.length === 0 && !isCreatingInline;
@@ -794,7 +810,8 @@ const EnvironmentList = ({
                         'active': isEnvOpen,
                         'renaming': renamingEnvUid === env.uid,
                         'activated': activeEnvironmentUid === env.uid,
-                        'is-selected': isEnvSelected
+                        'is-selected': isEnvSelected,
+                        'just-added': justAddedName === env.name
                       })}
                       onClick={(e) => renamingEnvUid !== env.uid && selection.handleRowInteraction(e, env)}
                       onContextMenu={(e) => renamingEnvUid !== env.uid && actions.handleRowContextMenu(e, env)}
@@ -815,24 +832,7 @@ const EnvironmentList = ({
                             autoCapitalize="off"
                             spellCheck="false"
                           />
-                          <div className="inline-actions">
-                            <button
-                              className="inline-action-btn save"
-                              onClick={handleSaveRename}
-                              onMouseDown={(e) => e.preventDefault()}
-                              title="Save"
-                            >
-                              <IconCheck size={14} strokeWidth={2} />
-                            </button>
-                            <button
-                              className="inline-action-btn cancel"
-                              onClick={handleCancelRename}
-                              onMouseDown={(e) => e.preventDefault()}
-                              title="Cancel"
-                            >
-                              <IconX size={14} strokeWidth={2} />
-                            </button>
-                          </div>
+                          <InlineNameActions confirmLabel="Save" onConfirm={handleSaveRename} onCancel={handleCancelRename} />
                         </div>
                       ) : (
                         <>
@@ -887,25 +887,12 @@ const EnvironmentList = ({
                       autoCapitalize="off"
                       spellCheck="false"
                     />
-                    <div className="inline-actions">
-                      <button
-                        className="inline-action-btn save"
-                        onClick={handleSaveNewEnv}
-                        onMouseDown={(e) => e.preventDefault()}
-                        title="Save"
-                        data-testid="env-create-save"
-                      >
-                        <IconCheck size={14} strokeWidth={2} />
-                      </button>
-                      <button
-                        className="inline-action-btn cancel"
-                        onClick={handleCancelCreate}
-                        onMouseDown={(e) => e.preventDefault()}
-                        title="Cancel"
-                      >
-                        <IconX size={14} strokeWidth={2} />
-                      </button>
-                    </div>
+                    <InlineNameActions
+                      confirmLabel="Create"
+                      onConfirm={handleSaveNewEnv}
+                      onCancel={handleCancelCreate}
+                      confirmTestId="env-create-save"
+                    />
                   </div>
                 )}
 
