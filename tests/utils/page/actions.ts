@@ -80,7 +80,8 @@ const clickEmptySidebarSpace = async (page) => {
  * @param page - The page object
  * @returns void
  */
-const closeAllCollections = async (page) => {
+const closeAllCollections = async (page, options: { timeout?: number } = {}) => {
+  const timeout = options.timeout ?? 30_000;
   await test.step('Close all collections', async () => {
     const numberOfCollections = await page.locator('[data-testid="collections"] .collection-name').count();
 
@@ -94,7 +95,7 @@ const closeAllCollections = async (page) => {
         await firstCollection.locator('.collection-actions .icon').click({ force: true });
         await expect(removeMenuItem).toBeVisible({ timeout: 2000 });
       }).toPass({ timeout: 15000 });
-      await removeMenuItem.click();
+      await removeMenuItem.click({ timeout });
 
       // Wait for modal to appear - could be either regular remove or drafts confirmation
       const removeModal = page.locator('.bruno-modal').filter({ hasText: /Remove Collections?/ });
@@ -108,14 +109,14 @@ const closeAllCollections = async (page) => {
         // causing Playwright's "element is stable" actionability check to fail
         // intermittently on slower machines. Use force to skip the stability check;
         // visibility is already verified above via waitFor.
-        await page.getByRole('button', { name: 'Discard All and Remove' }).click({ force: true });
+        await page.getByRole('button', { name: 'Discard All and Remove' }).click({ force: true, timeout });
       } else {
         // Regular modal - click the submit button
-        await page.locator('.bruno-modal-footer .submit').click();
+        await page.locator('.bruno-modal-footer .submit').click({ timeout });
       }
 
       // Wait for modal to close
-      await removeModal.waitFor({ state: 'hidden', timeout: 5000 });
+      await removeModal.waitFor({ state: 'hidden', timeout });
     }
 
     // Wait until no collections are left open (check sidebar only)
@@ -137,10 +138,10 @@ const revealCollectionsTop = async (page: Page) => {
   await scroller.evaluate((el) => el.scrollTo({ top: 0 }));
 };
 
-const openCollection = async (page: Page, collectionName: string) => {
+const openCollection = async (page: Page, collectionName: string, options: { timeout?: number } = {}) => {
   await test.step(`Open collection "${collectionName}"`, async () => {
     await revealCollectionsTop(page);
-    await page.locator('#sidebar-collection-name').filter({ hasText: collectionName }).click();
+    await page.locator('#sidebar-collection-name').filter({ hasText: collectionName }).click({ timeout: options.timeout });
   });
 };
 

@@ -5,12 +5,17 @@ import { summarize } from '../utils/stats';
 import { writeResults, buildResultEntry, type ResultEntry } from '../utils/results';
 import { startTimer } from '../utils/timing';
 import { generateCollection, type CollectionFormat } from '../utils/collection-generator';
+import { setBenchmarkWindowSize } from '../utils/window';
 import * as path from 'path';
 import * as fs from 'fs';
 
 const COLLECTION_SIZES = [50, 200, 500, 1000, 3000];
 const COLLECTION_FORMATS: CollectionFormat[] = ['bru', 'yml'];
 const ITERATIONS_PER_SIZE = 3;
+
+// Clicking a collection with thousands of requests blocks the renderer while
+// the tree mounts, so the default 30s action timeout is not enough.
+const LARGE_COLLECTION_TIMEOUT = 10 * 60_000;
 
 async function measureCollectionMount(
   page: Page,
@@ -42,7 +47,7 @@ async function measureCollectionMount(
   await page.locator('.tippy-box .dropdown-item').filter({ hasText: 'Open collection' }).click();
   await page.locator('#sidebar-collection-name').filter({ hasText: collectionName }).waitFor({ state: 'visible' });
 
-  await openCollection(page, collectionName);
+  await openCollection(page, collectionName, { timeout: LARGE_COLLECTION_TIMEOUT });
   await page.evaluate(() => (window as any).__benchMountDone);
 
   const elapsed = timer.elapsed();
@@ -53,7 +58,7 @@ async function measureCollectionMount(
     }
   });
 
-  await closeAllCollections(page);
+  await closeAllCollections(page, { timeout: LARGE_COLLECTION_TIMEOUT });
 
   return elapsed;
 }
@@ -70,6 +75,7 @@ test.describe('Benchmark: Collection Mount', () => {
       for (const size of COLLECTION_SIZES) {
         test(`mount ${format} collection with ${size} requests`, async ({ page, electronApp, createTmpDir }) => {
           test.setTimeout((2 + Math.ceil(size / 100) * 2) * 60_000);
+          await setBenchmarkWindowSize(electronApp, page);
           const timings: number[] = [];
 
           const collectionName = `bench-${format}-${size}`;
