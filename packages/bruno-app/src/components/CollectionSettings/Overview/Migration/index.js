@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { IconFileCode, IconTransform, IconCopy } from '@tabler/icons';
+import { IconFileCode, IconCopy, IconClock, IconFolder, IconTrash } from '@tabler/icons';
 import toast from 'react-hot-toast';
 import { showMigrateToYmlModal } from 'providers/ReduxStore/slices/collection-migration';
 import { showInFolder } from 'providers/ReduxStore/slices/collections/actions';
@@ -31,39 +31,47 @@ const Migration = ({ collection }) => {
     );
   };
 
-  const retentionNotice = retentionDays ? `, and deletes it automatically after ${retentionDays} days` : '';
-
   if (collection.format === 'bru') {
     return (
       <StyledWrapper>
         <div className="migration-section">
-          <div className="text-lg font-medium flex items-center gap-2 mb-4">
-            <IconTransform size={20} stroke={1.5} />
-            Migration
-          </div>
-
-          <div className="flex items-start">
-            <div className="icon-box migration flex-shrink-0 p-3 rounded-lg">
-              <IconFileCode className="w-5 h-5" stroke={1.5} />
-            </div>
-            <div className="ml-4">
-              <div className="font-medium">Migrate to YML file format</div>
-              <div className="my-1 text-muted text-sm">
-                This collection is stored in BRU format.{' '}
-                Switch to YML.
+          <div className="migration-card">
+            <div className="card-head">
+              <div className="icon-box migration flex-shrink-0 p-3 rounded-lg">
+                <IconFileCode className="w-5 h-5" stroke={1.5} />
               </div>
-              <div className="my-1 text-muted text-sm" data-testid="migration-backup-notice">
-                Before switching, a copy of every <code>.bru</code> file is kept at{' '}
-                <code className="backup-path" title={rootPath}>
+              <div className="card-title-block">
+                <div className="card-title">
+                  Migrate to YML file format
+                  <span className="format-badge">BRU</span>
+                </div>
+                <div className="card-description">
+                  This collection is stored in BRU format. Switch to YML to use the current file format.
+                </div>
+              </div>
+            </div>
+
+            <div className="backup-details" data-testid="migration-backup-notice">
+              <div>
+                <div className="field-label">Backup location</div>
+                <code className="path-box" title={rootPath}>
                   {rootPath || '…'}
                 </code>
-                {retentionNotice}.
               </div>
+              <div className="meta-row">
+                <IconClock size={14} stroke={1.5} aria-hidden="true" />
+                <span>
+                  A copy of every <code>.bru</code> file is kept here before switching
+                  {retentionDays ? `, and deleted automatically after ${retentionDays} days.` : '.'}
+                </span>
+              </div>
+            </div>
+
+            <div className="card-actions">
               <Button
                 data-testid="migrate-collection-to-yml-button"
                 size="sm"
                 color="primary"
-                className="mt-2"
                 onClick={handleMigrateClick}
               >
                 Convert to YML
@@ -97,76 +105,89 @@ const Migration = ({ collection }) => {
   return (
     <StyledWrapper>
       <div className="migration-section">
-        <div className="text-lg font-medium flex items-center gap-2 mb-4">
-          <IconTransform size={20} stroke={1.5} />
-          Migration
-        </div>
-
-        <div className="flex items-start">
-          <div className="icon-box migration flex-shrink-0 p-3 rounded-lg">
-            <IconFileCode className="w-5 h-5" stroke={1.5} />
+        <div className="migration-card">
+          <div className="card-head">
+            <div className="icon-box migration flex-shrink-0 p-3 rounded-lg">
+              <IconFileCode className="w-5 h-5" stroke={1.5} />
+            </div>
+            <div className="card-title-block">
+              <div className="card-title">
+                Migrated to YML file format
+                <span className="format-badge done">YML</span>
+              </div>
+              <div className="card-description" data-testid="migration-completed-notice">
+                This collection is stored in YML format. The original <code>.bru</code> files were kept as a backup.
+              </div>
+            </div>
           </div>
-          <div className="ml-4">
-            <div className="font-medium">Migrated to YML file format</div>
-            <div className="my-1 text-muted text-sm" data-testid="migration-completed-notice">
-              This collection is stored in YML format. A copy of the original <code>.bru</code> files is kept at{' '}
-              <code className="backup-path" title={backup.backupPath} data-testid="migration-backup-path">
+
+          <div className="backup-details">
+            <div>
+              <div className="field-label">Backup location</div>
+              <code className="path-box" title={backup.backupPath} data-testid="migration-backup-path">
                 {backup.backupPath}
               </code>
             </div>
-            <div className="my-1 text-muted text-sm" data-testid="migration-backup-expiry">
-              It will be deleted automatically on {new Date(backup.expiresAt).toLocaleDateString()} ({backup.retentionDays}{' '}
-              days after the migration).
+            <div className="meta-row" data-testid="migration-backup-expiry">
+              <IconClock size={14} stroke={1.5} aria-hidden="true" />
+              <span>
+                Deleted automatically on {new Date(backup.expiresAt).toLocaleDateString()} ({backup.retentionDays} days
+                after the migration).
+              </span>
             </div>
-            <div className="flex items-center gap-3 mt-1" data-testid="migration-backup-actions">
-              <button
-                type="button"
-                className="backup-path-action"
-                data-testid="migration-copy-backup-path"
-                onClick={copyBackupPath}
-              >
-                <IconCopy strokeWidth={1.5} size={14} aria-hidden="true" />
-                Copy
-              </button>
-              <button
-                type="button"
-                className="backup-path-action"
-                data-testid="migration-reveal-backup"
-                onClick={revealBackupPath}
-              >
-                {revealInFolderLabel}
-              </button>
-              {confirmingDelete ? (
-                <>
-                  <span className="text-sm">Delete the copy for good?</span>
-                  <button
-                    type="button"
-                    className="backup-path-action danger"
-                    data-testid="migration-confirm-delete-backup"
-                    onClick={handleDeleteBackup}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    className="backup-path-action"
-                    data-testid="migration-cancel-delete-backup"
-                    onClick={() => setConfirmingDelete(false)}
-                  >
-                    Cancel
-                  </button>
-                </>
-              ) : (
+          </div>
+
+          <div className="card-actions" data-testid="migration-backup-actions">
+            <button
+              type="button"
+              className="ghost-action"
+              data-testid="migration-copy-backup-path"
+              onClick={copyBackupPath}
+            >
+              <IconCopy strokeWidth={1.5} size={14} aria-hidden="true" />
+              Copy path
+            </button>
+            <button
+              type="button"
+              className="ghost-action"
+              data-testid="migration-reveal-backup"
+              onClick={revealBackupPath}
+            >
+              <IconFolder strokeWidth={1.5} size={14} aria-hidden="true" />
+              {revealInFolderLabel}
+            </button>
+            <span className="spacer" />
+            {confirmingDelete ? (
+              <>
+                <span className="confirm-text">Delete the copy for good?</span>
                 <button
                   type="button"
-                  className="backup-path-action danger"
-                  data-testid="migration-delete-backup"
-                  onClick={() => setConfirmingDelete(true)}
+                  className="ghost-action danger"
+                  data-testid="migration-confirm-delete-backup"
+                  onClick={handleDeleteBackup}
                 >
-                  Delete backup
+                  Delete
                 </button>
-              )}
-            </div>
+                <button
+                  type="button"
+                  className="ghost-action"
+                  data-testid="migration-cancel-delete-backup"
+                  onClick={() => setConfirmingDelete(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="ghost-action danger"
+                data-testid="migration-delete-backup"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                <IconTrash strokeWidth={1.5} size={14} aria-hidden="true" />
+                Delete backup
+              </button>
+            )}
           </div>
         </div>
       </div>

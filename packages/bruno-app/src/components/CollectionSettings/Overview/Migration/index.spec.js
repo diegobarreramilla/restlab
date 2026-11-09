@@ -86,7 +86,7 @@ describe('CollectionSettings overview — Migration backup notice', () => {
     await waitFor(() => {
       expect(screen.getByTestId('migration-backup-notice')).toHaveTextContent(BACKUP_ROOT);
     });
-    expect(screen.getByTestId('migration-backup-notice')).toHaveTextContent('deletes it automatically after 30 days');
+    expect(screen.getByTestId('migration-backup-notice')).toHaveTextContent('deleted automatically after 30 days');
   });
 
   it('does not guess the backup location: without an answer it shows a placeholder', () => {

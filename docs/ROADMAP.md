@@ -245,6 +245,8 @@ Resuelto después de la revisión (2026-11-08):
 
 Fallo encontrado al arrancar la app tras estos cambios (corregido): el hook `useYmlMigrationBackup` leía `backup.backupPath` dentro de un `useCallback`, y el React Compiler de la app (`rsbuild.config.mjs`) saca esa lectura al renderizado, donde `backup` es `null`; el modal de migración fallaba con «Cannot read properties of null (reading 'backupPath')». Jest no usa el compilador, así que las pruebas pasaban. Ahora la ruta se lee con `backup?.backupPath` fuera del callback. Regla práctica: un valor que puede ser `null` no se desreferencia dentro de un `useCallback`/`useMemo`; y los cambios de hooks se comprueban arrancando la app, no solo con Jest.
 
+- **Diseño de la sección Migration** (2026-11-08): pasó de líneas de texto sueltas a una tarjeta con borde, cabecera con insignia de formato (BRU/YML), la ruta de la copia en un cuadro propio con etiqueta, una línea de caducidad con icono y una barra de acciones separada (Copy path y Reveal a la izquierda, Delete backup a la derecha, en rojo). Mismos `data-testid` y comportamiento. Pendiente de tu visto bueno en tema claro y oscuro.
+
 Pendiente:
 1. **Textos fijos en inglés** en las pantallas nuevas (Privacy, Migration, Quick request); pasarlos a claves de `react-i18next` dentro de la meta de internacionalización (5.3).
 2. **Mirar las pantallas en tema claro y oscuro** con ojos humanos (Privacy, Migration con el botón de borrar, Quick request).
