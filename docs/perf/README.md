@@ -226,19 +226,59 @@ relaciones.
 
 ## 6. Resultados
 
-> Pendiente de T2 y T5. Cuando se midan, añadir aquí la tabla «medido en esta máquina» junto a la
-> referencia, la fecha, la versión de Node y el gobernador usado. No borrar la tabla de referencia:
-> sirve para comparar.
+> T2 está medido. T5, T3 y T4 siguen pendientes. No borrar la tabla de referencia: sirve para comparar.
 
 ### 6.1 Montaje de colecciones (T2)
 
+Medido el 2026-11-09 con Node v26.13.0, Electron 43.8.4, gobernador `powersave`, ventana de
+1280×800, `PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11"` y 3 iteraciones por tamaño y formato.
+Las colecciones de 50, 200, 500 y 1000 se midieron en una tanda; las de 3000, en otra tanda aparte.
+La tabla usa la **mediana** de las tres iteraciones; los tiempos crudos están en
+`tests/benchmarks/results/mounting.json` (ignorado por git).
+
 | Peticiones | `bru` mediana (ms) | `yml` mediana (ms) | `bru` vs. referencia | `yml` vs. referencia |
 |---:|---:|---:|---:|---:|
-| 50 | — | — | — | — |
-| 200 | — | — | — | — |
-| 500 | — | — | — | — |
-| 1000 | — | — | — | — |
-| 3000 | — | — | — | — |
+| 50 | 655 | 554 | ×0.94 | ×0.99 |
+| 200 | 1015 | 887 | ×0.88 | ×0.74 |
+| 500 | 1984 | 2260 | ×0.68 | ×0.66 |
+| 1000 | 4566 | 5916 | ×0.57 | ×0.56 |
+| 3000 | 98307 | 52445 | ×0.58 | ×0.66 |
+
+Crecimiento medido:
+
+- `bru`: 500 → 1000 es **×2.30**; 1000 → 3000 es **×21.5**.
+- `yml`: 500 → 1000 es **×2.62**; 1000 → 3000 es **×8.9**.
+
+La hipótesis de la referencia **se confirma**: entre 1000 y 3000 peticiones (×3 de trabajo) el
+montaje tarda ×21.5 en `bru` y ×8.9 en `yml`. No es un problema de esta máquina ni del formato: los
+dos formatos se disparan, `bru` más que `yml`. Los dos peores casos medidos son, por tanto,
+**`bru` con 3000 peticiones (98,3 s de mediana, 104,3 s de media)** y **`yml` con 3000 peticiones
+(52,4 s de mediana, 55,7 s de media)**. La varianza también crece: la desviación estándar es de
+11,8 s en `bru-3000` y 8,6 s en `yml-3000`, frente a 81 ms y 129 ms en los casos de 1000.
+
+Los tiempos crudos de 3000 muestran que la primera iteración es la más lenta (`bru`: 120,7 s, 98,3 s,
+93,9 s; `yml`: 67,5 s, 47,2 s, 52,4 s). Aun así, incluso la mejor iteración de `bru` (93,9 s) está
+muy por encima de lo que sugeriría un crecimiento lineal desde 1000 (≈13,7 s si se mantuviera ×3).
+Eso descarta que el salto sea solo caché fría.
+
+La comparación con la referencia no debe leerse como «vamos más rápido»: son máquinas distintas. Lo
+que importa es la **forma de la curva**, y la forma coincide.
+
+#### Cómo se ejecutó
+
+```bash
+# 50, 200, 500 y 1000
+PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
+  npm run test:benchmark -- -g "mount (bru|yml) collection with (50|200|500|1000) requests"
+
+# 3000, en una tanda aparte
+PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
+  npm run test:benchmark -- -g "mount (bru|yml) collection with 3000 requests"
+```
+
+La tanda de 3000 tarda unos 9 minutos. Para que no falle por el bloqueo del hilo principal, el banco
+fija la ventana en 1280×800 y usa un timeout de 10 minutos al abrir y cerrar la colección
+(`tests/benchmarks/utils/window.ts` y `LARGE_COLLECTION_TIMEOUT` en el banco).
 
 ### 6.2 Memoria del runner (T5)
 
