@@ -48,6 +48,7 @@ const registerCollectionsIpc = require('./ipc/collection');
 const { registerYmlMigrationIpc } = require('./ipc/yml-migration');
 const registerFilesystemIpc = require('./ipc/filesystem');
 const registerPreferencesIpc = require('./ipc/preferences');
+const registerImportReportIpc = require('./ipc/import-report');
 const registerSnapshotIpc = require('./ipc/snapshot');
 const registerSystemMonitorIpc = require('./ipc/system-monitor');
 const registerWorkspaceIpc = require('./ipc/workspace');
@@ -552,6 +553,7 @@ app.on('ready', async () => {
   registerCollectionsIpc(mainWindow, collectionWatcher);
   registerYmlMigrationIpc(mainWindow, collectionWatcher);
   registerPreferencesIpc(mainWindow, collectionWatcher);
+  registerImportReportIpc(mainWindow);
   registerSnapshotIpc();
   registerWorkspaceIpc(mainWindow, workspaceWatcher);
   registerApiSpecIpc(mainWindow, apiSpecWatcher);

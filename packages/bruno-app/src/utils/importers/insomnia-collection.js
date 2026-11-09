@@ -1,9 +1,19 @@
 import { BrunoError } from 'utils/common/error';
-import { insomniaToBruno } from '@usebruno/converters';
+import { insomniaToBruno, insomniaToBrunoWithReport } from '@usebruno/converters';
 
 export const convertInsomniaToBruno = (data) => {
   try {
     return insomniaToBruno(data);
+  } catch (err) {
+    console.error('Error converting Insomnia to Bruno:', err);
+    throw new BrunoError('Import collection failed: ' + err.message);
+  }
+};
+
+// Same conversion as above, plus what it kept and left out (issues and item counts).
+export const convertInsomniaToBrunoWithReport = (data) => {
+  try {
+    return insomniaToBrunoWithReport(data);
   } catch (err) {
     console.error('Error converting Insomnia to Bruno:', err);
     throw new BrunoError('Import collection failed: ' + err.message);

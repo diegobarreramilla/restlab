@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { IconAlertCircle, IconBrandGithub, IconCopy, IconX } from '@tabler/icons';
+import { IconAlertCircle, IconBrandGithub, IconCopy, IconDeviceFloppy, IconX } from '@tabler/icons';
 import StyledWrapper from './StyledWrapper';
 import { ISSUES_URL } from 'utils/branding';
+import { buildImportReportFileName, buildImportReportText, formatImportedCount } from 'utils/importers/import-report';
 
 const MAX_URL_LENGTH = 8000;
 
-const ImportIssuesToastContent = ({ t, issues, summary }) => {
+const ImportIssuesToastContent = ({ t, issues, summary, report }) => {
   const [includeItems, setIncludeItems] = useState(false);
   const hasSourceItems = issues.some((i) => i.sourceItem);
 
@@ -69,6 +70,25 @@ const ImportIssuesToastContent = ({ t, issues, summary }) => {
     }
   };
 
+  const handleSaveReport = async () => {
+    try {
+      const result = await window.ipcRenderer.invoke('renderer:save-import-report', {
+        defaultFileName: buildImportReportFileName(report.collectionName),
+        content: buildImportReportText({
+          collectionName: report.collectionName,
+          format: report.format,
+          report,
+          issues
+        })
+      });
+      if (result?.saved) {
+        toast.success('Report saved', { duration: 2000 });
+      }
+    } catch (err) {
+      toast.error('Failed to save the report', { duration: 3000 });
+    }
+  };
+
   const handleReport = async () => {
     const title = `Postman import: ${summary}`;
     const body = buildIssueBody();
@@ -108,7 +128,9 @@ const ImportIssuesToastContent = ({ t, issues, summary }) => {
         >
           <IconX size={14} />
         </button>
-        <div className="toast-title" data-testid="import-issues-toast-title">Imported with issues: {summary}</div>
+        <div className="toast-title" data-testid="import-issues-toast-title">
+          {report ? `${formatImportedCount(report)}: ${summary}` : `Imported with issues: ${summary}`}
+        </div>
         <div className="toast-hint">Open DevTools console to see which items failed and why.</div>
         {hasSourceItems && (
           <label className="toast-checkbox">
@@ -141,6 +163,12 @@ const ImportIssuesToastContent = ({ t, issues, summary }) => {
             <IconCopy size={13} />
             Copy Issues
           </button>
+          {report && (
+            <button className="toast-btn" onClick={handleSaveReport} data-testid="import-issues-save-report-btn">
+              <IconDeviceFloppy size={13} />
+              Save report
+            </button>
+          )}
         </div>
       </div>
     </StyledWrapper>
@@ -153,7 +181,7 @@ const ImportIssuesToastContent = ({ t, issues, summary }) => {
  */
 let activeImportToastId = null;
 
-export const showImportIssuesToast = (issues) => {
+export const showImportIssuesToast = (issues, report = null) => {
   if (activeImportToastId) {
     toast.dismiss(activeImportToastId);
   }
@@ -167,7 +195,7 @@ export const showImportIssuesToast = (issues) => {
 
   activeImportToastId = toast.custom(
     (t) => (
-      <ImportIssuesToastContent t={t} issues={issues} summary={summary} />
+      <ImportIssuesToastContent t={t} issues={issues} summary={summary} report={report} />
     ),
     { duration: Infinity, position: 'bottom-right' }
   );

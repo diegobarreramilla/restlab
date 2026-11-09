@@ -5,6 +5,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { ThemeProvider } from 'providers/Theme';
 import { convertOpenapiToBruno } from 'utils/importers/openapi-collection';
 import { postmanToBruno } from 'utils/importers/postman-collection';
+import { showImportIssuesToast } from 'components/Toast/ImportIssuesToast';
 import ImportCollectionLocation from './index';
 
 jest.mock('components/Modal', () => ({
@@ -30,6 +31,8 @@ jest.mock('utils/importers/openapi-collection', () => ({
 jest.mock('utils/importers/postman-collection', () => ({
   postmanToBruno: jest.fn(async (data) => ({ collection: { uid: 'converted', name: data.info.name, items: [], environments: [] }, issues: [] }))
 }));
+
+jest.mock('components/Toast/ImportIssuesToast', () => ({ showImportIssuesToast: jest.fn() }));
 
 const openApiSpec = { openapi: '3.0.0', info: { title: 'Orders API' }, paths: {} };
 const swagger2Spec = { swagger: '2.0', info: { title: 'Legacy API' }, paths: {} };
@@ -322,5 +325,28 @@ describe('ImportCollectionLocation settings layout', () => {
     expect(specUpdates).toBeDisabled();
     expect(specUpdates).not.toBeChecked();
     expect(screen.getByText('OpenAPI Sync is not supported for Swagger 2.0 specs.')).toBeInTheDocument();
+  });
+
+  it('shows how many items were imported when a Postman import skipped some', async () => {
+    const issues = [{ severity: 'error', path: 'Bad', message: 'Missing method' }];
+    const report = { totalItems: 7, importedItems: 5, importedBreakdown: { requests: 4, folders: 1, environments: 0 } };
+    postmanToBruno.mockResolvedValueOnce({ collection: { uid: 'converted', name: 'x', items: [], environments: [] }, issues, ...report });
+    const handleSubmit = renderImport({ rawData: postmanCollection, format: 'postman', sourceUrl: undefined });
+
+    await submitImport(handleSubmit);
+
+    expect(showImportIssuesToast).toHaveBeenCalledWith(
+      issues,
+      expect.objectContaining({ ...report, format: 'postman', collectionName: postmanCollection.info.name })
+    );
+  });
+
+  it('stays quiet when nothing was skipped, because the imported collection is already visible', async () => {
+    showImportIssuesToast.mockClear();
+    const handleSubmit = renderImport({ rawData: postmanCollection, format: 'postman', sourceUrl: undefined });
+
+    await submitImport(handleSubmit);
+
+    expect(showImportIssuesToast).not.toHaveBeenCalled();
   });
 });

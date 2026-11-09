@@ -7,7 +7,7 @@ import { DEFAULT_AUTH_PLACEMENT, DEFAULT_REQUEST_NAME_SOURCE } from '@usebruno/c
 import path from 'utils/common/path';
 import { browseDirectory } from 'providers/ReduxStore/slices/collections/actions';
 import { postmanToBruno } from 'utils/importers/postman-collection';
-import { convertInsomniaToBruno } from 'utils/importers/insomnia-collection';
+import { convertInsomniaToBrunoWithReport } from 'utils/importers/insomnia-collection';
 import { convertOpenapiToBruno, isSwagger2Spec, buildOpenApiSyncBrunoConfig } from 'utils/importers/openapi-collection';
 import { processBrunoCollection } from 'utils/importers/bruno-collection';
 import { processOpenCollection } from 'utils/importers/opencollection';
@@ -61,12 +61,16 @@ const getCollectionName = (format, rawData) => {
   }
 };
 
+const pickImportReport = ({ totalItems, importedItems, importedBreakdown }) => ({ totalItems, importedItems, importedBreakdown });
+
 // Convert raw data to Bruno collection format
-// Returns { collection, issues } where issues tracks items that were skipped or degraded
+// Returns { collection, issues, report } where issues tracks items that were skipped or degraded
+// and report ({ totalItems, importedItems, importedBreakdown }) is set for Postman and Insomnia
 const convertCollection = async (format, rawData, { groupingType, collectionFormat, authPlacement, requestNameSource, preserveScripts, filePath } = {}) => {
   try {
     let collection;
     let issues = [];
+    let report = null;
 
     switch (format) {
       case 'openapi':
@@ -79,11 +83,16 @@ const convertCollection = async (format, rawData, { groupingType, collectionForm
         const result = await postmanToBruno(rawData, { preserveScripts });
         collection = result.collection;
         issues = result.issues || [];
+        report = pickImportReport(result);
         break;
       }
-      case 'insomnia':
-        collection = convertInsomniaToBruno(rawData);
+      case 'insomnia': {
+        const result = convertInsomniaToBrunoWithReport(rawData);
+        collection = result.collection;
+        issues = result.issues || [];
+        report = pickImportReport(result);
         break;
+      }
       case 'bruno':
         collection = await processBrunoCollection(rawData);
         break;
@@ -98,7 +107,7 @@ const convertCollection = async (format, rawData, { groupingType, collectionForm
         throw new Error('Unknown collection format');
     }
 
-    return { collection, issues };
+    return { collection, issues, report };
   } catch (err) {
     console.error('Conversion error:', err);
     toastError(err, 'Failed to convert collection');
@@ -147,7 +156,7 @@ const ImportCollectionLocation = ({ onClose, handleSubmit, rawData, format, sour
         .required('Location is required')
     }),
     onSubmit: async (values) => {
-      const { collection: convertedCollection, issues } = await convertCollection(format, rawData, { groupingType, collectionFormat, authPlacement, requestNameSource, preserveScripts, filePath });
+      const { collection: convertedCollection, issues, report } = await convertCollection(format, rawData, { groupingType, collectionFormat, authPlacement, requestNameSource, preserveScripts, filePath });
       const options = { format: collectionFormat };
 
       if (showCheckForSpecUpdatesOption && enableCheckForSpecUpdates) {
@@ -160,7 +169,7 @@ const ImportCollectionLocation = ({ onClose, handleSubmit, rawData, format, sour
 
       if (issues && issues.length > 0) {
         // Show toast with copy/report actions
-        showImportIssuesToast(issues);
+        showImportIssuesToast(issues, report && { ...report, collectionName, format });
 
         // Log each issue to Bruno's internal console
         const skipped = issues.filter((i) => i.severity === 'error').length;
