@@ -2,7 +2,7 @@
 
 Fecha: 2026-11-09 · Estado: **propuestas, ninguna se implementa todavía**
 
-Son ideas **mías**, no pedidas por usuarios: todas son nivel **P** (propuesta) o **C** (hueco inferido) en la escala del roadmap, así que ninguna tiene demanda comprobada. Se eligieron porque (1) refuerzan la promesa local-first, (2) hacen útil la app sin IA y (3) reutilizan cosas que ya existen en el código. Antes de construir cualquiera hay que hacer su paso **Verificar primero**: puede que el fork ya la traiga.
+Las ideas 1 a 12 son **mías**, y la 13 la propuso el autor del proyecto. Todas son nivel **P** (propuesta) o **C** (hueco inferido) en la escala del roadmap, así que ninguna tiene demanda comprobada en el informe de investigación; donde hay una señal indirecta se dice. Se eligieron porque (1) refuerzan la promesa local-first, (2) hacen útil la app sin IA y (3) reutilizan cosas que ya existen en el código. Antes de construir cualquiera hay que hacer su paso **Verificar primero**: puede que el fork ya la traiga.
 
 Lo ya planeado no se repite aquí: modo vim, paleta de comandos, servidor MCP, autocompletado de rutas, archivos con menos pasos, extensiones, IA que diagnostica, sincronización con Drive, internacionalización.
 
@@ -22,8 +22,9 @@ Lo ya planeado no se repite aquí: modo vim, paleta de comandos, servidor MCP, a
 | 10 | Desglose de tiempos (DNS, conexión, TLS, primer byte) | Diagnosticar lentitud sin otra herramienta | M | Cliente HTTP de `bruno-requests` | Después de 4.x |
 | 11 | Primer arranque «vengo de Postman/Insomnia» | Convierte el informe de importación en puerta de entrada | S | Importadores y el informe de 5.3.6 | Con 7.1 |
 | 12 | Descargas verificables (sumas y SBOM) | Confianza en lo que se instala | S | Pipeline de 8.2 | Con 8.2 |
+| 13 | **Control de versiones gráfico (estilo GitLens)** | Cambios, ramas e historial de colecciones sin terminal, con diff por petición | L (4 fases de M) | **Motor de Git ya escrito** en `utils/git.js` y `VisualDiffViewer` | Hito propio tras el rendimiento (4.x) |
 
-Orden recomendado si solo se elige una parte: **2, 3, 5 y 1**. Las tres primeras refuerzan la confianza, que es lo que decide la elección según el informe; la 1 es la que más se nota al usar la app.
+Orden recomendado si solo se elige una parte: **2, 3, 5 y 1**. La 13 es la más grande y la que más se notaría; va como hito aparte (ver su sección). Las tres primeras refuerzan la confianza, que es lo que decide la elección según el informe; la 1 es la que más se nota al usar la app.
 
 ---
 
@@ -118,6 +119,53 @@ Orden recomendado si solo se elige una parte: **2, 3, 5 y 1**. Las tres primeras
 **Qué:** publicar con cada instalador su suma de verificación y una lista de componentes (SBOM), y documentar cómo comprobarlas.
 **Por qué:** quien eligió la herramienta por confianza querrá comprobar lo que instala. Cuesta poco si se hace dentro del pipeline de 8.2.
 **Pasos:** (1) generar sumas SHA-256 en CI; (2) generar el SBOM con la herramienta estándar del ecosistema npm; (3) enlazarlos desde la página de versiones.
+
+## 13. Control de versiones gráfico (estilo GitLens) · L en cuatro fases
+
+**Origen:** propuesta del autor. Bruno cobra esta función en sus planes de pago y la idea es ofrecerla en RestLab sin plan de pago, con una experiencia parecida a GitLens dentro de la propia aplicación.
+**Evidencia:** nivel **P** con señal indirecta. El informe de investigación no recoge peticiones directas de usuarios por esta función, pero que un competidor la venda indica que hay quien la valora. La fila 11.2 del roadmap ya la anticipaba («Flujo guiado con Git»). Conviene validarla con la sesión 6.3 antes de pulirla, no antes de construir la primera fase.
+**Por qué encaja:** las colecciones ya son archivos de texto pensados para git; falta que se vea y se use sin terminal. Todo es local; solo `push`, `pull` y `fetch` tocan la red y los inicia el usuario (categoría 1 del inventario, que ya incluye «operaciones git»).
+
+### Lo que ya existe (verificado el 2026-11-09)
+- `packages/bruno-electron/src/utils/git.js` trae un motor completo: `stageChanges`, `unstageChanges`, `discardChanges`, `commitChanges`, `getChangedFilesInCollectionGit`, ramas (`getCollectionGitBranches`, `getCurrentGitBranch`, `checkoutGitBranch`, `checkoutRemoteGitBranch`), `fetchChanges`, `pullGitChanges`, `pushGitChanges`, `getAheadBehindCount`, historial (`getCollectionGitLogs`, `getFileGitHistory`, `getCommitFiles`), comparación (`getCommitCompareFiles`, `getCommitFileDiff`, `getCommitCompareFileDiff`), contenido en un commit (`getFileContentAtCommit`), stash completo (`createStash`, `listStashes`, `applyStash`, `dropStash`, `getStashFiles`) y conflictos (`continueMerge`, `abortConflictResolution`).
+- **Ninguna de esas funciones tiene consumidor:** no hay manejador IPC ni componente que las use (solo se llaman dentro de `git.js` y de su prueba). El único IPC de git registrado cubre clonar, leer la URL del remoto y listar ramas remotas (`ipc/git.js`). Es decir, **falta la capa visible y su conexión**, no el motor.
+- Interfaz existente reutilizable: `components/Git/VisualDiffViewer` (diff por método, URL, parámetros, cabeceras, cuerpo y autenticación, hoy usado en la sincronización OpenAPI), `GitNotFoundModal` (git no instalado), `GitRemoteCollectionRow` y las acciones de conectar o quitar un remoto.
+- `git.spec.js` tiene solo unas 8 pruebas: **el motor está poco probado** y habrá que cubrirlo antes de exponerlo.
+- No hay `blame` (quién cambió cada línea): GitLens lo usa y aquí habría que añadirlo.
+
+### Qué ofrecería
+1. **Cambios:** lista de archivos modificados de la colección, preparar o descartar, mensaje y *commit*, todo con la rama actual y el estado (adelante o atrás del remoto) siempre visibles.
+2. **Diff por petición, no por texto:** en vez de líneas de `.bru` o `.yml`, mostrar qué cambió en la petición («URL: …, cabecera nueva, cuerpo modificado»), con `VisualDiffViewer`. Es la diferencia más clara frente a un git genérico y a GitLens.
+3. **Historial de una petición** («versiones»): lista de cambios de ese archivo con autor y fecha, con **restaurar esta versión** (usa `getFileContentAtCommit`).
+4. **Ramas y sincronización:** crear y cambiar rama, *fetch*, *pull*, *push*, guardar cambios temporales (*stash*).
+5. **Conflictos:** cuando un *merge* choca, ver las dos versiones de la petición y elegir, con abortar y continuar.
+6. **Estilo GitLens:** indicador en la petición con el último cambio («Ana, hace 3 días») y comparación entre dos commits o ramas.
+
+### Fases (cada una se puede entregar sola)
+| Fase | Entrega | Tamaño | Listo cuando |
+|---|---|---|---|
+| 1. Cambios y commit | IPC de estado, preparar, descartar y commit; panel con diff visual; rama actual en la barra | M | Se hace un commit desde la interfaz sobre una colección en un repositorio y aparece en `git log` con el diff correcto; **el formato en disco no cambia** |
+| 2. Ramas y sincronización | Crear y cambiar rama, fetch, pull, push, adelante/atrás, stash | M | Se sincroniza con un remoto de prueba local sin salir de la app |
+| 3. Historial | Historial de colección y de petición, comparar commits, restaurar versión, indicador del último cambio (requiere añadir `blame` o `log -1` por archivo) | M | Se restaura una petición a una versión anterior sin perder cambios sin guardar |
+| 4. Conflictos | Resolver conflictos por petición | M | Un *merge* con conflicto se resuelve desde la interfaz y la colección sigue abriendo |
+
+### Verificar primero
+1. Probar a mano las funciones de `utils/git.js` contra un repositorio de prueba y anotar cuáles fallan (la cobertura es baja).
+2. Confirmar la licencia del origen de `utils/git.js` y de `VisualDiffViewer` (parte MIT del proyecto de origen). **No se copia código de la interfaz de pago de Bruno**; la interfaz se escribe desde cero con el motor que ya está en el repositorio.
+3. Qué hace hoy la interfaz con repositorios git (el menú de la colección y la barra lateral) para no duplicar.
+4. Si la colección vive en un repositorio más grande (monorepo), cómo se acota el estado a la carpeta de la colección (`getCollectionGitRootPath`).
+
+### Riesgos y decisiones abiertas
+- **Autenticación:** push y pull con HTTPS necesitan credenciales. Propuesta: usar la configuración de git del usuario (agente SSH, gestor de credenciales del sistema) y **no guardar tokens en RestLab**. Hay que decidirlo antes de la fase 2.
+- **No perder trabajo:** descartar y cambiar de rama con cambios sin guardar deben pedir confirmación y ofrecer guardar en stash.
+- **Rendimiento:** colecciones grandes y repositorios con mucho historial; el estado se calcula bajo demanda y no en segundo plano continuo.
+- **Seguridad de los secretos:** antes del commit, avisar si hay valores con forma de credencial (idea 3) y **no mostrar el valor** en el diff.
+- **Git no instalado:** ya existe `GitNotFoundModal`; la función debe degradarse sin romper nada.
+- **Multiplataforma:** rutas de Windows y saltos de línea (`.claude/rules/cross-platform.md`).
+- **Gemelo en la CLI:** no aplica (el usuario ya tiene `git`); se declara en el reporte de la fase.
+
+### Dónde encaja en el orden
+Como hito propio **después del rendimiento (4.x) y de la importación OpenAPI (5.2)** y antes de las extensiones, porque es lo que más usan los equipos que ya guardan colecciones en repositorios. En el roadmap sustituye y amplía la fila 11.2.
 
 ---
 

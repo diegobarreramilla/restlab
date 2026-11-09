@@ -475,7 +475,7 @@ Tu observación: para vender una versión a empresas o grupos grandes importan a
 | Paso | Qué entrega | Notas |
 |---|---|---|
 | 11.1 Sincronización con Google Drive | Una carpeta de Drive del usuario como respaldo y sincronización de colecciones | Idea guardada: `docs/superpowers/ideas/2026-11-07-google-drive-sync.md`. Cuidar conflictos y secretos (nunca subirlos) |
-| 11.2 Flujo guiado con Git | Ver estado, commit y rama desde la interfaz, para quienes no usan terminal | Bruno ya tiene integración de Git; medir qué falta |
+| 11.2 Flujo guiado con Git | Ver estado, commit y rama desde la interfaz, para quienes no usan terminal | **Ampliada como idea 13 de la sección 15** (control de versiones gráfico estilo GitLens): el motor ya está en `utils/git.js` sin consumidores; falta el IPC y la interfaz |
 | 11.3 Entornos y secretos compartidos | Gestor de secretos externo (Bruno ya integra varios) | Sin guardar secretos en texto plano en el repositorio |
 | 11.4 Auditoría y políticas para equipos | Registro local de qué se envió y a dónde; política de IA fijada por la organización | Es lo que una empresa pide y no cuesta privacidad |
 | 11.5 Modelo comercial | Decidir qué es gratis siempre y qué se cobra, **antes** de escribir código de pago | Riesgo: repetir el "rug pull" que el informe señala en Bruno. Publicar el compromiso por escrito |
@@ -537,7 +537,7 @@ Hecho ─ marca, local-first, IA opcional, fin de enlaces ajenos
 
 ## 15. Ideas propuestas para sumar valor (2026-11-09)
 
-Doce ideas nuevas, todas de nivel **P/C** (propuestas mías, sin demanda comprobada), pensadas para reforzar la promesa local-first y hacer útil la app sin IA. Detalle, pasos y «listo cuando» de cada una en `docs/superpowers/ideas/2026-11-09-fork-value-ideas.md`.
+Trece ideas nuevas, todas de nivel **P/C** (propuestas, sin demanda comprobada en el informe), pensadas para reforzar la promesa local-first y hacer útil la app sin IA. Detalle, pasos y «listo cuando» de cada una en `docs/superpowers/ideas/2026-11-09-fork-value-ideas.md`.
 
 | # | Idea | Esfuerzo | Cuándo |
 |---|---|---|---|
@@ -553,5 +553,6 @@ Doce ideas nuevas, todas de nivel **P/C** (propuestas mías, sin demanda comprob
 | 10 | Desglose de tiempos | M | Después de 4.x |
 | 11 | Primer arranque «vengo de Postman/Insomnia» | S | Con 7.1 |
 | 12 | Descargas verificables (sumas y SBOM) | S | Con 8.2 |
+| 13 | **Control de versiones gráfico (estilo GitLens)**: cambios, commit, ramas, historial y diff por petición | L (4 fases) | Hito propio tras 4.x y 5.2 |
 
-Orden sugerido si se elige solo una parte: **2, 3, 5 y 1**. Ninguna entra en la v1 sin pasar su paso *Verificar primero*.
+Orden sugerido si se elige solo una parte: **2, 3, 5 y 1**. La **13** es la más grande: el motor de Git ya está escrito pero sin conectar (verificado el 2026-11-09), así que el trabajo es el IPC y la interfaz. Ninguna entra en la v1 sin pasar su paso *Verificar primero*.
