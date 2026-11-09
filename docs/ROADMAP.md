@@ -5,6 +5,7 @@ Fecha: 2026-11-07 · Rama de trabajo: `restlab/v1-local-first`
 Este documento ordena **todo** el trabajo, desde lo ya hecho hasta las ideas de largo plazo (extensiones, IA que diagnostica, sincronización). Cada meta se puede ejecutar leyendo solo su sección.
 
 Documentos relacionados, para no repetir:
+- Detalle de lo ejecutado cada día: `docs/sessions/` (una nota por sesión)
 - Por qué existe el proyecto y qué se decidió: `docs/superpowers/specs/2026-11-07-restlab-v1-design.md`
 - Qué contiene cada hito de la v1: `docs/superpowers/plans/2026-11-07-restlab-v1-plan.md`
 - Versión previa y más corta de este roadmap: `docs/superpowers/plans/2026-11-07-restlab-v1-roadmap.md`
