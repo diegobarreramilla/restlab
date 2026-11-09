@@ -225,6 +225,24 @@ Listo cuando: una persona nueva puede enviar una petición sin crear una colecci
 
 
 
+### 5.3.4 Revisión de 5.3.1 a 5.3.3 · S · P ✅ (2026-11-08)
+
+Revisadas por segunda vez (código, pruebas, lint y e2e). Resultado: correctas; sin errores de comportamiento.
+
+Comprobado:
+- Pruebas unitarias en verde: `bruno-app` (Preferences/General, Overview/Migration, collection-migration, workspaces/actions: 37) y `bruno-electron` (ipc/preferences, ipc/yml-migration: 39 y 32 tras el ajuste). ESLint sin errores.
+- E2E `tests/scratch-requests/quick-request.spec.ts` pasa en la app real.
+- E2E de migración: falla en `closeAllCollections` (menú *Remove* fuera de la ventana), el problema de entorno ya documentado en 5.4; no se pudo ver el cuerpo del test en esta máquina.
+- Los commits no llevan `Co-Authored-By`, como pide la regla 1.
+
+Corregido: `getYmlMigrationBackupRoot` se usaba antes de definirse (`no-use-before-define`); movido encima de `migrateCollectionToYml`.
+
+Puntos abiertos (decisiones, no errores):
+1. **Las copias se acumulan.** Cada migración deja `backup-XXXXXX` en `<userData>/tmp/yml-migration/` y nada las borra. Opciones: botón «Delete backup» en el panel final, o limpieza de las de más de N días al arrancar. Falta decidir.
+2. **La ruta de la copia se pierde al reiniciar** (vive solo en el estado de Redux). La copia sigue en disco, pero la interfaz ya no la muestra. Persistirla por colección en el almacén local la haría duradera.
+3. **Textos fijos en inglés** en las tres pantallas nuevas (Privacy, Migration, Quick request), igual que el resto de Preferencias; pasarlos a claves de `react-i18next` queda para la meta de internacionalización (5.3).
+4. Las tres pantallas siguen sin mirarse con ojos humanos en tema claro y oscuro.
+
 ### 5.4 Entornos: lista más cuidada · S · P ✅ (2026-11-07)
 
 **Origen:** pedido tuyo tras usar la lista de entornos de la colección (los entornos son de Bruno, no los añadió RestLab).

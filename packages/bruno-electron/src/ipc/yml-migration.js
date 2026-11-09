@@ -560,6 +560,12 @@ const migrateCollectionOnDisk = async ({
   }
 };
 
+// Where a committed migration keeps the .bru backup copies. Exposed read-only so the
+// renderer can announce the location before migrating without hardcoding it.
+const getYmlMigrationBackupRoot = () => {
+  return path.join(app.getPath('userData'), 'tmp', 'yml-migration');
+};
+
 const migrateCollectionToYml = async ({ mainWindow, watcher, collectionPathname, collectionUid }) => {
   const brunoJsonPath = path.join(collectionPathname, 'bruno.json');
   let brunoConfig;
@@ -653,12 +659,6 @@ const migrateCollectionToYml = async ({ mainWindow, watcher, collectionPathname,
 
   await reopenCollection();
   return { brunoConfig: result.brunoConfig, backupPath: result.backupPath };
-};
-
-// Where a committed migration keeps the .bru backup copies. Exposed read-only so the
-// renderer can announce the location before migrating without hardcoding it.
-const getYmlMigrationBackupRoot = () => {
-  return path.join(app.getPath('userData'), 'tmp', 'yml-migration');
 };
 
 const registerYmlMigrationIpc = (mainWindow, watcher) => {
