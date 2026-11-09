@@ -28,10 +28,14 @@ const useYmlMigrationBackup = (collectionPathname) => {
     };
   }, [collectionPathname]);
 
+  // Read outside the callback: the React compiler derives the dependency from this
+  // expression, so it must not dereference a null `backup` while rendering.
+  const backupPath = backup?.backupPath;
   const deleteBackup = useCallback(async () => {
-    await window.ipcRenderer.invoke('renderer:delete-yml-migration-backup', backup.backupPath);
+    if (!backupPath) return;
+    await window.ipcRenderer.invoke('renderer:delete-yml-migration-backup', backupPath);
     setBackup(null);
-  }, [backup]);
+  }, [backupPath]);
 
   return { ...info, backup, deleteBackup };
 };
