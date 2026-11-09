@@ -2,7 +2,7 @@ import mime from 'mime-types';
 import { transformExampleStatusInCollection, utils } from '@usebruno/common';
 import each from 'lodash/each';
 import get from 'lodash/get';
-import { hydrateSeqInCollection, transformItemsInCollection, uuid, validateSchema } from '../common';
+import { buildImportedItemsBreakdown, hydrateSeqInCollection, transformItemsInCollection, uuid, validateSchema } from '../common';
 import { invalidVariableCharacterRegex } from '../constants/index';
 import {
   buildPackageReport,
@@ -83,6 +83,18 @@ const transformDescription = (description) => {
 
 const isItemAFolder = (item) => {
   return !item.request;
+};
+
+/**
+ * Counts every entry of the source collection, including malformed entries: an entry the
+ * converter skips still counts towards the "M" in "N of M items imported".
+ */
+const countPostmanSourceItems = (items = []) => {
+  if (!Array.isArray(items)) {
+    return 0;
+  }
+
+  return items.reduce((count, item) => count + 1 + countPostmanSourceItems(item?.item), 0);
 };
 
 /**
@@ -1274,7 +1286,18 @@ const postmanToBruno = async (postmanCollection, { useWorkers = false, preserveS
 
     const scriptTranslationReport = preserveScripts ? buildPreservedScriptsReport() : aggregateScriptUsage(scriptUsages);
 
-    return { collection: validatedCollection, issues, scriptTranslationReport };
+    const importedBreakdown = buildImportedItemsBreakdown(validatedCollection);
+    const totalItems = countPostmanSourceItems(rawCollectionForScan?.item) + importedBreakdown.environments;
+    const importedItems = importedBreakdown.requests + importedBreakdown.folders + importedBreakdown.environments;
+
+    return {
+      collection: validatedCollection,
+      issues,
+      totalItems,
+      importedItems,
+      importedBreakdown,
+      scriptTranslationReport
+    };
   } catch (err) {
     throw new Error(`Import collection failed: ${err.message}`, { cause: err });
   }

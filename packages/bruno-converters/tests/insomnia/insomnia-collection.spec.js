@@ -1,11 +1,38 @@
 import { describe, it, expect } from '@jest/globals';
-import insomniaToBruno from '../../src/insomnia/insomnia-to-bruno';
+import insomniaToBruno, { insomniaToBrunoWithReport } from '../../src/insomnia/insomnia-to-bruno';
 
 describe('insomnia-collection', () => {
   it('should correctly import a valid Insomnia collection file', async () => {
     const brunoCollection = insomniaToBruno(insomniaCollection);
 
     expect(brunoCollection).toMatchObject(expectedOutput);
+  });
+
+  it('should not duplicate requests inside folders', () => {
+    const brunoCollection = insomniaToBruno(insomniaCollection);
+
+    expect(brunoCollection.items[0].items).toHaveLength(1);
+    expect(brunoCollection.items[1].items).toHaveLength(1);
+  });
+
+  it('should report imported items and requests without a method or URL', () => {
+    const report = insomniaToBrunoWithReport({
+      _type: 'export',
+      __export_format: 4,
+      resources: [
+        { _id: 'wrk_1', _type: 'workspace', name: 'Report' },
+        { _id: 'req_1', _type: 'request', parentId: 'wrk_1', name: 'Good', method: 'GET', url: 'https://example.com' },
+        { _id: 'req_2', _type: 'request', parentId: 'wrk_1', name: 'Bad', method: 'GET' },
+        { _id: 'fld_1', _type: 'request_group', parentId: 'wrk_1', name: 'Folder' },
+        { _id: 'env_1', _type: 'environment', parentId: 'wrk_1', name: 'Base', data: { a: 'b' } }
+      ]
+    });
+
+    // 2 requests + 1 folder + 1 environment in the source; the request without a URL is skipped.
+    expect(report.totalItems).toBe(4);
+    expect(report.importedItems).toBe(3);
+    expect(report.importedBreakdown).toEqual({ requests: 1, folders: 1, environments: 1 });
+    expect(report.issues).toEqual([expect.objectContaining({ path: 'Bad', severity: 'error' })]);
   });
 
   it('should import empty mimeType bodies as Bruno text bodies', async () => {
@@ -140,36 +167,6 @@ const expectedOutput = {
             encodeUrl: false,
             forwardAuthorizationHeader: false
           }
-        },
-        {
-          name: 'Request1',
-          request: {
-            auth: {
-              basic: null,
-              bearer: null,
-              digest: null,
-              mode: 'none'
-            },
-            body: {
-              formUrlEncoded: [],
-              json: null,
-              mode: 'none',
-              multipartForm: [],
-              text: null,
-              xml: null
-            },
-            headers: [],
-            method: 'GET',
-            params: [],
-            url: 'https://testbench-sanity.usebruno.com/ping'
-          },
-          seq: 2,
-          type: 'http-request',
-          uid: 'mockeduuidvalue123456',
-          settings: {
-            encodeUrl: false,
-            forwardAuthorizationHeader: false
-          }
         }
       ],
       name: 'Folder1',
@@ -201,36 +198,6 @@ const expectedOutput = {
             url: 'https://testbench-sanity.usebruno.com/ping'
           },
           seq: 1,
-          type: 'http-request',
-          uid: 'mockeduuidvalue123456',
-          settings: {
-            encodeUrl: true,
-            forwardAuthorizationHeader: false
-          }
-        },
-        {
-          name: 'Request2',
-          request: {
-            auth: {
-              basic: null,
-              bearer: null,
-              digest: null,
-              mode: 'none'
-            },
-            body: {
-              formUrlEncoded: [],
-              json: null,
-              mode: 'none',
-              multipartForm: [],
-              text: null,
-              xml: null
-            },
-            headers: [],
-            method: 'GET',
-            params: [],
-            url: 'https://testbench-sanity.usebruno.com/ping'
-          },
-          seq: 2,
           type: 'http-request',
           uid: 'mockeduuidvalue123456',
           settings: {

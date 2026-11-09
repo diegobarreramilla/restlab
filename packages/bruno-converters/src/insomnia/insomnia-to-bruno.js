@@ -1,7 +1,7 @@
 import each from 'lodash/each';
 import get from 'lodash/get';
 import jsyaml from 'js-yaml';
-import { validateSchema, transformItemsInCollection, hydrateSeqInCollection, uuid } from '../common';
+import { buildImportedItemsBreakdown, validateSchema, transformItemsInCollection, hydrateSeqInCollection, uuid } from '../common';
 import { buildV5Environments, buildV4Environments } from './env-utils';
 
 const parseGraphQL = (text) => {
@@ -177,6 +177,30 @@ const isInsomniaV5Export = (data) => {
   return false;
 };
 
+/**
+ * Counts every entry of a v5 collection tree, including entries the converter cannot represent.
+ */
+const countInsomniaV5Items = (items = []) => {
+  if (!Array.isArray(items)) {
+    return 0;
+  }
+
+  return items.reduce((count, item) => count + 1 + countInsomniaV5Items(item?.children), 0);
+};
+
+/**
+ * A v5 export has one environments object with optional sub-environments. `buildV5Environments`
+ * turns the base environment and every sub-environment into a Bruno environment.
+ */
+const countInsomniaV5Environments = (environments) => {
+  if (!environments || typeof environments !== 'object') {
+    return 0;
+  }
+
+  const subEnvironments = Array.isArray(environments.subEnvironments) ? environments.subEnvironments.length : 0;
+  return 1 + subEnvironments;
+};
+
 const parseInsomniaV5Collection = (data) => {
   const brunoCollection = {
     name: data.name || 'Untitled Collection',
@@ -185,45 +209,63 @@ const parseInsomniaV5Collection = (data) => {
     items: [],
     environments: []
   };
+  const issues = [];
 
   try {
     // Parse the collection items
-    const parseCollectionItems = (items, allItems = []) => {
+    const parseCollectionItems = (items, allItems = [], parentPath = '') => {
       if (!Array.isArray(items)) {
         throw new Error('Invalid items format: expected array');
       }
 
-      return items.map((item, index) => {
-        if (!item) {
-          return null;
-        }
+      return items
+        .map((item, index) => {
+          const itemName = item?.name || `Item ${index + 1}`;
+          const itemPath = parentPath ? `${parentPath} / ${itemName}` : itemName;
 
-        // In v5, requests might be defined with method property or meta.type
-        if (item.method && item.url) {
-          const request = {
-            _id: item.meta?.id || uuid(),
-            name: item.name || 'Untitled Request',
-            url: item.url || '',
-            method: item.method || '',
-            headers: item.headers || [],
-            parameters: item.parameters || [],
-            pathParameters: item.pathParameters || [],
-            authentication: item.authentication || {},
-            body: item.body || {},
-            settings: item.settings || {}
-          };
-          return transformInsomniaRequestItem(request, index, allItems);
-        } else if (item.children && Array.isArray(item.children)) {
-          // Process folder
-          return {
-            uid: uuid(),
-            name: item.name || 'Untitled Folder',
-            type: 'folder',
-            items: parseCollectionItems(item.children, item.children)
-          };
-        }
-        return null;
-      }).filter(Boolean);
+          if (!item || typeof item !== 'object') {
+            issues.push({
+              path: itemPath,
+              severity: 'error',
+              message: 'Malformed collection item (not an object)'
+            });
+            return null;
+          }
+
+          // In v5, requests might be defined with method property or meta.type
+          if (item.method && item.url) {
+            const request = {
+              _id: item.meta?.id || uuid(),
+              name: item.name || 'Untitled Request',
+              url: item.url || '',
+              method: item.method || '',
+              headers: item.headers || [],
+              parameters: item.parameters || [],
+              pathParameters: item.pathParameters || [],
+              authentication: item.authentication || {},
+              body: item.body || {},
+              settings: item.settings || {}
+            };
+            return transformInsomniaRequestItem(request, index, allItems);
+          } else if (item.children && Array.isArray(item.children)) {
+            // Process folder
+            return {
+              uid: uuid(),
+              name: item.name || 'Untitled Folder',
+              type: 'folder',
+              items: parseCollectionItems(item.children, item.children, itemPath)
+            };
+          }
+
+          issues.push({
+            path: itemPath,
+            severity: 'error',
+            message: 'Unsupported collection item (missing request method, URL or children)',
+            sourceItem: item
+          });
+          return null;
+        })
+        .filter(Boolean);
     };
 
     if (data.collection && Array.isArray(data.collection)) {
@@ -235,7 +277,11 @@ const parseInsomniaV5Collection = (data) => {
       brunoCollection.environments = buildV5Environments(data.environments);
     }
 
-    return brunoCollection;
+    return {
+      collection: brunoCollection,
+      issues,
+      totalItems: countInsomniaV5Items(data.collection) + countInsomniaV5Environments(data.environments)
+    };
   } catch (err) {
     console.error('Error parsing collection:', err);
     throw new Error('An error occurred while parsing the Insomnia v5 collection: ' + err.message);
@@ -250,6 +296,7 @@ const parseInsomniaCollection = (data) => {
     items: [],
     environments: []
   };
+  const issues = [];
 
   try {
     const insomniaResources = get(data, 'resources', []);
@@ -265,61 +312,97 @@ const parseInsomniaCollection = (data) => {
       = insomniaResources.filter((resource) => resource._type === 'request' || resource._type === 'request_group')
         || [];
 
-    function createFolderStructure(resources, parentId = null) {
+    function createFolderStructure(resources, parentId = null, parentPath = '') {
       const requestGroups
         = resources.filter((resource) => resource._type === 'request_group' && resource.parentId === parentId) || [];
       const requests = resources.filter((resource) => resource._type === 'request' && resource.parentId === parentId);
 
       const folders = requestGroups.map((folder, index, allFolder) => {
         const name = addSuffixToDuplicateName(folder, index, allFolder);
-        const requests = resources.filter(
-          (resource) => resource._type === 'request' && resource.parentId === folder._id
-        );
+        const itemPath = parentPath ? `${parentPath} / ${name}` : name;
 
         return {
           uid: uuid(),
           name,
           type: 'folder',
-          items: createFolderStructure(resources, folder._id).concat(
-            requests.filter((r) => r.parentId === folder._id).map(transformInsomniaRequestItem)
-          )
+          items: createFolderStructure(resources, folder._id, itemPath)
         };
       });
 
-      return folders.concat(requests.map(transformInsomniaRequestItem));
+      const requestItems = requests
+        .map((request, index, allRequests) => {
+          const itemName = request.name || `Item ${index + 1}`;
+          const itemPath = parentPath ? `${parentPath} / ${itemName}` : itemName;
+
+          if (!request.method || !request.url) {
+            issues.push({
+              path: itemPath,
+              severity: 'error',
+              message: 'Missing or invalid request method or URL',
+              sourceItem: request
+            });
+            return null;
+          }
+
+          return transformInsomniaRequestItem(request, index, allRequests);
+        })
+        .filter(Boolean);
+
+      return folders.concat(requestItems);
     }
 
     brunoCollection.items = createFolderStructure(requestsAndFolders, insomniaCollection._id);
 
+    // Count the source items reachable from the workspace. Orphaned resources are not part of
+    // the exported collection and are therefore not part of the total.
+    const countSourceItems = (parentId) => {
+      const children = requestsAndFolders.filter((resource) => resource.parentId === parentId);
+      return children.reduce(
+        (count, child) => count + 1 + (child._type === 'request_group' ? countSourceItems(child._id) : 0),
+        0
+      );
+    };
+    const environmentCount = insomniaResources.filter((resource) => resource._type === 'environment').length;
+    const totalItems = countSourceItems(insomniaCollection._id) + environmentCount;
+
     // Build environments from resources
     brunoCollection.environments = buildV4Environments(insomniaResources, insomniaCollection._id);
-    return brunoCollection;
+    return { collection: brunoCollection, issues, totalItems };
   } catch (err) {
     console.error('Error parsing collection:', err);
     throw new Error('An error occurred while parsing the Insomnia collection: ' + err.message);
   }
 };
 
-export const insomniaToBruno = (insomniaCollection) => {
+export const insomniaToBrunoWithReport = (insomniaCollection) => {
   try {
     if (typeof insomniaCollection !== 'object') {
       insomniaCollection = jsyaml.load(insomniaCollection, { schema: jsyaml.JSON_SCHEMA });
     }
-    let collection;
-    if (isInsomniaV5Export(insomniaCollection)) {
-      collection = parseInsomniaV5Collection(insomniaCollection);
-    } else {
-      collection = parseInsomniaCollection(insomniaCollection);
-    }
+    const parsed = isInsomniaV5Export(insomniaCollection)
+      ? parseInsomniaV5Collection(insomniaCollection)
+      : parseInsomniaCollection(insomniaCollection);
 
-    const transformedCollection = transformItemsInCollection(collection);
+    const transformedCollection = transformItemsInCollection(parsed.collection);
     const hydratedCollection = hydrateSeqInCollection(transformedCollection);
     const validatedCollection = validateSchema(hydratedCollection);
-    return validatedCollection;
+
+    const importedBreakdown = buildImportedItemsBreakdown(validatedCollection);
+    const importedItems = importedBreakdown.requests + importedBreakdown.folders + importedBreakdown.environments;
+
+    return {
+      collection: validatedCollection,
+      issues: parsed.issues,
+      totalItems: parsed.totalItems,
+      importedItems,
+      importedBreakdown
+    };
   } catch (err) {
     console.error(err);
     throw new Error('Import collection failed: ' + err.message);
   }
 };
+
+export const insomniaToBruno = (insomniaCollection) => insomniaToBrunoWithReport(insomniaCollection).collection;
 
 export default insomniaToBruno;

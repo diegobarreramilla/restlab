@@ -33,6 +33,37 @@ export const isItemARequest = (item) => {
   return item.hasOwnProperty('request') && ['http-request', 'graphql-request'].includes(item.type) && !item.items;
 };
 
+/**
+ * Counts the folders and requests of a converted Bruno collection at every depth.
+ * Environments live next to `items`, so callers count them separately.
+ */
+export const countCollectionItems = (items = []) => {
+  return items.reduce(
+    (counts, item) => {
+      if (item?.type === 'folder') {
+        const nested = countCollectionItems(item.items);
+        return {
+          requests: counts.requests + nested.requests,
+          folders: counts.folders + nested.folders + 1
+        };
+      }
+      return { ...counts, requests: counts.requests + 1 };
+    },
+    { requests: 0, folders: 0 }
+  );
+};
+
+/**
+ * Summarises what an import actually produced. Used for the "N of M items imported"
+ * report shown by the app and printed by the CLI.
+ */
+export const buildImportedItemsBreakdown = (collection) => {
+  const { requests, folders } = countCollectionItems(collection?.items);
+  const environments = (collection?.environments || []).length;
+
+  return { requests, folders, environments };
+};
+
 // a customized version of nanoid without using _ and -
 export const uuid = () => {
   // https://github.com/ai/nanoid/blob/main/url-alphabet/index.js
