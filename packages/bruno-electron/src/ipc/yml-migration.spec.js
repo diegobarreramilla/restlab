@@ -44,6 +44,9 @@ const {
   migrateCollectionOnDisk,
   migrateCollectionToYml,
   getYmlMigrationBackupRoot,
+  getYmlMigrationBackupInfo,
+  getYmlMigrationBackup,
+  deleteYmlMigrationBackup,
   stripBruExtInRunRequest,
   MIGRATION_CANCELLED_MESSAGE
 } = require('./yml-migration');
@@ -589,6 +592,19 @@ describe('migrateCollectionToYml reopen', () => {
     fsExtra.removeSync(collectionDir);
   });
 
+  it('records the committed backup so it can be found again after a restart', async () => {
+    const backupRoot = getYmlMigrationBackupRoot();
+    try {
+      const { backupPath } = await migrateCollectionToYml({ mainWindow, watcher, collectionPathname: collectionDir, collectionUid });
+
+      const found = await getYmlMigrationBackup(collectionDir);
+      expect(found.backupPath).toBe(backupPath);
+      expect(found.expiresAt).toBeGreaterThan(found.createdAt);
+    } finally {
+      fsExtra.removeSync(backupRoot);
+    }
+  });
+
   it('fails the success path when openCollection returns opened: false', async () => {
     openCollection.mockResolvedValue({
       opened: false,
@@ -627,17 +643,50 @@ describe('migrateCollectionToYml reopen', () => {
   });
 });
 
-describe('getYmlMigrationBackupRoot', () => {
-  it('answers where committed migrations keep the .bru backup copies', async () => {
-    const { ipcMain, app } = require('electron');
+describe('migration backup channels', () => {
+  const backupRoot = path.join(os.tmpdir(), 'tmp', 'yml-migration');
+
+  afterEach(() => {
+    fsExtra.removeSync(backupRoot);
+  });
+
+  it('registers the info, lookup and delete channels', () => {
+    const { ipcMain } = require('electron');
     registerYmlMigrationIpc({ webContents: { send: jest.fn() } });
 
-    expect(ipcMain.handle).toHaveBeenCalledWith('renderer:get-yml-migration-backup-root', expect.any(Function));
+    for (const channel of [
+      'renderer:get-yml-migration-backup-info',
+      'renderer:get-yml-migration-backup',
+      'renderer:delete-yml-migration-backup'
+    ]) {
+      expect(ipcMain.handle).toHaveBeenCalledWith(channel, expect.any(Function));
+    }
+  });
 
-    const callback = ipcMain.handle.mock.calls.find(([channel]) => channel === 'renderer:get-yml-migration-backup-root')[1];
-    await expect(callback()).resolves.toBe(path.join(os.tmpdir(), 'tmp', 'yml-migration'));
+  it('answers where backups are kept and for how long', async () => {
+    const { app } = require('electron');
 
-    expect(getYmlMigrationBackupRoot()).toBe(path.join(os.tmpdir(), 'tmp', 'yml-migration'));
+    await expect(getYmlMigrationBackupInfo()).resolves.toEqual({ rootPath: backupRoot, retentionDays: 30 });
+    expect(getYmlMigrationBackupRoot()).toBe(backupRoot);
     expect(app.getPath).toHaveBeenCalledWith('userData');
+  });
+
+  it('finds a recorded backup by collection path and deletes it on request', async () => {
+    const backupPath = path.join(backupRoot, 'backup-Xyz');
+    fs.mkdirSync(backupPath, { recursive: true });
+    require('../utils/migration-backups').recordBackup(backupRoot, { collectionPathname: '/c/demo', backupPath });
+
+    const found = await getYmlMigrationBackup('/c/demo');
+    expect(found.backupPath).toBe(backupPath);
+    expect(found.retentionDays).toBe(30);
+
+    await expect(deleteYmlMigrationBackup(backupPath)).resolves.toBe(true);
+    expect(fs.existsSync(backupPath)).toBe(false);
+    await expect(getYmlMigrationBackup('/c/demo')).resolves.toBeNull();
+  });
+
+  it('rejects a lookup without a path and a delete outside the backup folder', async () => {
+    await expect(getYmlMigrationBackup('')).rejects.toThrow();
+    await expect(deleteYmlMigrationBackup(os.tmpdir())).rejects.toThrow(/Not a migration backup/);
   });
 });

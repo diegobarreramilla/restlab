@@ -10,10 +10,7 @@ const initialState = {
   status: 'idle', // 'idle' | 'confirming' | 'migrating' | 'cancelling'
   phase: null, // 'parsing' | 'writing' | 'finalizing'
   current: 0,
-  total: 0,
-  // Where the committed migration kept the .bru backup; cleared when a new migration
-  // modal opens, so the overview shows it only for the collection just migrated.
-  completedBackupPath: null
+  total: 0
 };
 
 export const collectionMigrationSlice = createSlice({
@@ -28,7 +25,6 @@ export const collectionMigrationSlice = createSlice({
       state.collectionUid = collectionUid;
       state.collectionPathname = collectionPathname;
       state.collectionName = collectionName;
-      state.completedBackupPath = null;
       state.status = 'confirming';
     },
     hideMigrateToYmlModal: (state) => {
@@ -61,21 +57,7 @@ export const collectionMigrationSlice = createSlice({
       }
       state.status = 'cancelling';
     },
-    migrationEnded: (state) => {
-      state.status = 'idle';
-      state.phase = null;
-      state.current = 0;
-      state.total = 0;
-      // completedBackupPath intentionally survives so the collection overview can keep
-      // showing where the .bru backup landed after a committed migration.
-    },
-    migrationCompleted: (state, action) => {
-      const { collectionUid, backupPath } = action.payload;
-      if (state.collectionUid !== collectionUid) {
-        return;
-      }
-      state.completedBackupPath = typeof backupPath === 'string' ? backupPath : null;
-    }
+    migrationEnded: () => initialState
   }
 });
 
@@ -85,7 +67,6 @@ export const {
   migrationStarted,
   migrationProgressEvent,
   migrationCancelRequested,
-  migrationCompleted,
   migrationEnded
 } = collectionMigrationSlice.actions;
 

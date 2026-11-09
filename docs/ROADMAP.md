@@ -182,7 +182,7 @@ Hecho:
 - El IPC `renderer:migrate-collection-to-yml` devuelve `backupPath` junto al `brunoConfig`, y el nuevo canal de solo lectura `renderer:get-yml-migration-backup-root` (`getYmlMigrationBackupRoot`) informa la carpeta destino. La interfaz nunca adivina la ruta.
 - En **Collection Settings → Overview → Migration**, antes de convertir se anuncia «una copia de cada archivo `.bru` se guarda en `<ruta>`» (la del IPC; si aún no llegó, un marcador `…`). Tras migrar, la misma sección muestra «Migrated to YML file format», la ruta real de la copia y los botones **Copy** y **Reveal in Finder/Explorer/File Manager** (mismo helper y etiqueta por plataforma que Preferencias).
 - El modal de confirmación (paso de Backup) repite la ruta destino antes de migrar.
-- El estado de la ruta vive en el slice `collectionMigration` (`completedBackupPath`): sobrevive a `migrationEnded` para que el overview la siga mostrando, se limpia al abrir un modal nuevo y solo se aplica a la colección que migró (no se filtra a otras).
+- Desde la revisión (5.3.4) la ruta ya no vive en Redux: se busca por colección en el índice del proceso principal, y la copia se borra a los 30 días o con el botón **Delete backup**.
 
 Pruebas:
 - `packages/bruno-electron/src/ipc/yml-migration.spec.js`: la copia sobrevive a la migración, refleja el árbol original (`.bru` + `bruno.json`, sin `.yml`) y `backupPath` apunta a un directorio existente; el canal de la carpeta destino responde desde `app.getPath('userData')`.
@@ -237,11 +237,17 @@ Comprobado:
 
 Corregido: `getYmlMigrationBackupRoot` se usaba antes de definirse (`no-use-before-define`); movido encima de `migrateCollectionToYml`.
 
-Puntos abiertos (decisiones, no errores):
-1. **Las copias se acumulan.** Cada migración deja `backup-XXXXXX` en `<userData>/tmp/yml-migration/` y nada las borra. Opciones: botón «Delete backup» en el panel final, o limpieza de las de más de N días al arrancar. Falta decidir.
-2. **La ruta de la copia se pierde al reiniciar** (vive solo en el estado de Redux). La copia sigue en disco, pero la interfaz ya no la muestra. Persistirla por colección en el almacén local la haría duradera.
-3. **Textos fijos en inglés** en las tres pantallas nuevas (Privacy, Migration, Quick request), igual que el resto de Preferencias; pasarlos a claves de `react-i18next` queda para la meta de internacionalización (5.3).
-4. Las tres pantallas siguen sin mirarse con ojos humanos en tema claro y oscuro.
+Resuelto después de la revisión (2026-11-08):
+- **Las copias ya no se acumulan.** Panel final de la migración con botón **Delete backup** (pide confirmación en línea antes de borrar) y borrado automático a los **30 días**. El aviso lo dice en los tres sitios: antes de migrar (Overview y modal) y en el panel final, con la fecha exacta de borrado.
+- **La ruta ya no se pierde al reiniciar.** Se quitó `completedBackupPath` de Redux. La copia se registra en `<userData>/tmp/yml-migration/index.json` (colección, ruta, fecha) y la interfaz la busca por ruta de colección con el hook `useYmlMigrationBackup`.
+- Código: `bruno-electron/src/utils/migration-backups.js` (registrar, buscar, borrar, purgar; solo borra carpetas `backup-*` hijas directas de la raíz, así que una ruta enviada desde la interfaz no puede borrar otra cosa). La purga corre al registrar el IPC, es decir en cada arranque; las carpetas sin entrada en el índice se envejecen por su fecha de modificación. Canales: `renderer:get-yml-migration-backup-info` (sustituye a `…-backup-root`; devuelve ruta y días de retención), `renderer:get-yml-migration-backup` y `renderer:delete-yml-migration-backup`. Sin red.
+- Pruebas: 7 de `migration-backups`, 4 de canales y 1 de registro en `yml-migration`, 10 del panel. Mutación: quitar la comprobación de ruta del borrado y desactivar la purga hacen fallar una prueba cada una (restauradas).
+
+Pendiente:
+1. **Textos fijos en inglés** en las pantallas nuevas (Privacy, Migration, Quick request); pasarlos a claves de `react-i18next` dentro de la meta de internacionalización (5.3).
+2. **Mirar las pantallas en tema claro y oscuro** con ojos humanos (Privacy, Migration con el botón de borrar, Quick request).
+3. **Los 30 días están fijos en código** (`BACKUP_RETENTION_DAYS`). Si se quiere configurable, sería una preferencia nueva en Privacy.
+4. **El e2e de migración no se pudo ver completo** en esta máquina por el fallo ajeno del menú *Remove*; falta añadirle los pasos de borrar la copia.
 
 ### 5.4 Entornos: lista más cuidada · S · P ✅ (2026-11-07)
 

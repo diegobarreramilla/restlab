@@ -114,7 +114,7 @@ import { safeParseJSON, safeStringifyJSON } from 'utils/common/index';
 import { resolveInheritedAuth } from 'utils/auth';
 import { addTab } from 'providers/ReduxStore/slices/tabs';
 import { updateSettingsSelectedTab } from './index';
-import { migrationStarted, migrationCancelRequested, migrationCompleted, migrationEnded } from 'providers/ReduxStore/slices/collection-migration';
+import { migrationStarted, migrationCancelRequested, migrationEnded } from 'providers/ReduxStore/slices/collection-migration';
 import { flushSnapshotNow } from 'providers/ReduxStore/middlewares/snapshot/middleware';
 import { saveGlobalEnvironment, clearGlobalEnvironmentDraft, _clearScriptGlobalEnvBaseline } from 'providers/ReduxStore/slices/global-environments';
 import { getTabToFocusForCurrentWorkspace } from 'providers/ReduxStore/slices/workspaces/getTabToFocusForCurrentWorkspace';
@@ -3914,7 +3914,7 @@ export const migrateCollectionToYml = (collectionUid) => async (dispatch, getSta
   dispatch(_removeCollection({ collectionUid }));
 
   try {
-    const { backupPath } = await ipcRenderer.invoke('renderer:migrate-collection-to-yml', collectionPathname, collectionUid);
+    await ipcRenderer.invoke('renderer:migrate-collection-to-yml', collectionPathname, collectionUid);
 
     await remountReopenedCollection();
     // Freshly created collections start collapsed; expand it back like before migration
@@ -3928,8 +3928,6 @@ export const migrateCollectionToYml = (collectionUid) => async (dispatch, getSta
       collectionUid,
       type: 'collection-settings'
     }));
-    // The IPC owns the real backup path; store it so the overview can show it.
-    dispatch(migrationCompleted({ collectionUid, backupPath }));
     toast.success('Collection migrated to YML format successfully');
   } catch (err) {
     const wasCancelled = getState().collectionMigration.status === 'cancelling'

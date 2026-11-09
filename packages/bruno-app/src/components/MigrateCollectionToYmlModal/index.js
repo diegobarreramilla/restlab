@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import filter from 'lodash/filter';
 import each from 'lodash/each';
 import { useDispatch, useSelector } from 'react-redux';
@@ -32,6 +32,7 @@ import { getInvalidVariableNames } from 'utils/common/variables';
 import { isEnvironmentValidationError } from 'utils/environments';
 import Modal from 'components/Modal';
 import Button from 'ui/Button';
+import useYmlMigrationBackup from 'hooks/useYmlMigrationBackup';
 import StyledWrapper from './StyledWrapper';
 
 const PHASE_LABELS = {
@@ -112,21 +113,7 @@ const MigrateCollectionToYmlModal = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isResolvingDrafts, setIsResolvingDrafts] = useState(false);
   const [showDraftsStep, setShowDraftsStep] = useState(false);
-  // Read-only location the main process reports over IPC; the modal never hardcodes it.
-  const [backupRootPath, setBackupRootPath] = useState('');
-
-  useEffect(() => {
-    let isSubscribed = true;
-    window?.ipcRenderer
-      ?.invoke('renderer:get-yml-migration-backup-root')
-      .then((rootPath) => {
-        if (isSubscribed && typeof rootPath === 'string') setBackupRootPath(rootPath);
-      })
-      .catch((error) => console.error('Could not read the migration backup location', error));
-    return () => {
-      isSubscribed = false;
-    };
-  }, []);
+  const { rootPath: backupRootPath, retentionDays } = useYmlMigrationBackup();
 
   const collectionDrafts = useMemo(() => collectCollectionDrafts(collection), [collection]);
 
@@ -473,7 +460,8 @@ const MigrateCollectionToYmlModal = () => {
                 </p>
                 <p className="backup-section-help" data-testid="migration-backup-notice">
                   A committed migration also keeps a copy of the <code>.bru</code> files at{' '}
-                  <code data-testid="migration-backup-root">{backupRootPath || '…'}</code>.
+                  <code data-testid="migration-backup-root">{backupRootPath || '…'}</code>
+                  {retentionDays ? `, and deletes it automatically after ${retentionDays} days.` : '.'}
                 </p>
                 <div className="backup-section-action">
                   <Button

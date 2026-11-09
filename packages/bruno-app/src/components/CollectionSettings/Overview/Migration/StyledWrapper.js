@@ -39,6 +39,10 @@ const StyledWrapper = styled.div`
     &:hover {
       text-decoration: underline;
     }
+
+    &.danger {
+      color: ${(props) => props.theme.colors.text.danger};
+    }
   }
 `;
 

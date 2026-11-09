@@ -31,51 +31,62 @@ const theme = {
   colors: { text: { muted: '#8a8a8a' } }
 };
 
-const renderMigration = ({ format = 'bru', completedBackupPath = null, collectionUid = 'col-1', migrationCollectionUid = 'col-1' } = {}) => {
-  const store = configureStore({
-    reducer: {
-      collectionMigration: () => ({
-        collectionUid: migrationCollectionUid,
-        completedBackupPath,
-        status: 'idle'
-      })
-    }
-  });
+const DAY_MS = 24 * 60 * 60 * 1000;
+const CREATED_AT = new Date('2026-11-08T12:00:00').getTime();
+const BACKUP = {
+  backupPath: BACKUP_PATH,
+  createdAt: CREATED_AT,
+  expiresAt: CREATED_AT + 30 * DAY_MS,
+  retentionDays: 30
+};
+
+const renderMigration = ({ format = 'bru' } = {}) => {
+  const store = configureStore({ reducer: { app: () => ({}) } });
   return render(
     <Provider store={store}>
       <ThemeProvider theme={theme}>
-        <Migration collection={{ uid: collectionUid, name: 'demo', pathname: '/c/demo', format }} />
+        <Migration collection={{ uid: 'col-1', name: 'demo', pathname: '/c/demo', format }} />
       </ThemeProvider>
     </Provider>
   );
 };
 
 describe('CollectionSettings overview — Migration backup notice', () => {
-  let invokeSpy;
   let clipboardSpy;
+  let backupOnDisk;
+  let deleteBackupImpl;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    backupOnDisk = BACKUP;
+    deleteBackupImpl = () => Promise.resolve(true);
     clipboardSpy = jest.fn().mockResolvedValue();
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: clipboardSpy }, configurable: true });
-    invokeSpy = jest.fn((channel) => {
-      if (channel === 'renderer:get-yml-migration-backup-root') return Promise.resolve(BACKUP_ROOT);
-      return Promise.resolve(undefined);
-    });
-    window.ipcRenderer = { invoke: invokeSpy, send: jest.fn(), on: jest.fn() };
+    window.ipcRenderer = {
+      invoke: jest.fn((channel, ...args) => {
+        if (channel === 'renderer:get-yml-migration-backup-info') {
+          return Promise.resolve({ rootPath: BACKUP_ROOT, retentionDays: 30 });
+        }
+        if (channel === 'renderer:get-yml-migration-backup') return Promise.resolve(backupOnDisk);
+        if (channel === 'renderer:delete-yml-migration-backup') return deleteBackupImpl(...args);
+        return Promise.resolve(undefined);
+      }),
+      send: jest.fn(),
+      on: jest.fn()
+    };
   });
 
   afterEach(() => {
     delete window.ipcRenderer;
   });
 
-  it('announces where the .bru copy will be kept before migrating, straight from the IPC', async () => {
+  it('announces where the .bru copy will be kept and that it is deleted after 30 days', async () => {
     renderMigration({ format: 'bru' });
 
-    expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:get-yml-migration-backup-root');
     await waitFor(() => {
       expect(screen.getByTestId('migration-backup-notice')).toHaveTextContent(BACKUP_ROOT);
     });
+    expect(screen.getByTestId('migration-backup-notice')).toHaveTextContent('deletes it automatically after 30 days');
   });
 
   it('does not guess the backup location: without an answer it shows a placeholder', () => {
@@ -96,26 +107,69 @@ describe('CollectionSettings overview — Migration backup notice', () => {
     });
   });
 
-  it('shows the real backup path with copy and reveal after a committed migration', () => {
-    renderMigration({ format: 'yml', completedBackupPath: BACKUP_PATH });
+  it('looks the backup up by collection path, so it is still shown after a restart', async () => {
+    renderMigration({ format: 'yml' });
 
-    expect(screen.getByText('Migrated to YML file format')).toBeInTheDocument();
+    expect(await screen.findByText('Migrated to YML file format')).toBeInTheDocument();
+    expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:get-yml-migration-backup', '/c/demo');
     expect(screen.getByTestId('migration-backup-path')).toHaveTextContent(BACKUP_PATH);
+  });
 
-    fireEvent.click(screen.getByTestId('migration-copy-backup-path'));
+  it('states when the copy will be deleted automatically', async () => {
+    renderMigration({ format: 'yml' });
+
+    const expiry = await screen.findByTestId('migration-backup-expiry');
+    expect(expiry).toHaveTextContent(new Date(BACKUP.expiresAt).toLocaleDateString());
+    expect(expiry).toHaveTextContent('30 days after the migration');
+  });
+
+  it('copies and reveals the backup path', async () => {
+    renderMigration({ format: 'yml' });
+
+    fireEvent.click(await screen.findByTestId('migration-copy-backup-path'));
     expect(clipboardSpy).toHaveBeenCalledWith(BACKUP_PATH);
 
     fireEvent.click(screen.getByTestId('migration-reveal-backup'));
     expect(mockShowInFolder).toHaveBeenCalledWith(BACKUP_PATH);
   });
 
-  it('renders nothing for a yml collection that never migrated in this session', () => {
-    const { container } = renderMigration({ format: 'yml', completedBackupPath: null });
-    expect(container).toBeEmptyDOMElement();
+  it('deletes the backup only after a confirmation, then hides the section', async () => {
+    const { container } = renderMigration({ format: 'yml' });
+
+    fireEvent.click(await screen.findByTestId('migration-delete-backup'));
+    expect(window.ipcRenderer.invoke).not.toHaveBeenCalledWith('renderer:delete-yml-migration-backup', expect.anything());
+
+    fireEvent.click(screen.getByTestId('migration-confirm-delete-backup'));
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:delete-yml-migration-backup', BACKUP_PATH);
   });
 
-  it('does not leak another collection\u2019s backup path', () => {
-    const { container } = renderMigration({ format: 'yml', collectionUid: 'col-2', migrationCollectionUid: 'col-1', completedBackupPath: BACKUP_PATH });
+  it('keeps the backup when the confirmation is cancelled', async () => {
+    renderMigration({ format: 'yml' });
+
+    fireEvent.click(await screen.findByTestId('migration-delete-backup'));
+    fireEvent.click(screen.getByTestId('migration-cancel-delete-backup'));
+
+    expect(screen.getByTestId('migration-backup-path')).toBeInTheDocument();
+    expect(window.ipcRenderer.invoke).not.toHaveBeenCalledWith('renderer:delete-yml-migration-backup', expect.anything());
+  });
+
+  it('keeps showing the backup if deleting it fails', async () => {
+    deleteBackupImpl = () => Promise.reject(new Error('EPERM'));
+    renderMigration({ format: 'yml' });
+
+    fireEvent.click(await screen.findByTestId('migration-delete-backup'));
+    fireEvent.click(screen.getByTestId('migration-confirm-delete-backup'));
+
+    await waitFor(() => expect(screen.getByTestId('migration-delete-backup')).toBeInTheDocument());
+    expect(screen.getByTestId('migration-backup-path')).toBeInTheDocument();
+  });
+
+  it('renders nothing for a yml collection that has no backup', async () => {
+    backupOnDisk = null;
+    const { container } = renderMigration({ format: 'yml' });
+
+    await waitFor(() => expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:get-yml-migration-backup', '/c/demo'));
     expect(container).toBeEmptyDOMElement();
   });
 });

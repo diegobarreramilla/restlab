@@ -4,7 +4,6 @@ import reducer, {
   migrationStarted,
   migrationProgressEvent,
   migrationCancelRequested,
-  migrationCompleted,
   migrationEnded
 } from 'providers/ReduxStore/slices/collection-migration';
 
@@ -72,35 +71,11 @@ describe('collectionMigration slice', () => {
     expect(reducer(initialState, migrationCancelRequested()).status).toBe('idle');
   });
 
-  it('migrationCompleted stores the real backup path for the migrated collection', () => {
+  it('migrationEnded resets to idle from any status', () => {
     let state = reducer(initialState, showMigrateToYmlModal(COLLECTION));
     state = reducer(state, migrationStarted());
+    state = reducer(state, migrationProgressEvent({ collectionUid: 'col-1', phase: 'finalizing', current: 8, total: 8 }));
 
-    state = reducer(state, migrationCompleted({ collectionUid: 'col-1', backupPath: '/data/tmp/yml-migration/backup-1' }));
-    expect(state.completedBackupPath).toBe('/data/tmp/yml-migration/backup-1');
-
-    // a path reported for another collection never lands here
-    const other = reducer(state, migrationCompleted({ collectionUid: 'col-2', backupPath: '/somewhere/else' }));
-    expect(other.completedBackupPath).toBe('/data/tmp/yml-migration/backup-1');
-  });
-
-  it('migrationEnded clears the run but keeps the committed backup path for the overview', () => {
-    let state = reducer(initialState, showMigrateToYmlModal(COLLECTION));
-    state = reducer(state, migrationStarted());
-    state = reducer(state, migrationCompleted({ collectionUid: 'col-1', backupPath: '/data/tmp/yml-migration/backup-1' }));
-
-    const ended = reducer(state, migrationEnded());
-    expect(ended.status).toBe('idle');
-    expect(ended.completedBackupPath).toBe('/data/tmp/yml-migration/backup-1');
-  });
-
-  it('showMigrateToYmlModal clears the previous backup path when a new migration starts', () => {
-    let state = reducer(initialState, showMigrateToYmlModal(COLLECTION));
-    state = reducer(state, migrationStarted());
-    state = reducer(state, migrationCompleted({ collectionUid: 'col-1', backupPath: '/data/tmp/yml-migration/backup-1' }));
-    state = reducer(state, migrationEnded());
-
-    const next = reducer(state, showMigrateToYmlModal({ ...COLLECTION, collectionUid: 'col-2', collectionName: 'other' }));
-    expect(next.completedBackupPath).toBeNull();
+    expect(reducer(state, migrationEnded())).toEqual(initialState);
   });
 });

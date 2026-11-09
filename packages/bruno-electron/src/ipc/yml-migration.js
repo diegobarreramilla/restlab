@@ -19,6 +19,13 @@ const snapshotManager = require('../services/snapshot');
 const { unmount, clearCollectionIndex } = require('./mount');
 const { clearBrunoConfig } = require('../store/bruno-config');
 const { clearRequestUidsForCollection } = require('../cache/requestUids');
+const {
+  BACKUP_RETENTION_DAYS,
+  recordBackup,
+  findBackup,
+  deleteBackup,
+  purgeExpiredBackups
+} = require('../utils/migration-backups');
 
 const MIGRATION_CANCELLED_MESSAGE = 'Migration cancelled';
 const MIGRATION_IGNORED_DIRS = new Set(['node_modules', '.git']);
@@ -637,6 +644,14 @@ const migrateCollectionToYml = async ({ mainWindow, watcher, collectionPathname,
       reportError
     });
 
+    // A failed index write must not fail a migration that already committed on disk;
+    // the copy is still there and the age-based purge finds it by its modification time.
+    try {
+      recordBackup(getYmlMigrationBackupRoot(), { collectionPathname, backupPath: result.backupPath });
+    } catch (indexError) {
+      console.error('Failed to record the migration backup:', indexError);
+    }
+
     // Remap .bru → .yml tab paths across EVERY workspace snapshot entry for this
     // collection. Force-flushing only rewrites the active workspace; shared
     // collections keep per-workspace tab lists that would otherwise restore as
@@ -661,18 +676,35 @@ const migrateCollectionToYml = async ({ mainWindow, watcher, collectionPathname,
   return { brunoConfig: result.brunoConfig, backupPath: result.backupPath };
 };
 
+// Where backups are kept and for how long, so the UI can announce it before a migration.
+const getYmlMigrationBackupInfo = async () => {
+  return { rootPath: getYmlMigrationBackupRoot(), retentionDays: BACKUP_RETENTION_DAYS };
+};
+
+const getYmlMigrationBackup = async (collectionPathname) => {
+  if (typeof collectionPathname !== 'string' || !collectionPathname) {
+    throw new Error('A collection path is required');
+  }
+  return findBackup(getYmlMigrationBackupRoot(), collectionPathname);
+};
+
+const deleteYmlMigrationBackup = async (backupPath) => {
+  await deleteBackup(getYmlMigrationBackupRoot(), backupPath);
+  return true;
+};
+
 const registerYmlMigrationIpc = (mainWindow, watcher) => {
   ipcMain.handle('renderer:cancel-migrate-collection-to-yml', (event, collectionUid) => {
     migrationCancellations.add(collectionUid);
   });
 
-  ipcMain.handle('renderer:get-yml-migration-backup-root', async () => {
-    try {
-      return getYmlMigrationBackupRoot();
-    } catch (error) {
-      console.error('Error in get-yml-migration-backup-root:', error);
-      return Promise.reject(error);
-    }
+  ipcMain.handle('renderer:get-yml-migration-backup-info', getYmlMigrationBackupInfo);
+  ipcMain.handle('renderer:get-yml-migration-backup', (event, collectionPathname) => getYmlMigrationBackup(collectionPathname));
+  ipcMain.handle('renderer:delete-yml-migration-backup', (event, backupPath) => deleteYmlMigrationBackup(backupPath));
+
+  // Backups older than the retention window are removed on every launch.
+  purgeExpiredBackups(getYmlMigrationBackupRoot()).catch((error) => {
+    console.error('Failed to purge expired migration backups:', error);
   });
 
   ipcMain.handle('renderer:migrate-collection-to-yml', (event, collectionPathname, collectionUid) => {
@@ -685,6 +717,9 @@ module.exports = {
   migrateCollectionOnDisk,
   migrateCollectionToYml,
   getYmlMigrationBackupRoot,
+  getYmlMigrationBackupInfo,
+  getYmlMigrationBackup,
+  deleteYmlMigrationBackup,
   stripBruExtInRunRequest,
   MIGRATION_CANCELLED_MESSAGE
 };
