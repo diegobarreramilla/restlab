@@ -21,6 +21,7 @@ const MUST_DEFAULT_TO_FALSE = [
   'ai.autocomplete.enabled',
   'ai.providers.*.enabled',
   'general.fetchNotifications',
+  'autoSave.enabled',
   'cache.sslSession.enabled',
   'cache.file.enabled'
 ];
