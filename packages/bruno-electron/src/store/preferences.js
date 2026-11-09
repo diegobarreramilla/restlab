@@ -472,6 +472,7 @@ const preferencesUtil = {
 };
 
 module.exports = {
+  defaultPreferences,
   getPreferences,
   savePreferences,
   preferencesUtil

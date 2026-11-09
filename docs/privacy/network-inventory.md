@@ -21,6 +21,8 @@ Método: se buscó en `bruno-electron/src` y `bruno-app/src` (sin pruebas) todo 
 |---|---|---|
 | Sincronización con OpenAPI | `bruno-app/src/providers/App/useOpenAPISyncPolling.js` | Si una colección tiene `sourceUrl` y `autoCheck` no es `false`, consulta esa URL a los 10 s del arranque y cada 5 min. También reintenta una vez cuando vuelve la conexión. El destino es la URL que el usuario configuró, nunca un servidor del proyecto |
 
+**Decisión sobre `autoCheck` (2026-11-08):** se deja como está. El sondeo no existe sin una `sourceUrl` que el usuario haya pegado y guardado en la configuración de la colección, y el destino es exactamente esa URL; es la función que el usuario pidió al configurar la sincronización, no una conexión de la app consigo misma. El interruptor `autoCheck` permite apagarlo por colección. Convertirlo en opt-in (apagado hasta que el usuario active un interruptor aparte) sería un cambio de producto separado, no un requisito de privacidad: no hay destino oculto ni dato que el usuario no haya aportado. Si en el futuro se añade una fuente por defecto o un servidor del proyecto, esta decisión deja de aplicar y el sondeo tendría que pasar a la categoría 3.
+
 ## 3. Opcionales, apagadas por defecto
 
 | Qué | Dónde | Cómo se activa |

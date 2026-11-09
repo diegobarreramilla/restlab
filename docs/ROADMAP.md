@@ -253,6 +253,28 @@ Pendiente:
 3. **Los 30 días están fijos en código** (`BACKUP_RETENTION_DAYS`). Si se quiere configurable, sería una preferencia nueva en Privacy.
 4. **El e2e de migración no se pudo ver completo** en esta máquina por el fallo ajeno del menú *Remove*; falta añadirle los pasos de borrar la copia.
 
+Revisión de los cambios de borrado e índice (2026-11-08): sin hallazgos. El borrado solo acepta carpetas `backup-*` hijas directas de la raíz; el índice se escribe con archivo temporal + rename; la purga ignora entradas cuyo directorio ya no existe y envejece por `mtime` las carpetas sin entrada; el hook lee `backup?.backupPath` fuera del callback. Pruebas de `migration-backups`, canales y panel en verde.
+
+### 5.3.5 Valores por defecto sin sorpresas · S · P ✅ (2026-11-08)
+
+**Origen:** fila 5.3 de la tabla («Bait and switch» es la queja de fondo). La promesa es que nada se active solo y que no haya avisos de pago ni anuncios; una prueba debe fallar si alguien cambia un valor por defecto.
+
+Hecho:
+- `packages/bruno-electron/src/store/preferences.js` exporta ahora `defaultPreferences` (antes era privado), para que la prueba lo lea sin pasar por `electron-store`.
+- Nueva `packages/bruno-electron/src/store/preferences.spec.js`:
+  - **Lista explícita** de rutas que deben ser `false`: `ai.enabled`, `ai.autocomplete.enabled`, `ai.providers.*.enabled`, `general.fetchNotifications`, `cache.sslSession.enabled` y `cache.file.enabled`. El `*` se expande sobre los proveedores reales, así que añadir uno nuevo con `enabled: true` también falla. El mensaje nombra la ruta y el valor (`general.fetchNotifications is true`). Si una ruta desaparece o se renombra, la prueba falla en vez de proteger nada.
+  - **Barrido recursivo** de todo el árbol: cualquier clave `enabled`, `telemetry` o `analytics` con valor `true` falla salvo que esté en una lista blanca con motivo. Única entrada: `request.keepDefaultCaCertificates.enabled` (seguridad: confiar en el almacén de certificados del sistema es lo seguro; apagarlo rompería TLS, no protegería a nadie). Una tercera prueba comprueba que la lista blanca no se queda obsoleta.
+- **`autoCheck` de OpenAPI sync:** se deja como está. Solo actúa si el usuario configuró una `sourceUrl` en la colección y el destino es esa URL; el interruptor `autoCheck` permite apagarlo. La decisión y su límite quedan escritos en `docs/privacy/network-inventory.md` (sección 2). Hacerlo opt-in sería un cambio de producto aparte.
+- **Textos de pago o anuncios:** `grep -rniE "upgrade|pro plan|golden|subscribe|license key" packages/bruno-app/src --include='*.js' --include='*.jsx'`. Sin coincidencias de `pro plan`, `golden` (salvo el comentario de color «Golden ochre» del tema), `license key` ni `subscribe` como texto visible. El resto es inerte: `subscribe`/`unsubscribe` de Redux, IndexedDB, logs del mock server, WebSocket y variables; `Upgrade Required` es la frase del código HTTP 426; `case 'upgrade'` es el evento WebSocket; y los comentarios sobre «existing users who upgrade» no se muestran. No hay ningún aviso de pago visible que eliminar. `GoldenEdition` sigue eliminado.
+- **Anuncios de `appinfo.usebruno.com`:** siguen apagados por defecto. `general.fetchNotifications` es `false` en `defaultPreferences` y en el fallback del renderer (`Preferences/General`), y `pushNotifications()` vuelve antes de llamar a `fetch` cuando la preferencia está apagada. Cubierto por `ipc/notifications.spec.js` («sends no network request when fetching notifications is off»). El código sigue existiendo, pero es inalcanzable sin opt-in.
+
+Pruebas:
+- `npx jest src/store/preferences.spec.js`: 8/8 en verde (6 rutas + barrido + lista blanca).
+- `npx jest src/store/preferences.spec.js src/ipc/preferences.spec.js src/ipc/notifications.spec.js`: 13/13.
+- **Mutación:** `general.fetchNotifications: true` hace fallar la prueba con `general.fetchNotifications is true`; restaurado y verde. ESLint sin errores.
+
+Listo cuando: la prueba pasa, falla si se activa una opción por defecto y la revisión de texto de pago queda anotada. ✅
+
 ### 5.4 Entornos: lista más cuidada · S · P ✅ (2026-11-07)
 
 **Origen:** pedido tuyo tras usar la lista de entornos de la colección (los entornos son de Bruno, no los añadió RestLab).
