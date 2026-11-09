@@ -87,6 +87,8 @@ Ver tabla "Pendiente" de `docs/branding.md`. Resumen:
 
 **Objetivo:** números de línea base y solo dos correcciones.
 
+> **Actualización 2026-11-09:** el repositorio ya trae un banco de pruebas (`tests/benchmarks/`: montaje de colecciones de 50 a 3000 peticiones en `bru` y `yml`, generador de colecciones, banco del runner, valores de referencia por sistema y `npm run test:benchmark`) y un servidor con respuesta grande (`bruno-tests` → `/large-payload?size=N`, solo `text/plain`). Los pasos 2 y 3 se reducen a **reutilizar y añadir** lo que falta: arranque en frío, respuesta JSON de 5 a 10 MB y memoria a los 5 minutos. Los valores de referencia del proyecto de origen muestran un salto fuerte entre 1000 y 3000 peticiones (Ubuntu: `bru` 8 s → 170 s, `yml` 10,7 s → 80 s); hay que confirmarlo midiendo aquí. Plan detallado: `docs/sessions/2026-11-09.md`.
+
 **Pasos**
 1. Crear `docs/perf/README.md` con la máquina usada (CPU, RAM, sistema) y el método.
 2. Preparar tres escenarios y guardarlos como fixtures en `tests/perf/`:
@@ -530,3 +532,26 @@ Hecho ─ marca, local-first, IA opcional, fin de enlaces ajenos
 | Copyright | "Copyright (c) 2026 RestLab", conservando el aviso original de Bruno exigido por la licencia MIT |
 | Metadatos de exportación | `RestLab/<versión>` (CLI: `restlab-cli/<versión>`) |
 | Commits | Uno por módulo, sin `Co-Authored-By` |
+
+---
+
+## 15. Ideas propuestas para sumar valor (2026-11-09)
+
+Doce ideas nuevas, todas de nivel **P/C** (propuestas mías, sin demanda comprobada), pensadas para reforzar la promesa local-first y hacer útil la app sin IA. Detalle, pasos y «listo cuando» de cada una en `docs/superpowers/ideas/2026-11-09-fork-value-ideas.md`.
+
+| # | Idea | Esfuerzo | Cuándo |
+|---|---|---|---|
+| 1 | Explicar el fallo sin IA | M | Tras la v1-base |
+| 2 | Modo estricto de red | M | Antes de publicar |
+| 3 | Detector de secretos antes de commit o exportación | M | Tras 5.3 |
+| 4 | Doctor de colección (`bru check`) | M | Tras 5.2 |
+| 5 | Comprobador de integridad de formato (`verify`) | S–M | Con 8.3 |
+| 6 | Documentación incluida en la app | M | Con 8.4 |
+| 7 | Modo portátil | S | Con 8.2 |
+| 8 | Copiar información de diagnóstico | S | Con el repositorio público |
+| 9 | Comparar dos respuestas | M | Después de 4.x |
+| 10 | Desglose de tiempos | M | Después de 4.x |
+| 11 | Primer arranque «vengo de Postman/Insomnia» | S | Con 7.1 |
+| 12 | Descargas verificables (sumas y SBOM) | S | Con 8.2 |
+
+Orden sugerido si se elige solo una parte: **2, 3, 5 y 1**. Ninguna entra en la v1 sin pasar su paso *Verificar primero*.
