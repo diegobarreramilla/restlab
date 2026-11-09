@@ -145,7 +145,6 @@ Cada una está pensada para que quien la use la note sin que la pida. Se ordenan
 
 | Mejora | Motivo en la investigación | Esfuerzo | Notas |
 |---|---|---|---|
-| **Copia de seguridad visible antes de migrar de formato o actualizar** | El miedo a perder datos tras actualizar es de las quejas más fuertes contra Insomnia (#6585, 74 reacciones) | S | La migración BRU a YML ya hace copia y revierte si falla (`ipc/yml-migration.js`). Falta **decirlo** al usuario, y dónde queda la copia |
 | **Petición suelta sin colección** | Postman retiró el Scratch Pad y generó abandono | S | El proyecto ya usa colecciones "scratch" internas (`scratchCollectionUid`). Verificar si el usuario puede abrir la app y enviar una petición sin crear nada; si no, hacerlo evidente |
 | **Modo vim en el editor** | Bruno #2373 (57 reacciones) | M | CodeMirror admite el mapa de teclas vim; hace falta el ajuste, la carga diferida del módulo y probar con los atajos de la app |
 | **Pestañas de varias colecciones a la vez** | Bruno #5807 (33) | M | Comprobar primero qué ofrece el espacio de trabajo actual |
@@ -172,6 +171,29 @@ Pruebas:
 - Comprobado en la app real con Playwright (captura del bloque Privacy).
 
 Listo cuando: abres Preferencias, ves las rutas correctas y puedes copiarlas. ✅
+
+
+
+### 5.3.2 Copia de seguridad visible antes de migrar de formato · S · A ✅ (2026-11-08)
+
+**Origen:** el miedo a perder datos al cambiar de formato o actualizar es de las quejas más fuertes contra Insomnia (#6585, 74 reacciones).
+
+Hecho:
+- La migración BRU→YML ahora **conserva** la copia de los `.bru` (y `bruno.json`) al terminar bien. Antes se borraba en el camino feliz, así que no había ninguna ruta real que mostrar. Ahora se queda en `<userData>/tmp/yml-migration/backup-XXXXXX`, con la misma estructura relativa de la colección. Solo se elimina cuando la migración falla y **todos** los originales se restauraron en su sitio (nada que recuperar); si algún original no se pudo restaurar, la copia se conserva y se reporta, como ya hacía.
+- El IPC `renderer:migrate-collection-to-yml` devuelve `backupPath` junto al `brunoConfig`, y el nuevo canal de solo lectura `renderer:get-yml-migration-backup-root` (`getYmlMigrationBackupRoot`) informa la carpeta destino. La interfaz nunca adivina la ruta.
+- En **Collection Settings → Overview → Migration**, antes de convertir se anuncia «una copia de cada archivo `.bru` se guarda en `<ruta>`» (la del IPC; si aún no llegó, un marcador `…`). Tras migrar, la misma sección muestra «Migrated to YML file format», la ruta real de la copia y los botones **Copy** y **Reveal in Finder/Explorer/File Manager** (mismo helper y etiqueta por plataforma que Preferencias).
+- El modal de confirmación (paso de Backup) repite la ruta destino antes de migrar.
+- El estado de la ruta vive en el slice `collectionMigration` (`completedBackupPath`): sobrevive a `migrationEnded` para que el overview la siga mostrando, se limpia al abrir un modal nuevo y solo se aplica a la colección que migró (no se filtra a otras).
+
+Pruebas:
+- `packages/bruno-electron/src/ipc/yml-migration.spec.js`: la copia sobrevive a la migración, refleja el árbol original (`.bru` + `bruno.json`, sin `.yml`) y `backupPath` apunta a un directorio existente; el canal de la carpeta destino responde desde `app.getPath('userData')`.
+- `packages/bruno-app/src/components/CollectionSettings/Overview/Migration/index.spec.js`: 6 casos — aviso previo con la ruta del IPC, marcador cuando el IPC falla, apertura del modal, panel final con ruta real + copiado + revelado, y que no se muestra en colecciones yml sin migración ni se filtra la ruta de otra colección.
+- `packages/bruno-app/src/providers/ReduxStore/slices/collection-migration.spec.js`: la ruta se guarda solo para la colección que migró, sobrevive a `migrationEnded` y se limpia al iniciar otra migración.
+- Prueba de mutación: quitar la creación de la copia hace fallar 2 pruebas; romper la reversión hace fallar otras 2. Ambas revertidas.
+- E2E `tests/collection/migrate-to-yml/migrate-to-yml.spec.ts`: tras migrar, el overview muestra la ruta real y el test comprueba en disco que existen `ping.bru` y `bruno.json`. El cuerpo del test pasa; el `afterAll` (cierre de colecciones) falla por el problema de entorno ya documentado (menú *Remove* fuera de la ventana), igual sin estos cambios.
+- Comprobado en la app real con Playwright: capturas del aviso previo, del modal y del panel final con la ruta.
+
+Listo cuando: migrar una colección de prueba muestra la ruta de la copia y esa ruta existe en disco. ✅
 
 
 

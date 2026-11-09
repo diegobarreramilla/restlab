@@ -131,9 +131,17 @@ test.describe('Migrate collection from bru to yml format', () => {
       await expect(loc.paneTabs.collectionSettingsTab('overview')).toBeVisible();
     });
 
-    await test.step('Verify migration section is hidden after migration', async () => {
+    await test.step('Verify the completed section shows where the .bru backup is kept', async () => {
       await loc.paneTabs.collectionSettingsTab('overview').click();
+      // previously the migrate CTA showed here; after migration the section reports the copy instead
       await expect(page.getByText('Migrate to YML file format')).not.toBeVisible();
+      await expect(page.getByText('Migrated to YML file format')).toBeVisible();
+
+      // the UI shows the real backup path and it exists on disk with the .bru sources
+      const backupPath = await page.getByTestId('migration-backup-path').innerText();
+      expect(fs.existsSync(backupPath)).toBe(true);
+      expect(fs.existsSync(path.join(backupPath, 'ping.bru'))).toBe(true);
+      expect(fs.existsSync(path.join(backupPath, 'bruno.json'))).toBe(true);
     });
 
     await test.step('Verify migrated requests are functional', async () => {
