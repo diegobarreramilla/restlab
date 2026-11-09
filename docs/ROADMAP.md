@@ -88,6 +88,8 @@ Ver tabla "Pendiente" de `docs/branding.md`. Resumen:
 **Objetivo:** números de línea base y solo dos correcciones.
 
 > **Actualización 2026-11-09:** el repositorio ya trae un banco de pruebas (`tests/benchmarks/`: montaje de colecciones de 50 a 3000 peticiones en `bru` y `yml`, generador de colecciones, banco del runner, valores de referencia por sistema y `npm run test:benchmark`) y un servidor con respuesta grande (`bruno-tests` → `/large-payload?size=N`, solo `text/plain`). Los pasos 2 y 3 se reducen a **reutilizar y añadir** lo que falta: arranque en frío, respuesta JSON de 5 a 10 MB y memoria a los 5 minutos. Los valores de referencia del proyecto de origen muestran un salto fuerte entre 1000 y 3000 peticiones (Ubuntu: `bru` 8 s → 170 s, `yml` 10,7 s → 80 s); hay que confirmarlo midiendo aquí. Plan detallado: `docs/sessions/2026-11-09.md`.
+>
+> **Medición del 2026-11-09 (T1 y T2 hechos, T3–T6 pendientes):** la línea base está en `docs/perf/README.md`. En esta máquina, la mediana de montaje pasa de 4,6 s (`bru`, 1000) a 98,3 s (3000) —×21,5— y de 5,9 s a 52,4 s en `yml` —×8,9—. El salto de la referencia **se confirma**. Los dos peores casos son el montaje de 3000 peticiones en `bru` y en `yml`; el diagnóstico de T6 dirá si comparten causa. Todavía no hay correcciones: primero se perfila.
 
 **Pasos**
 1. Crear `docs/perf/README.md` con la máquina usada (CPU, RAM, sistema) y el método.
