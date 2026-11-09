@@ -337,7 +337,7 @@ const convertPostmanEnvironment = async (source, { insecure }) => {
 
 const importPostmanCollection = async (source, { insecure, preserveScripts, environmentSources = [] }) => {
   const postmanCollection = await readPostmanFile(source, { insecure });
-  const { collection, issues } = await postmanToBruno(postmanCollection, {
+  const { collection, issues, totalItems, importedItems } = await postmanToBruno(postmanCollection, {
     preserveScripts,
     logTranslationFailures: false
   });
@@ -353,7 +353,7 @@ const importPostmanCollection = async (source, { insecure, preserveScripts, envi
     collection.environments.push({ ...environment, name });
   }
 
-  return { collection, issues };
+  return { collection, issues, report: { totalItems, importedItems } };
 };
 
 const writeBrunoCollection = async (collection, { output, outputFile, collectionFormat = 'opencollection' }) => {
@@ -384,8 +384,8 @@ const writeBrunoCollection = async (collection, { output, outputFile, collection
  * Prints what the import produced and returns whether any item was skipped. The package report is
  * informational and never counts as an error.
  */
-const reportImport = (collection, issues) => {
-  const lines = [formatImportSummary(collection), ...formatImportIssues(issues), ...formatPackageReport(collection.packageReport)];
+const reportImport = (collection, issues, report) => {
+  const lines = [formatImportSummary(collection, report), ...formatImportIssues(issues), ...formatPackageReport(collection.packageReport)];
   lines.forEach((line) => console.log(line));
   return hasImportErrors(issues);
 };
@@ -415,7 +415,7 @@ const handler = async (argv) => {
 
     if (type === 'postman') {
       console.log(chalk.yellow(`Reading Postman collection from ${source}...`));
-      const { collection, issues } = await importPostmanCollection(source, {
+      const { collection, issues, report } = await importPostmanCollection(source, {
         insecure,
         preserveScripts,
         environmentSources: env
@@ -426,7 +426,7 @@ const handler = async (argv) => {
       }
 
       await writeBrunoCollection(collection, { output, outputFile });
-      const hasErrors = reportImport(collection, issues);
+      const hasErrors = reportImport(collection, issues, report);
       if (hasErrors) {
         process.exit(1);
       }

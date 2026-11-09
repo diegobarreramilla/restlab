@@ -149,7 +149,7 @@ Cada una está pensada para que quien la use la note sin que la pida. Se ordenan
 | **Pestañas de varias colecciones a la vez** | Bruno #5807 (33) | M | Comprobar primero qué ofrece el espacio de trabajo actual |
 | **Atajos de teclado y paleta de comandos** | Usuarios que "quieren que no estorbe" | M | Ya existe el buscador global; ampliarlo a acciones (nueva petición, cambiar entorno, abrir ajustes). También sienta la base de las extensiones (etapa 9) |
 | **Enviar y recibir desde la línea de comandos con la misma colección** | El agente externo del usuario ya cubre la IA ("vibecode Postman"); lo defendible es el contexto propio | M | `bru run` ya existe. Documentar el uso para agentes y, más adelante, un servidor MCP (etapa 10) |
-| **Importar desde Postman e Insomnia con informe de lo perdido** | Es el camino de entrada de quienes se van | S | Ya hay aviso de importación; añadir el recuento "N de M elementos importados" y exportar el informe a archivo |
+| **Importar desde Postman e Insomnia con informe de lo perdido** ✅ | Es el camino de entrada de quienes se van | S | Hecho en 5.3.6 |
 | **Valores por defecto sin sorpresas** | "Bait and switch" es la queja de fondo | S | Revisar que ninguna opción nueva de la base venga activa y que no existan avisos de pago ni anuncios; añadir una prueba que lo vigile (`tests/` recorriendo Preferencias) |
 | **Internacionalización** | Bruno #322 (58 reacciones) | M | La app ya usa `react-i18next`. Completar el español y dejar la guía para añadir idiomas; comprobar que lo nuevo (offline, "What's sent") usa claves y no texto fijo |
 
@@ -274,6 +274,30 @@ Pruebas:
 - **Mutación:** `general.fetchNotifications: true` hace fallar la prueba con `general.fetchNotifications is true`; restaurado y verde. ESLint sin errores.
 
 Listo cuando: la prueba pasa, falla si se activa una opción por defecto y la revisión de texto de pago queda anotada. ✅
+
+### 5.3.6 Informe de importación desde Postman e Insomnia · S · A ✅ (2026-11-08)
+
+**Origen:** fila 5.3 de la tabla. Quien se va de Postman o Insomnia necesita saber qué no llegó.
+
+Hecho:
+- **Convertidores** (`bruno-converters`): `postmanToBruno` y el nuevo `insomniaToBrunoWithReport` devuelven, además de `issues`, `totalItems` (elementos de la fuente, incluidos los que se omiten), `importedItems` e `importedBreakdown` (`requests`, `folders`, `environments`). `insomniaToBruno` sigue devolviendo solo la colección, así que el resto de llamadas no cambian. Insomnia ahora avisa de las peticiones sin método o URL, antes se perdían sin decirlo.
+- **Corrección de paso en Insomnia v4:** las peticiones dentro de carpetas salían **duplicadas** (la recursión ya las incluía y luego se volvían a añadir). Se quitó el duplicado y se actualizó el resultado esperado de la prueba de importación; hay una prueba nueva que lo vigila.
+- **App:** si una importación omite elementos o genera avisos, la notificación abre con «N of M items imported: …» y tiene el botón **Save report**, que pide dónde guardar y escribe un `.txt` (IPC `renderer:save-import-report`, `ipc/import-report.js`, solo disco local). El informe lista lo omitido y los avisos con su ruta; **nunca** incluye el contenido de los elementos de origen, que pueden llevar claves o URLs internas. Si no se omitió nada no sale notificación, porque la colección importada ya se ve (criterio de 7.2).
+- **CLI** (gemelo, `bru import postman`): la línea de resumen añade «(N of M items imported)». La CLI solo importa Postman, no Insomnia.
+
+Pruebas:
+- `bruno-converters`: 2079 pasan. Nuevas: `import-report.spec.js` (Postman), casos de informe y de duplicados (Insomnia), y se actualizó la prueba que exigía las claves exactas del resultado.
+- `bruno-app`: `utils/importers/import-report.spec.js` (texto del informe, sin datos de origen), `Toast/ImportIssuesToast/index.spec.js` (título y guardado) y dos casos nuevos en `ImportCollectionLocation` (muestra el recuento al omitir y calla si no se omitió nada).
+- `bruno-electron`: `ipc/import-report.spec.js` (escribe donde se elige, no escribe si se cancela, rechaza informes vacíos).
+- `bruno-cli`: caso nuevo en `import-report.spec.js`.
+- Mutación: contar todo como importado hace fallar la prueba del convertidor; quitar el informe de la notificación hace fallar la de `ImportCollectionLocation`. Restauradas.
+- Comprobado con la CLI real (tras `npm run build:bruno-converters`): una colección con 4 elementos y uno inválido imprime «Imported 2 requests in 1 folders (3 of 4 items imported)» y lista el omitido.
+
+Pendiente:
+1. **Verla en la app con ojos humanos**: importar una colección de Postman con un elemento inválido y mirar la notificación y el archivo guardado, en tema claro y oscuro.
+2. La importación **masiva** (`BulkImportCollectionLocation`) sigue mostrando la notificación sin recuento; se puede añadir si se usa.
+3. Textos en inglés fijos, como el resto (ver 5.3.4, pendiente 1).
+4. Tras tocar un convertidor hay que ejecutar `npm run build:bruno-converters` para que la app y la CLI lo vean.
 
 ### 5.4 Entornos: lista más cuidada · S · P ✅ (2026-11-07)
 

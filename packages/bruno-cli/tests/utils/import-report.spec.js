@@ -28,6 +28,14 @@ describe('formatImportSummary', () => {
 
     expect(formatImportSummary(collection)).toBe('Imported 1 requests in 0 folders, 2 environments');
   });
+
+  it('adds how many source items were imported when the converter reports it', () => {
+    const collection = { items: [request('Health')], environments: [] };
+
+    expect(formatImportSummary(collection, { importedItems: 5, totalItems: 7 })).toBe(
+      'Imported 1 requests in 0 folders (5 of 7 items imported)'
+    );
+  });
 });
 
 describe('formatImportIssues', () => {

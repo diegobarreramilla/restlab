@@ -10,11 +10,14 @@ const countItems = (items = []) => {
   }, { requests: 0, folders: 0 });
 };
 
-const formatImportSummary = (collection) => {
+// `report` is the converter's { totalItems, importedItems }: it counts the source items the
+// converter skipped, which the collection itself can no longer show. Mirrors the app's import toast.
+const formatImportSummary = (collection, report) => {
   const { requests, folders } = countItems(collection.items);
   const environmentCount = (collection.environments || []).length;
   const environments = environmentCount ? `, ${environmentCount} environments` : '';
-  return `Imported ${requests} requests in ${folders} folders${environments}`;
+  const imported = report ? ` (${report.importedItems} of ${report.totalItems} items imported)` : '';
+  return `Imported ${requests} requests in ${folders} folders${environments}${imported}`;
 };
 
 const hasImportErrors = (issues) => issues.some((issue) => issue.severity === 'error');
