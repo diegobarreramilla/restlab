@@ -121,6 +121,12 @@ El comando usa `playwright.benchmark.config.ts`:
   ya están corriendo.
 - El propio banco lanza Electron desde `packages/bruno-electron` con Playwright (no un navegador) y
   carga la interfaz desde el servidor de desarrollo.
+- `build.external` excluye de la transpilación los bundles ya construidos de `packages/*/dist`. Sin
+  esa exclusión, Playwright aplica los `paths` del `tsconfig.json` de cada paquete al resolver
+  imports en tiempo de ejecución y `@usebruno/common` acaba apuntando a un `.d.ts` vacío
+  (`Cannot destructure property 'toBool' of 'r.utils'`). Los paquetes del workspace son symlinks a
+  `packages/`, así que sus rutas reales quedan fuera de `node_modules` y Playwright los trataría como
+  código propio.
 - Timeout por prueba: 10 minutos. El montaje de 3000 peticiones amplía su propio timeout según el
   tamaño.
 

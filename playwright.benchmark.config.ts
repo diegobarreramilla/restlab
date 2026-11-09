@@ -5,6 +5,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers: 1,
+
+  build: {
+    // Workspace packages are symlinked into node_modules, so their real paths
+    // live under packages/*/dist. Playwright would otherwise apply each
+    // package's tsconfig "paths" (which point at .d.ts files) when resolving
+    // runtime imports inside those already-built bundles.
+    external: ['**/packages/*/dist/**']
+  },
   reporter: [
     ['list'],
     ['json', { outputFile: 'benchmark-report/results.json' }]
