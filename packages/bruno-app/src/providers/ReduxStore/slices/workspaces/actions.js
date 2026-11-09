@@ -8,7 +8,15 @@ import {
   updateWorkspaceLoadingState,
   setWorkspaceScratchCollection
 } from '../workspaces';
-import { createCollection, openMultipleCollections, openScratchCollectionEvent, mountCollection, hydrateCollectionWithUiStateSnapshot } from '../collections/actions';
+import {
+  createCollection,
+  openMultipleCollections,
+  openScratchCollectionEvent,
+  mountCollection,
+  hydrateCollectionWithUiStateSnapshot,
+  newHttpRequest
+} from '../collections/actions';
+import { generateTransientRequestName } from 'utils/collections';
 import { removeCollection, addTransientDirectory, updateCollectionMountStatus, expandCollection, sortCollections } from '../collections';
 import { sanitizeName } from 'utils/common/regex';
 import { clearCollectionState } from '../openapi-sync';
@@ -1563,4 +1571,64 @@ export const mountScratchCollection = (workspaceUid) => {
       return null;
     }
   };
+};
+
+/**
+ * Creates a new transient ("quick") request inside the workspace scratch collection.
+ *
+ * A scratch request lives in the workspace's temporary Scratch collection, so it can be
+ * sent before the user has created or opened any collection. It stays in memory/disk only
+ * for the session; the request tab's Save flow can later move it into a real collection
+ * (existing or newly created).
+ *
+ * Mounts the scratch collection first when the workspace doesn't have one yet, so this
+ * works on a clean install and from any entry point (home screen, welcome modal, sidebar).
+ */
+export const createScratchRequest = () => async (dispatch, getState) => {
+  const state = getState();
+  const workspace = state.workspaces.workspaces.find((w) => w.uid === state.workspaces.activeWorkspaceUid);
+
+  if (!workspace) {
+    toast.error('Unable to create a quick request');
+    return null;
+  }
+
+  let scratchCollection = state.collections.collections.find((c) => c.uid === workspace.scratchCollectionUid);
+
+  if (!scratchCollection) {
+    const mounted = await dispatch(mountScratchCollection(workspace.uid));
+    if (!mounted) {
+      toast.error('Unable to create a quick request');
+      return null;
+    }
+    scratchCollection = getState().collections.collections.find((c) => c.uid === mounted.uid);
+  }
+
+  if (!scratchCollection) {
+    toast.error('Unable to create a quick request');
+    return null;
+  }
+
+  // Continue the "Untitled N" series so repeated quick requests don't collide.
+  const requestName = generateTransientRequestName(scratchCollection);
+
+  try {
+    await dispatch(
+      newHttpRequest({
+        requestName,
+        filename: sanitizeName(requestName),
+        requestType: 'http-request',
+        requestUrl: '',
+        requestMethod: 'GET',
+        collectionUid: scratchCollection.uid,
+        itemUid: null,
+        isTransient: true
+      })
+    );
+  } catch (error) {
+    toast.error('An error occurred while creating the request');
+    return null;
+  }
+
+  return { collectionUid: scratchCollection.uid, requestName };
 };

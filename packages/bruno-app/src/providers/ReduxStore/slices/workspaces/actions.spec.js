@@ -9,13 +9,22 @@ jest.mock('react-hot-toast', () => ({
   error: jest.fn()
 }));
 
-jest.mock('../collections/actions', () => ({
-  createCollection: jest.fn(() => () => Promise.resolve()),
-  openMultipleCollections: jest.fn(() => () => Promise.resolve({ opened: [], failed: [], invalid: [] })),
-  openScratchCollectionEvent: jest.fn(() => () => Promise.resolve()),
-  mountCollection: jest.fn(() => () => Promise.resolve()),
-  hydrateCollectionWithUiStateSnapshot: jest.fn(() => () => Promise.resolve())
-}));
+jest.mock('../collections/actions', () => {
+  const { createCollection } = jest.requireActual('../collections');
+  return {
+    createCollection: jest.fn(() => () => Promise.resolve()),
+    openMultipleCollections: jest.fn(() => () => Promise.resolve({ opened: [], failed: [], invalid: [] })),
+    // The real thunk dispatches _createCollection; mirror that so a mounted scratch
+    // collection actually lands in the store for the createScratchRequest tests.
+    openScratchCollectionEvent: jest.fn((uid, pathname, brunoConfig) => (dispatch) => {
+      dispatch(createCollection({ uid, pathname, name: brunoConfig?.name || 'Scratch', items: [], brunoConfig }));
+      return Promise.resolve();
+    }),
+    mountCollection: jest.fn(() => () => Promise.resolve()),
+    hydrateCollectionWithUiStateSnapshot: jest.fn(() => () => Promise.resolve()),
+    newHttpRequest: jest.fn(() => () => Promise.resolve())
+  };
+});
 
 import os from 'os';
 import path from 'path';
@@ -59,14 +68,14 @@ const mockIpcInvoke = (channel) => {
   return Promise.resolve(null);
 };
 
-const createStore = ({ activeWorkspaceUid = WS_A } = {}) => {
+const createStore = ({ activeWorkspaceUid = WS_A, collections } = {}) => {
   const preloadedState = {
     workspaces: {
       activeWorkspaceUid,
       workspaces: [makeWorkspace(WS_A, SCRATCH_A), makeWorkspace(WS_B, SCRATCH_B)]
     },
     collections: {
-      collections: [makeScratchCollection(SCRATCH_A), makeScratchCollection(SCRATCH_B)],
+      collections: collections || [makeScratchCollection(SCRATCH_A), makeScratchCollection(SCRATCH_B)],
       collectionSortOrder: 'default',
       activeConnections: [],
       tempDirectories: {},
@@ -242,5 +251,95 @@ describe('collections that fail to open on workspace switch', () => {
 
     expect(openMultipleCollections).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith('Failed to open 2 collections');
+  });
+});
+
+describe('createScratchRequest', () => {
+  let createScratchRequest;
+  let newHttpRequest;
+  let toast;
+  let generateUidBasedOnHash;
+
+  beforeAll(async () => {
+    window.ipcRenderer = window.ipcRenderer || { invoke: jest.fn(mockIpcInvoke) };
+    ({ createScratchRequest } = await import('./actions'));
+    ({ newHttpRequest } = await import('../collections/actions'));
+    ({ default: toast } = await import('react-hot-toast'));
+    ({ generateUidBasedOnHash } = await import('utils/common'));
+  });
+
+  beforeEach(() => {
+    newHttpRequest.mockClear();
+    toast.error.mockClear();
+    window.ipcRenderer.invoke = jest.fn(mockIpcInvoke);
+  });
+
+  it('creates a transient HTTP request in the workspace scratch collection', async () => {
+    const store = createStore();
+
+    const result = await store.dispatch(createScratchRequest());
+
+    expect(newHttpRequest).toHaveBeenCalledWith({
+      requestName: 'Untitled 1',
+      filename: 'Untitled 1',
+      requestType: 'http-request',
+      requestUrl: '',
+      requestMethod: 'GET',
+      collectionUid: SCRATCH_A,
+      itemUid: null,
+      isTransient: true
+    });
+    expect(result).toEqual({ collectionUid: SCRATCH_A, requestName: 'Untitled 1' });
+  });
+
+  it('continues the Untitled series of transient requests in the scratch collection', async () => {
+    const store = createStore({
+      collections: [
+        {
+          ...makeScratchCollection(SCRATCH_A),
+          items: [
+            { uid: 'r1', type: 'http-request', name: 'Untitled 1', isTransient: true, request: {} },
+            { uid: 'r2', type: 'http-request', name: 'Saved request', isTransient: false, request: {} },
+            { uid: 'r3', type: 'http-request', name: 'Untitled 3', isTransient: true, request: {} }
+          ]
+        },
+        makeScratchCollection(SCRATCH_B)
+      ]
+    });
+
+    const result = await store.dispatch(createScratchRequest());
+
+    expect(newHttpRequest).toHaveBeenCalledWith(expect.objectContaining({ requestName: 'Untitled 4' }));
+    expect(result).toEqual({ collectionUid: SCRATCH_A, requestName: 'Untitled 4' });
+  });
+
+  it('mounts the scratch collection first when the workspace has none yet', async () => {
+    const tempDirectoryPath = path.join(os.tmpdir(), 'scratch-new');
+    // actions.js captures `ipcRenderer` from window at import time: mutate invoke on the
+    // existing object instead of replacing window.ipcRenderer.
+    window.ipcRenderer.invoke = jest.fn((channel) => {
+      if (channel === 'renderer:mount-workspace-scratch') {
+        return Promise.resolve(tempDirectoryPath);
+      }
+      return mockIpcInvoke(channel);
+    });
+    const store = createStore({ collections: [makeScratchCollection(SCRATCH_B)] });
+
+    const result = await store.dispatch(createScratchRequest());
+    const expectedUid = generateUidBasedOnHash(tempDirectoryPath);
+
+    expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:mount-workspace-scratch', expect.anything());
+    expect(newHttpRequest).toHaveBeenCalledWith(expect.objectContaining({ collectionUid: expectedUid }));
+    expect(result).toEqual({ collectionUid: expectedUid, requestName: 'Untitled 1' });
+  });
+
+  it('notifies and does nothing when there is no active workspace', async () => {
+    const store = createStore({ activeWorkspaceUid: 'missing' });
+
+    const result = await store.dispatch(createScratchRequest());
+
+    expect(result).toBeNull();
+    expect(toast.error).toHaveBeenCalledWith('Unable to create a quick request');
+    expect(newHttpRequest).not.toHaveBeenCalled();
   });
 });
