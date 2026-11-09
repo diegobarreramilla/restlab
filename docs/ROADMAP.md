@@ -145,7 +145,6 @@ Cada una está pensada para que quien la use la note sin que la pida. Se ordenan
 
 | Mejora | Motivo en la investigación | Esfuerzo | Notas |
 |---|---|---|---|
-| **Petición suelta sin colección** | Postman retiró el Scratch Pad y generó abandono | S | El proyecto ya usa colecciones "scratch" internas (`scratchCollectionUid`). Verificar si el usuario puede abrir la app y enviar una petición sin crear nada; si no, hacerlo evidente |
 | **Modo vim en el editor** | Bruno #2373 (57 reacciones) | M | CodeMirror admite el mapa de teclas vim; hace falta el ajuste, la carga diferida del módulo y probar con los atajos de la app |
 | **Pestañas de varias colecciones a la vez** | Bruno #5807 (33) | M | Comprobar primero qué ofrece el espacio de trabajo actual |
 | **Atajos de teclado y paleta de comandos** | Usuarios que "quieren que no estorbe" | M | Ya existe el buscador global; ampliarlo a acciones (nueva petición, cambiar entorno, abrir ajustes). También sienta la base de las extensiones (etapa 9) |
@@ -194,6 +193,35 @@ Pruebas:
 - Comprobado en la app real con Playwright: capturas del aviso previo, del modal y del panel final con la ruta.
 
 Listo cuando: migrar una colección de prueba muestra la ruta de la copia y esa ruta existe en disco. ✅
+
+
+
+### 5.3.3 Petición rápida sin colección · S · A ✅ (2026-11-08)
+
+**Origen:** Postman retiró el Scratch Pad y generó abandono; una persona nueva debe poder enviar una petición sin crear nada antes.
+
+**Verificación (el fork ya traía la maquinaria):**
+- `packages/bruno-electron/src/app/collections.js`: `scratchCollectionPaths` y `registerScratchCollectionPath()` registran los directorios temporales de las colecciones scratch.
+- `packages/bruno-electron/src/ipc/collection.js`: `renderer:mount-workspace-scratch` crea un directorio temporal con `opencollection.yml` y `metadata.json`; `renderer:save-scratch-request` mueve una petición suelta a una colección real.
+- `packages/bruno-app/src/providers/ReduxStore/slices/workspaces/actions.js`: `mountScratchCollection()` monta la colección Scratch del espacio de trabajo al cambiar de espacio; el uid queda en `workspace.scratchCollectionUid`.
+- `components/CreateTransientRequest`: el botón «+» de la cabecera de la colección scratch crea peticiones HTTP, GraphQL, gRPC y WebSocket transitorias.
+- `components/SaveTransientRequest`: al guardar una petición transitoria se puede elegir una colección existente **o crear una nueva** (nombre y ubicación), que es exactamente el «convertirla en colección» que pedía la meta.
+- Lo único visible era el paso final del modal de bienvenida («Get started with a request») y el «+» pequeño de la cabecera; con la bienvenida ya vista no había ninguna entrada evidente.
+
+**Hecho:**
+- Nuevo thunk compartido `createScratchRequest()` en `slices/workspaces/actions.js`: monta la colección scratch si aún no existe, continúa la serie `Untitled N` con `generateTransientRequestName()` y crea una petición HTTP transitoria. Devuelve `{ collectionUid, requestName }` o `null` con aviso si no hay espacio de trabajo.
+- La pantalla de inicio (`WorkspaceOverview`) muestra **Quick request** como primer apartado, encima de las estadísticas: una tarjeta con el texto «Send a request without creating a collection. Save it to a collection later if you want to keep it.» y el botón **New quick request**.
+- El modal de bienvenida y la sección de colecciones usan el mismo thunk (se eliminó la lógica duplicada de `CollectionsSection`).
+- Estilo integrado: tarjeta con `theme.background.mantle`, borde `theme.workspace.border`, icono con `theme.brand` y botón primario de la app.
+
+**Pruebas:**
+- `slices/workspaces/actions.spec.js`: 4 casos — crea la petición transitoria HTTP en la colección scratch, continúa la serie `Untitled` (1, 3 → 4), monta la colección si el espacio de trabajo aún no la tiene, y avisa sin crear nada si no hay espacio activo.
+- E2E `tests/scratch-requests/quick-request.spec.ts`: arranca con un espacio sin colecciones, comprueba que **Quick request** es visible, crea la petición (`Untitled`), la envía a `http://localhost:8081/ping` y recibe 200 sin errores de página.
+- La suite existente `tests/scratch-requests/scratch-requests.spec.ts` ya cubre los cuatro tipos, el envío y el guardado en una colección; no se duplicó.
+- Prueba de mutación: `isTransient: false` hace fallar 1 prueba; quitar el montaje de la colección scratch hace fallar otra; quitar la tarjeta del inicio hace fallar el e2e. Todo restaurado.
+- Comprobado en la app real con Playwright (capturas del inicio y de la petición abierta).
+
+Listo cuando: una persona nueva puede enviar una petición sin crear una colección. ✅
 
 
 

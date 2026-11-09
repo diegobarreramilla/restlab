@@ -23,6 +23,48 @@ const StyledWrapper = styled.div`
     overflow: hidden;
   }
 
+  .quick-request-section {
+    margin-bottom: 20px;
+  }
+
+  .quick-request-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid ${(props) => props.theme.workspace.border};
+    border-radius: ${(props) => props.theme.border.radius.sm};
+    background: ${(props) => props.theme.background.mantle};
+  }
+
+  .quick-request-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: ${(props) => props.theme.border.radius.sm};
+    color: ${(props) => props.theme.brand};
+    background: ${(props) => props.theme.background.surface1};
+  }
+
+  .quick-request-copy {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .quick-request-title {
+    font-size: ${(props) => props.theme.font.size.sm};
+    font-weight: 500;
+    color: ${(props) => props.theme.text};
+  }
+
+  .quick-request-desc {
+    font-size: ${(props) => props.theme.font.size.xs};
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
   .stats-row {
     display: flex;
     gap: 24px;

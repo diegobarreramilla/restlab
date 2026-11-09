@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { IconPlus, IconFolder, IconDownload } from '@tabler/icons';
+import { IconPlus, IconFolder, IconDownload, IconBolt } from '@tabler/icons';
 import { importCollection, importCollectionFromZip } from 'providers/ReduxStore/slices/collections/actions';
+import { createScratchRequest } from 'providers/ReduxStore/slices/workspaces/actions';
 import { setIsCreatingCollection, setIsOpeningCollection, toggleSidebarCollapse } from 'providers/ReduxStore/slices/app';
 import { setLocalStorageValue, SIDEBAR_COLLAPSED_KEY } from 'utils/common/localStorage';
 import toast from 'react-hot-toast';
@@ -58,6 +59,10 @@ const WorkspaceOverview = ({ workspace }) => {
 
   const handleOpenCollection = () => {
     dispatch(setIsOpeningCollection(true));
+  };
+
+  const handleQuickRequest = () => {
+    dispatch(createScratchRequest());
   };
 
   const handleImportCollection = () => {
@@ -140,6 +145,28 @@ const WorkspaceOverview = ({ workspace }) => {
 
       <div className="overview-layout">
         <div className="overview-main">
+          <div className="quick-request-section" data-testid="quick-request-section">
+            <div className="quick-request-card">
+              <div className="quick-request-icon">
+                <IconBolt size={20} stroke={1.5} />
+              </div>
+              <div className="quick-request-copy">
+                <div className="quick-request-title">Quick request</div>
+                <div className="quick-request-desc">
+                  Send a request without creating a collection. Save it to a collection later if you want to keep it.
+                </div>
+              </div>
+              <Button
+                color="primary"
+                size="sm"
+                data-testid="quick-request-button"
+                onClick={handleQuickRequest}
+              >
+                New quick request
+              </Button>
+            </div>
+          </div>
+
           <div className="stats-row">
             <div className="stat-item">
               <span className="stat-value">{workspaceCollectionsCount}</span>
