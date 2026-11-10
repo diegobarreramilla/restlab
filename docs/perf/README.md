@@ -60,8 +60,9 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 | Memoria del runner | `tests/benchmarks/runner/runner-allocation.bench.ts` | Copia la colección `bruno-testbench`, la ejecuta y muestrea el heap del renderer y del proceso principal | 3 ejecuciones × 1 iteración |
 | Arranque en frío | `tests/benchmarks/startup/cold-start.bench.ts` | Desde el lanzamiento hasta que la primera colección es visible (T3) | 1 calentamiento + 5 medidas |
 | Respuesta JSON grande | `tests/benchmarks/response/large-json.bench.ts` | Pinta una respuesta JSON de 5 MB y 10 MB y mide el bloqueo del hilo principal (T4) | 1 calentamiento + 3 medidas por tamaño |
+| Memoria en reposo | `tests/benchmarks/memory/idle-memory.bench.ts` | Memoria de todos los procesos de la app durante 5 minutos sin tocarla, sin colección y con una de 1000 peticiones (T5) | 1 corrida por escenario, 11 muestras |
 
-`npm run test:benchmark` ejecuta montaje, runner, arranque en frío y respuesta JSON grande.
+`npm run test:benchmark` ejecuta montaje, runner, arranque en frío, respuesta JSON grande y memoria en reposo.
 
 ### Qué mide cada número
 
@@ -75,6 +76,11 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
   lanzada.
 - **Respuesta grande (T4):** tiempo hasta que la respuesta se pinta y duración máxima de las tareas
   largas (`longtask`) del hilo principal.
+- **Memoria en reposo (T5):** suma del conjunto de trabajo (`workingSetSize` de `app.getAppMetrics()`) de
+  **todos** los procesos de Electron (principal, renderer, GPU y utilidades), una muestra cada 30 s
+  durante 5 minutos, más el heap de JavaScript del renderer tras forzar el recolector de basura al
+  inicio y al final. La suma del conjunto de trabajo cuenta varias veces las páginas compartidas entre
+  procesos, así que **sobrestima** la RAM real; sirve para comparar escenarios, no como cifra absoluta.
 
 ## 3. Cómo se ejecuta
 
@@ -145,6 +151,9 @@ npm run test:benchmark -- -g "Benchmark: Runner allocation"
 
 # Solo el banco de respuesta JSON grande
 npm run test:benchmark -- -g "Benchmark: Large JSON Response"
+
+# Solo el banco de memoria en reposo (tarda unos 13 minutos)
+npm run test:benchmark -- -g "Benchmark: Idle Memory"
 ```
 
 Los títulos salen de los `test.describe`/`test` de cada archivo. Para ver la lista sin ejecutar:
@@ -167,6 +176,7 @@ PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" npm run test:benchmark
 | `tests/benchmarks/results/runner-allocation.json` | Picos y heap retenido del runner |
 | `tests/benchmarks/results/startup.json` | Arranque en frío: 5 tiempos crudos y su resumen |
 | `tests/benchmarks/results/large-json.json` | Respuesta JSON grande: tiempos hasta pintar y tareas largas máximas de 5 MB y 10 MB |
+| `tests/benchmarks/results/idle-memory.json` | Memoria en reposo: 11 muestras del total y desglose por tipo de proceso, por escenario |
 | `benchmark-report/results.json` | Reporte JSON de Playwright con todas las pruebas y anotaciones |
 | `[benchmark] WAL path: …` en la salida | Ruta del WAL con los `checkpoint` del proceso principal |
 
@@ -235,7 +245,7 @@ relaciones.
 
 ## 6. Resultados
 
-> T2, T3 y T4 están medidos. T5 sigue pendiente. No borrar la tabla de referencia: sirve para comparar.
+> T2, T3, T4 y T5 están medidos. No borrar la tabla de referencia: sirve para comparar.
 
 > **Advertencia sobre el build medido (revisión del 2026-11-09):** todos los bancos corren Electron **sin
 > empaquetar**, y la interfaz se carga desde el servidor de desarrollo (`http://localhost:3000`, ver 3.1),
@@ -297,13 +307,45 @@ La tanda de 3000 tarda unos 9 minutos. Para que no falle por el bloqueo del hilo
 fija la ventana en 1280×800 y usa un timeout de 10 minutos al abrir y cerrar la colección
 (`tests/benchmarks/utils/window.ts` y `LARGE_COLLECTION_TIMEOUT` en el banco).
 
-### 6.2 Memoria del runner (T5)
+### 6.2 Memoria en reposo (T5)
 
-| Escenario | Renderer pico | Renderer retenido | Main RSS pico | Main externo pico |
-|---|---:|---:|---:|---:|
-| Colección vacía | — | — | — | — |
-| `bruno-testbench` | — | — | — | — |
-| `bruno-testbench` tras 5 min en reposo | — | — | — | — |
+Medido el 2026-11-09 con Node v26.13.0, Electron 43.8.4, gobernador `powersave`, ventana de 1280×800 y
+`PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11"`. Cada escenario lanza la app con un perfil temporal,
+espera 60 s para que termine el arranque, fuerza el recolector de basura del renderer, toma la primera
+muestra y deja la app **sin tocarla** 5 minutos con una muestra cada 30 s (11 en total). El escenario
+con colección es de 1000 peticiones en formato `bru`, abierta y montada antes de medir.
+
+| Escenario | Total (mediana) | Rango | Navegador | GPU | Utilidad | Pestaña (renderer) | Heap JS del renderer | Cambio en 5 min |
+|---|---:|---|---:|---:|---:|---:|---:|---:|
+| Sin colección | **958,1 MiB** | 957,2 a 968,3 | 300 | 82 | 90 | 487 | 51,2 MiB | −10,0 MiB |
+| Colección `bru` de 1000 peticiones | **996,2 MiB** | 995,6 a 998,1 | 290 | 82 | 85 | 539 | 66,1 MiB | −1,6 MiB |
+
+Lo que dicen los datos:
+
+- **No hay crecimiento en reposo.** Pasado el primer punto, las 10 muestras restantes de cada escenario
+  varían menos de 1,5 MiB, y el heap del renderer queda exactamente igual al inicio y al final
+  (51,2 y 66,1 MiB). Los −10,0 y −1,6 MiB vienen del primer punto, que aún arrastra algo de
+  basura de arranque.
+- **Una colección de 1000 peticiones cuesta unos +38 MiB en total** frente a no tener ninguna: +52 MiB
+  en el proceso de la pestaña y +15 MiB de heap de JavaScript. El resto de procesos no cambia.
+- **El total absoluto (≈1 GiB) no es representativo del uso real**: es el build de desarrollo (ver la
+  advertencia de la sección 6) y la suma cuenta páginas compartidas varias veces.
+
+Una primera corrida del mismo banco, con solo 10 s de espera antes de medir, mostró caídas de unos
+105 MiB en el primer minuto y un salto de +40 MiB a los 210 s en el escenario de 1000 peticiones. La
+segunda corrida, con 60 s de espera y recolección forzada antes de medir, **no reproduce ninguno de los
+dos**: eran basura posterior al arranque, no una fuga. También reveló que la primera corrida leía el
+heap del renderer como 0 (faltaba habilitar el dominio `Performance` de CDP); está corregido en
+`tests/benchmarks/utils/memory.ts`.
+
+**Límite de esta medición:** solo cubre reposo. El crecimiento al **usar** la app (enviar peticiones,
+ejecutar la colección) lo mide el banco del runner (`runner-allocation.bench.ts`), que no se ha
+ejecutado todavía en esta máquina.
+
+```bash
+PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
+  npm run test:benchmark -- -g "Benchmark: Idle Memory"
+```
 
 ### 6.3 Arranque en frío (T3)
 
