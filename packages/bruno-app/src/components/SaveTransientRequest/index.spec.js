@@ -14,7 +14,7 @@ jest.mock('components/SearchInput', () => () => null);
 jest.mock('components/Help', () => () => null);
 jest.mock('components/PathDisplay/index', () => () => null);
 jest.mock('./CollectionListItem', () => () => null);
-jest.mock('./FolderBreadcrumbs', () => () => null);
+jest.mock('./FolderBreadcrumbs', () => ({ collectionName }) => <span>{collectionName}</span>);
 // The component re-runs its reset effect whenever `reset` changes identity, so the mocked hook
 // has to hand back one stable object, as the real hook does with useCallback.
 jest.mock('hooks/useCollectionFolderTree', () => {
@@ -118,5 +118,32 @@ describe('SaveTransientRequest new collection', () => {
     expect(await screen.findByText('Save to Collections')).toBeInTheDocument();
     expect(screen.queryByText('Select a collection to save to')).not.toBeInTheDocument();
     expect(mockCreateCollection).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SaveTransientRequest destination', () => {
+  it('shows the chosen collection as a highlighted destination once one is selected', async () => {
+    let created = false;
+    mockCreateCollection.mockImplementation(() => (dispatch) => {
+      created = true;
+      dispatch({ type: 'collection-opened' });
+      return Promise.resolve();
+    });
+
+    const { container } = renderModal({
+      workspaceCollections: () => (created ? [{ name: 'fresh', path: '/home/user/collections/fresh' }] : []),
+      extraCollections: () => (created
+        ? [{ uid: 'fresh-uid', name: 'fresh', pathname: '/home/user/collections/fresh', mountStatus: 'mounted', items: [] }]
+        : [])
+    });
+
+    expect(container.querySelector('.destination')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New collection' }));
+    fireEvent.change(screen.getByPlaceholderText('Enter collection name'), { target: { value: 'fresh' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    await screen.findByText('Save to Collections');
+    expect(container.querySelector('.destination')).toHaveTextContent('fresh');
   });
 });

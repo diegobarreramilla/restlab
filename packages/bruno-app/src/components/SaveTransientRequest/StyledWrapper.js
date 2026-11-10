@@ -61,6 +61,24 @@ const StyledWrapper = styled.div`
     min-width: 0;
   }
 
+  .collection-name.destination {
+    padding: 8px 10px;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.sm};
+    background-color: ${(props) => props.theme.input.bg};
+  }
+
+  .destination-icon {
+    flex-shrink: 0;
+    margin-right: 8px;
+    color: ${(props) => props.theme.colors.text.yellow};
+  }
+
+  .destination .breadcrumb-collection-name {
+    color: ${(props) => props.theme.text};
+    font-weight: 500;
+  }
+
   .collection-name-clickable {
     cursor: pointer;
   }

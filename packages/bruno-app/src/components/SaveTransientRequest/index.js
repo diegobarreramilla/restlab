@@ -440,7 +440,8 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
             </div>
 
             {isScratchCollection && (
-              <div className="collection-name">
+              <div className={`collection-name ${isSelectingCollection ? '' : 'destination'}`}>
+                {!isSelectingCollection && <IconFolder size={16} strokeWidth={1.5} className="destination-icon" />}
                 <span
                   className={isSelectingCollection ? '' : 'collection-name-breadcrumb'}
                   onClick={!isSelectingCollection ? () => {
@@ -610,7 +611,8 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
             ) : (
               <>
                 {!isScratchCollection && (selectedTargetCollection || collection) && (
-                  <div className="collection-name">
+                  <div className="collection-name destination">
+                    <IconFolder size={16} strokeWidth={1.5} className="destination-icon" />
                     <FolderBreadcrumbs
                       collectionName={(selectedTargetCollection || collection).name}
                       breadcrumbs={breadcrumbs}
