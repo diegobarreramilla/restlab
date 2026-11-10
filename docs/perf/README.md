@@ -203,6 +203,40 @@ de objetos pequeños cuyo tamaño serializado es exactamente el pedido; sin `typ
 respondiendo `text/plain`, como antes. La prueba del endpoint está en
 `tests/response/large-payload-json.spec.ts`.
 
+### 3.7 Medir el renderer de producción
+
+Por defecto los bancos usan el renderer de desarrollo. Para medir el de producción, sin empaquetar la
+aplicación:
+
+```bash
+npm run build:web                          # compila packages/bruno-app/dist (≈40 s)
+node scripts/stage-production-web.js       # lo copia a packages/bruno-electron/web con las rutas de file://
+ELECTRON_IS_DEV=0 PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" npm run test:benchmark
+```
+
+`packages/bruno-electron/web` está ignorado por git. Hay que volver a ejecutar los dos primeros comandos
+tras cada cambio en `packages/bruno-app`, o se mide un build viejo.
+
+**Aislamiento del perfil (importante).** Con `ELECTRON_IS_DEV=0` la app ignora `ELECTRON_USER_DATA_PATH`
+(solo se respeta en desarrollo, `packages/bruno-electron/src/index.js`). Por eso el fixture de Playwright
+pasa ahora `--user-data-dir=<carpeta temporal>`, que funciona en cualquier modo. Antes de ese arreglo, una
+corrida en producción usó el perfil real de la máquina (`~/.config/bruno`) y dejó vacía la lista de
+colecciones del espacio de trabajo. Si cambias la forma de arrancar Electron, comprueba primero hacia dónde
+apunta `userData`.
+
+**Perfilar una respuesta grande.** `tests/benchmarks/response/profile-large-json.bench.ts` graba un perfil
+de CPU (profiler de CDP) mientras se pinta la respuesta y imprime el tiempo por archivo y por función. No
+hace nada salvo con `BENCH_PROFILE=1`:
+
+```bash
+BENCH_PROFILE=1 PROFILE_SIZE_MB=10 ELECTRON_IS_DEV=0 PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
+  npm run test:benchmark -- -g "Profile: Large JSON"
+```
+
+Guarda `tests/benchmarks/results/large-json-<N>mb.cpuprofile`, que se puede cargar en DevTools
+(Performance → Load profile). El build de producción no trae mapas de fuentes: los nombres salen
+minificados, pero el tiempo por archivo y la posición en el bundle bastan para localizar el código.
+
 ## 4. Higiene de la medición
 
 Antes de una tanda:
@@ -247,15 +281,19 @@ relaciones.
 
 > T2, T3, T4 y T5 están medidos. No borrar la tabla de referencia: sirve para comparar.
 
-> **Advertencia sobre el build medido (revisión del 2026-11-09):** todos los bancos corren Electron **sin
-> empaquetar**, y la interfaz se carga desde el servidor de desarrollo (`http://localhost:3000`, ver 3.1),
-> es decir, con el build de desarrollo de React y sin minificar. Por eso los números absolutos (montaje,
-> arranque en frío, pintado de la respuesta) pueden diferir de los de la aplicación empaquetada. Lo que
-> se puede comparar con seguridad es la **forma de la curva** y los cocientes entre tamaños. Antes de dar
-> por buena una corrección de rendimiento hay que **repetir el caso en el build empaquetado**
-> (`npm run build:electron:benchmark`) y anotar ambos resultados.
+> **Qué build se midió (actualizado el 2026-11-09 por la tarde):** las tablas 6.1 a 6.4 se midieron
+> primero con el renderer de **desarrollo** (Electron sin empaquetar cargando `http://localhost:3000`,
+> React en modo desarrollo). Después se repitió todo con el renderer de **producción** (secciones 6.2 a 6.5) y
+> los resultados **no coinciden**: el salto del montaje entre 1000 y 3000 peticiones era un artefacto del
+> build de desarrollo. Las cifras de producción son las que describen la aplicación real; las de
+> desarrollo se conservan porque son un dato válido sobre la experiencia al desarrollar.
+> Cómo medir producción: sección 3.7.
 
 ### 6.1 Montaje de colecciones (T2)
+
+> **Corrección (2026-11-09):** estas cifras son del renderer de **desarrollo**. En producción el salto no
+> existe (ver 6.5). La conclusión «los dos peores casos son el montaje de 3000 peticiones» de este apartado
+> **no se sostiene** para la aplicación real.
 
 Medido el 2026-11-09 con Node v26.13.0, Electron 43.8.4, gobernador `powersave`, ventana de
 1280×800, `PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11"` y 3 iteraciones por tamaño y formato.
@@ -338,6 +376,17 @@ dos**: eran basura posterior al arranque, no una fuga. También reveló que la p
 heap del renderer como 0 (faltaba habilitar el dominio `Performance` de CDP); está corregido en
 `tests/benchmarks/utils/memory.ts`.
 
+**En producción** (misma medición, renderer de producción, 2026-11-09):
+
+| Escenario | Total (mediana) | Rango | Navegador | GPU | Utilidad | Pestaña (renderer) | Heap JS del renderer | Cambio en 5 min |
+|---|---:|---|---:|---:|---:|---:|---:|---:|
+| Sin colección | **690,7 MiB** | 690,1 a 691,2 | 284 | 80 | 85 | 241 | 33,2 MiB | 0,0 MiB |
+| Colección `bru` de 1000 peticiones | **711,8 MiB** | 711,3 a 713,8 | 281 | 82 | 78 | 272 | 46,9 MiB | −2,1 MiB |
+
+Tampoco hay crecimiento en reposo, y una colección de 1000 peticiones cuesta **+21 MiB** en total
+(+30 MiB en el proceso de la pestaña, +13,7 MiB de heap). El desarrollo gasta unos 270 MiB más sin
+colección (958 frente a 691 MiB), casi todo en el proceso de la pestaña.
+
 **Límite de esta medición:** solo cubre reposo. El crecimiento al **usar** la app (enviar peticiones,
 ejecutar la colección) lo mide el banco del runner (`runner-allocation.bench.ts`), que no se ha
 ejecutado todavía en esta máquina.
@@ -360,6 +409,9 @@ peticiones en formato `bru`.
 | p90 | 4143 ms |
 | Desviación estándar | 124 ms |
 | Tiempos crudos (ms) | 4188, 4025, 4076, 3814, 3958 |
+
+**En producción:** mediana **2510 ms** (media 2515, p90 2539, desviación 20 ms; crudos 2510, 2542, 2494,
+2495, 2534). El desarrollo tarda un 60 % más (4025 ms).
 
 Método:
 
@@ -393,6 +445,20 @@ respuesta entre cada uno.
 | Respuesta JSON de 10 MB | tiempo hasta pintar | **1984 ms** | 1935 ms | 2185 ms | 1587, 1984, 2235 |
 | Respuesta JSON de 10 MB | tarea larga máxima | **1172 ms** | 1173 ms | 1243 ms | 1087, 1261, 1172 |
 
+**En producción:**
+
+| Caso | Métrica | Mediana | Media | p90 | Tiempos crudos (ms) |
+|---|---|---:|---:|---:|---|
+| Respuesta JSON de 5 MB | tiempo hasta pintar | **607 ms** | 623 ms | 663 ms | 584, 607, 677 |
+| Respuesta JSON de 5 MB | tarea larga máxima | **303 ms** | 298 ms | 321 ms | 303, 264, 326 |
+| Respuesta JSON de 10 MB | tiempo hasta pintar | **1074 ms** | 1140 ms | 1235 ms | 1072, 1074, 1275 |
+| Respuesta JSON de 10 MB | tarea larga máxima | **533 ms** | 554 ms | 593 ms | 608, 522, 533 |
+
+Producción mejora el pintado ≈1,7 a 1,9 veces y la tarea larga ≈2,1 veces respecto a desarrollo, pero
+**sigue por encima de los 200 ms** que se consideran bloqueo: con 5 MB la ventana se queda sin responder
+unos 0,3 s y con 10 MB, unos 0,5 s. Es el único problema de rendimiento que sobrevive en producción
+(ver 6.6).
+
 Método:
 
 1. El banco crea una colección con una petición a
@@ -421,3 +487,72 @@ Prueba del endpoint (tamaño exacto, JSON válido y `text/plain` por defecto):
 PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
   npx playwright test tests/response/large-payload-json.spec.ts --project=default
 ```
+
+### 6.5 Montaje de colecciones en producción (T6)
+
+Medido el 2026-11-09 con el renderer de producción (sección 3.7), Node v26.13.0, Electron 43.8.4,
+gobernador `powersave`, ventana de 1280×800 y 3 iteraciones por tamaño y formato, en una sola tanda con el
+perfil aislado. Mediana de las tres, en ms:
+
+| Peticiones | `bru` producción | `bru` desarrollo | `yml` producción | `yml` desarrollo |
+|---:|---:|---:|---:|---:|
+| 50 | 239 | 655 | 164 | 554 |
+| 200 | 398 | 1015 | 254 | 887 |
+| 500 | 671 | 1984 | 399 | 2260 |
+| 1000 | 1109 | 4566 | 593 | 5916 |
+| 3000 | **3709** | 98307 | **1954** | 52445 |
+
+Crecimiento en producción: 500 → 1000 es ×1,65 (`bru`) y ×1,49 (`yml`); **1000 → 3000 es ×3,3 en los dos
+formatos**. Triplicar el trabajo triplica el tiempo: crecimiento lineal, sin el salto de ×21,5 y ×8,9 que
+mostraba el desarrollo. A 3000 peticiones producción es unas 26 veces más rápida.
+
+La hipótesis que se formuló al leer el código es que el desarrollo paga, en cada una de las miles de
+acciones de Redux que dispara el montaje, los comprobadores de mutación y de serialización que Redux
+Toolkit activa por defecto en desarrollo, más un middleware que registra cada acción
+(`providers/ReduxStore/index.js`) y un `console.log` por evento en `providers/App/useIpcEvents.js`. **No se
+ha verificado** apagándolos; la comparación desarrollo/producción solo demuestra que el coste no existe en
+producción. Si se quiere mejorar la experiencia al desarrollar con colecciones grandes, ese es el sitio
+donde mirar, pero no afecta a los usuarios.
+
+En producción `bru` tarda ≈1,9 veces lo que `yml` a 3000 peticiones (3,7 s frente a 1,95 s), coherente con
+que el formato `.bru` es más caro de analizar. No es un fallo.
+
+### 6.6 Diagnóstico de la respuesta grande (T6)
+
+Perfil de CPU de producción del pintado de una respuesta JSON de **10 MB**
+(`profile-large-json.bench.ts`, intervalo de 100 µs, un envío ya calentado). El hilo principal estuvo
+ocupado **≈850 ms**. Tiempo propio por archivo:
+
+| Archivo del bundle | Tiempo propio | Qué es |
+|---|---:|---|
+| `751.*.js` (trozo de librerías) | 410 ms | Polyfills de Node (`buffer`, `base64-js`), `strip-json-comments`, `fast-json-format`, jsonlint |
+| `lib-codemirror.*.js` | 144 ms | CodeMirror cargando y leyendo el documento |
+| (nativo, incluye recolector de basura 70 ms) | 127 ms | |
+| `index.*.js` (código de la aplicación) | 112 ms | |
+| `lib-react.*.js` | 21 ms | |
+
+El 283 ms de tiempo inclusivo cae dentro de un `useMemo` del panel de respuesta (`QueryResult`), y de ahí
+salen las causas concretas:
+
+| # | Causa | Dónde | Coste medido |
+|---|---|---|---:|
+| 1 | La respuesta llega como texto base64 (≈13 MB) y se **decodifica en JavaScript con los polyfills de Node**: `Buffer.from(base64)` (limpieza de la cadena, `base64-js`, copia byte a byte) y `buffer.toString()` (decodificación UTF-8 en JS) | `packages/bruno-app/src/utils/common/index.js:249` (`formatResponse`), llamado desde el `useMemo` `formattedData` de `components/ResponsePane/QueryResult/index.js` | ≈220 ms (`H` 27, `p` 66, `$` 26, `c` 9, `toString` 90) |
+| 2 | El editor de la respuesta **pasa el analizador de JSON por todo el documento**: quita comentarios con `strip-json-comments` sobre los 10 MB, además de `jsonlint` | `components/CodeEditor/index.js:264-274` (ayudante de lint `json`), activo mientras el editor tiene modo y contenido (línea 118) | ≈46 ms solo en `strip-json-comments`; `jsonlint` no se aisló |
+| 3 | Formateo del JSON con `fast-json-format` | `utils/common/index.js:249` | ≈54 ms |
+| 4 | CodeMirror carga y relee el documento completo (`setValue`, `getValue`, `iterN`) | `lib-codemirror` | ≈144 ms |
+| 5 | Recolector de basura por las cadenas y buffers intermedios de 10 MB | nativo | ≈70 ms |
+
+**Propuesta para mañana (sin aplicar todavía):**
+
+1. Decodificar la respuesta con las API nativas del navegador (`atob` + `TextDecoder`) o recibirla ya como
+   texto desde el proceso principal, en lugar de `Buffer`. Es la mejora más grande y la más acotada: una
+   función.
+2. No ejecutar el ayudante de lint de JSON en el visor de respuesta (es de solo lectura) o desactivarlo
+   por encima de un tamaño de documento.
+3. Medir de nuevo con el mismo método (`profile-large-json` y `large-json.bench.ts` en producción) y
+   anotar antes y después.
+
+**Segundo caso a tratar:** en producción no hay otro problema de la misma magnitud. El siguiente en
+tamaño es el montaje de 3000 peticiones en `bru` (3,7 s, lineal), que no justifica una corrección. Se
+propone corregir **solo la respuesta grande** y dejar el segundo cupo para lo que aparezca al medir
+operaciones nuevas (envío de peticiones, runner).
