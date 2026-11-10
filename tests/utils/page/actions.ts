@@ -81,7 +81,9 @@ const clickEmptySidebarSpace = async (page) => {
  * @returns void
  */
 const closeAllCollections = async (page, options: { timeout?: number } = {}) => {
-  const timeout = options.timeout ?? 30_000;
+  // Callers that remove very large collections pass a longer timeout; everyone else keeps
+  // Playwright's default for clicks and the original 5s for the modal to close.
+  const { timeout } = options;
   await test.step('Close all collections', async () => {
     const numberOfCollections = await page.locator('[data-testid="collections"] .collection-name').count();
 
@@ -116,7 +118,7 @@ const closeAllCollections = async (page, options: { timeout?: number } = {}) => 
       }
 
       // Wait for modal to close
-      await removeModal.waitFor({ state: 'hidden', timeout });
+      await removeModal.waitFor({ state: 'hidden', timeout: timeout ?? 5000 });
     }
 
     // Wait until no collections are left open (check sidebar only)

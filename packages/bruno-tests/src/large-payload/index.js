@@ -58,7 +58,8 @@ function buildJsonPayload(size) {
 
 // Responds with `?size` bytes of plain text (default 1 MB, clamped to 0-64 MB).
 // With `?type=json`, responds instead with a JSON array of small objects whose
-// serialized length is exactly `size` bytes (or `[]` for sizes below 2 bytes).
+// serialized length is exactly `size` bytes. A size too small to hold one item
+// (under about 35 bytes) answers `[]`.
 // Useful for exercising large-response handling in the app and the sandboxes.
 router.get('/', (req, res) => {
   const requested = parseInt(req.query.size, 10);
