@@ -2,7 +2,7 @@
 
 Estado: 2026-11-09. Este documento describe **la máquina y el método** para medir el rendimiento de la
 app. Los números medidos se añaden en la sección [Resultados](#resultados) a medida que se ejecutan los
-bancos (roadmap 4.1, tareas T2 y T5).
+bancos (roadmap 4.1, tareas T2, T3, T4 y T5).
 
 La regla es sencilla: dos mediciones solo se comparan si se hicieron en la misma máquina, con el mismo
 Node, el mismo build y el mismo método. Cualquier cambio en esas condiciones se anota aquí.
@@ -59,10 +59,9 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 | Montaje de colecciones | `tests/benchmarks/mounting/collection-mount.bench.ts` | Abre colecciones de 50, 200, 500, 1000 y 3000 peticiones, en formato `bru` y `yml` | 3 por tamaño y formato |
 | Memoria del runner | `tests/benchmarks/runner/runner-allocation.bench.ts` | Copia la colección `bruno-testbench`, la ejecuta y muestrea el heap del renderer y del proceso principal | 3 ejecuciones × 1 iteración |
 | Arranque en frío | `tests/benchmarks/startup/cold-start.bench.ts` | Desde el lanzamiento hasta que la primera colección es visible (T3) | 1 calentamiento + 5 medidas |
-| Respuesta JSON grande | `tests/benchmarks/response/large-json.bench.ts` | Pinta una respuesta JSON de 5 MB y 10 MB y mide el bloqueo del hilo principal (T4) | Por definir en T4 |
+| Respuesta JSON grande | `tests/benchmarks/response/large-json.bench.ts` | Pinta una respuesta JSON de 5 MB y 10 MB y mide el bloqueo del hilo principal (T4) | 1 calentamiento + 3 medidas por tamaño |
 
-El banco de respuesta JSON grande todavía no existe; se añade en T4. `npm run test:benchmark` ejecuta
-montaje, runner y arranque en frío.
+`npm run test:benchmark` ejecuta montaje, runner, arranque en frío y respuesta JSON grande.
 
 ### Qué mide cada número
 
@@ -143,6 +142,9 @@ npm run test:benchmark -- -g "mount bru collection with 500 requests"
 
 # Solo el banco del runner
 npm run test:benchmark -- -g "Benchmark: Runner allocation"
+
+# Solo el banco de respuesta JSON grande
+npm run test:benchmark -- -g "Benchmark: Large JSON Response"
 ```
 
 Los títulos salen de los `test.describe`/`test` de cada archivo. Para ver la lista sin ejecutar:
@@ -164,6 +166,7 @@ PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" npm run test:benchmark
 | `tests/benchmarks/results/mounting.json` | Resumen y tiempos crudos del montaje, por formato y tamaño |
 | `tests/benchmarks/results/runner-allocation.json` | Picos y heap retenido del runner |
 | `tests/benchmarks/results/startup.json` | Arranque en frío: 5 tiempos crudos y su resumen |
+| `tests/benchmarks/results/large-json.json` | Respuesta JSON grande: tiempos hasta pintar y tareas largas máximas de 5 MB y 10 MB |
 | `benchmark-report/results.json` | Reporte JSON de Playwright con todas las pruebas y anotaciones |
 | `[benchmark] WAL path: …` en la salida | Ruta del WAL con los `checkpoint` del proceso principal |
 
@@ -183,6 +186,12 @@ El banco de montaje genera las colecciones con `tests/benchmarks/utils/collectio
 
 El banco del runner copia `packages/bruno-tests/collection` (la colección `bruno-testbench`) a un
 directorio temporal, sin `node_modules`, y la ejecuta con el entorno `Local`.
+
+El banco de respuesta JSON grande usa el servidor de pruebas (`packages/bruno-tests`) y apunta a
+`http://localhost:8081/api/large-payload?size=<bytes>&type=json`. El endpoint devuelve un arreglo JSON
+de objetos pequeños cuyo tamaño serializado es exactamente el pedido; sin `type=json` sigue
+respondiendo `text/plain`, como antes. La prueba del endpoint está en
+`tests/response/large-payload-json.spec.ts`.
 
 ## 4. Higiene de la medición
 
@@ -226,7 +235,7 @@ relaciones.
 
 ## 6. Resultados
 
-> T2 y T3 están medidos. T4 y T5 siguen pendientes. No borrar la tabla de referencia: sirve para comparar.
+> T2, T3 y T4 están medidos. T5 sigue pendiente. No borrar la tabla de referencia: sirve para comparar.
 
 ### 6.1 Montaje de colecciones (T2)
 
@@ -320,11 +329,45 @@ PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
   npm run test:benchmark -- -g "cold start"
 ```
 
-### 6.4 Respuesta JSON grande (T4, pendiente)
+### 6.4 Respuesta JSON grande (T4)
 
-| Caso | Métrica | Valor |
-|---|---|---:|
-| Respuesta JSON de 5 MB | tiempo hasta pintar | — |
-| Respuesta JSON de 5 MB | tarea larga máxima | — |
-| Respuesta JSON de 10 MB | tiempo hasta pintar | — |
-| Respuesta JSON de 10 MB | tarea larga máxima | — |
+Medido el 2026-11-09 con Node v26.13.0, Electron 43.8.4, gobernador `powersave`, ventana de 1280×800 y
+`PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11"`. Cada tamaño usa una colección propia con una
+petición al endpoint local; se hace **1 envío de calentamiento** y **3 envíos medidos**, limpiando la
+respuesta entre cada uno.
+
+| Caso | Métrica | Mediana | Media | p90 | Tiempos crudos (ms) |
+|---|---|---:|---:|---:|---|
+| Respuesta JSON de 5 MB | tiempo hasta pintar | **1036 ms** | 1045 ms | 1066 ms | 1027, 1074, 1036 |
+| Respuesta JSON de 5 MB | tarea larga máxima | **631 ms** | 611 ms | 675 ms | 686, 631, 516 |
+| Respuesta JSON de 10 MB | tiempo hasta pintar | **1984 ms** | 1935 ms | 2185 ms | 1587, 1984, 2235 |
+| Respuesta JSON de 10 MB | tarea larga máxima | **1172 ms** | 1173 ms | 1243 ms | 1087, 1261, 1172 |
+
+Método:
+
+1. El banco crea una colección con una petición a
+   `http://localhost:8081/api/large-payload?size=<bytes>&type=json`, con 5 MB y 10 MB exactos.
+2. Antes de cada envío se limpia la respuesta para que el editor de respuesta se monte de nuevo.
+3. El cronómetro se toma en el renderer, en el `click` real del botón *Send*, no en Playwright.
+4. **Tiempo hasta pintar:** desde ese `click` hasta que el editor de la respuesta
+   (`[data-testid="response-preview-container"] .CodeMirror`) es visible y pasan dos
+   `requestAnimationFrame` (el segundo ya corre después del primer pintado).
+5. **Tarea larga máxima:** un `PerformanceObserver` de tipo `longtask` registra las tareas del hilo
+   principal desde el `click`; se guarda la duración máxima de cada envío.
+6. Los tiempos se escriben en `tests/benchmarks/results/large-json.json` (ignorado por git).
+
+El envío de 10 MB se queda justo por debajo del umbral del aviso de respuesta grande
+(`responseSize > 10 * 1024 * 1024`), así que la app formatea y pinta el JSON. El coste del servidor
+local al construir la respuesta está incluido en el tiempo hasta pintar.
+
+```bash
+PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
+  npm run test:benchmark -- -g "Benchmark: Large JSON Response"
+```
+
+Prueba del endpoint (tamaño exacto, JSON válido y `text/plain` por defecto):
+
+```bash
+PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
+  npx playwright test tests/response/large-payload-json.spec.ts --project=default
+```
