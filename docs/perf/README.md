@@ -237,6 +237,14 @@ relaciones.
 
 > T2, T3 y T4 están medidos. T5 sigue pendiente. No borrar la tabla de referencia: sirve para comparar.
 
+> **Advertencia sobre el build medido (revisión del 2026-11-09):** todos los bancos corren Electron **sin
+> empaquetar**, y la interfaz se carga desde el servidor de desarrollo (`http://localhost:3000`, ver 3.1),
+> es decir, con el build de desarrollo de React y sin minificar. Por eso los números absolutos (montaje,
+> arranque en frío, pintado de la respuesta) pueden diferir de los de la aplicación empaquetada. Lo que
+> se puede comparar con seguridad es la **forma de la curva** y los cocientes entre tamaños. Antes de dar
+> por buena una corrección de rendimiento hay que **repetir el caso en el build empaquetado**
+> (`npm run build:electron:benchmark`) y anotar ambos resultados.
+
 ### 6.1 Montaje de colecciones (T2)
 
 Medido el 2026-11-09 con Node v26.13.0, Electron 43.8.4, gobernador `powersave`, ventana de
