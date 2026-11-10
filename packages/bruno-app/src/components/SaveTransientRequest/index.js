@@ -476,7 +476,7 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
                             Collection name
                           </label>
                           <input
-                            ref={(node) => node?.focus()}
+                            autoFocus
                             type="text"
                             className="new-collection-input"
                             placeholder="Enter collection name"
@@ -642,7 +642,7 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
                           </div>
                           <div className="new-folder-input-row">
                             <input
-                              ref={(node) => node?.focus()}
+                              autoFocus
                               type="text"
                               className="new-folder-input"
                               placeholder="Untitled new folder"
