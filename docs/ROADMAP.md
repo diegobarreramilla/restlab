@@ -89,10 +89,10 @@ Ver tabla "Pendiente" de `docs/branding.md`. Resumen:
 
 > **Actualización 2026-11-09:** el repositorio ya trae un banco de pruebas (`tests/benchmarks/`: montaje de colecciones de 50 a 3000 peticiones en `bru` y `yml`, generador de colecciones, banco del runner, valores de referencia por sistema y `npm run test:benchmark`) y un servidor con respuesta grande (`bruno-tests` → `/large-payload?size=N`, solo `text/plain`). Los pasos 2 y 3 se reducen a **reutilizar y añadir** lo que falta: arranque en frío, respuesta JSON de 5 a 10 MB y memoria a los 5 minutos. Los valores de referencia del proyecto de origen muestran un salto fuerte entre 1000 y 3000 peticiones (Ubuntu: `bru` 8 s → 170 s, `yml` 10,7 s → 80 s); hay que confirmarlo midiendo aquí. Plan detallado: `docs/sessions/2026-11-09.md`.
 >
-> **Medición del 2026-11-09 (T1–T4 hechos, T5–T6 pendientes):** la línea base está en `docs/perf/README.md`. En esta máquina, la mediana de montaje pasa de 4,6 s (`bru`, 1000) a 98,3 s (3000) —×21,5— y de 5,9 s a 52,4 s en `yml` —×8,9—. El salto de la referencia **se confirma**. Los dos peores casos son el montaje de 3000 peticiones en `bru` y en `yml`; el diagnóstico de T6 dirá si comparten causa. El arranque en frío hasta ver la primera colección da una mediana de **4,0 s** (5 arranques, colección de 10 peticiones, disco caliente). Una respuesta JSON de 5 MB tarda **1,0 s** en pintar con una tarea larga máxima de **631 ms**; la de 10 MB, **2,0 s** y **1 172 ms**. Todavía no hay correcciones: primero se perfila.
+> **Medición del 2026-11-09 (T1 a T7 hechos):** la línea base y el diagnóstico están en `docs/perf/README.md`. **Corrección importante:** una primera lectura con el renderer de desarrollo parecía mostrar un salto de montaje entre 1000 y 3000 peticiones (×21,5 en `bru`, ×8,9 en `yml`; 98 s y 52 s a 3000). Repetido con el renderer de **producción** (y con el perfil aislado) el crecimiento es **lineal** (×3,3) y 3000 peticiones se montan en **3,7 s** (`bru`) y **1,95 s** (`yml`): era un artefacto del build de desarrollo y no es un problema para los usuarios. En producción: arranque en frío **2,5 s**; memoria en reposo **691 MiB** sin colección y **712 MiB** con 1000 peticiones, sin crecimiento en 5 minutos; respuesta JSON de 5 MB **0,6 s** con tarea larga de **303 ms** y la de 10 MB **1,1 s** con **533 ms**. **El único problema real que sobrevive es el bloqueo al pintar respuestas grandes**: el perfil lo atribuye a decodificar la respuesta con los polyfills de Node (`Buffer`, ≈220 ms de 850), al lint de JSON sobre todo el documento (`CodeEditor`), al formateo y a CodeMirror (causas con archivo y función en `docs/perf/README.md` §6.6). La corrección (4.2) es la siguiente tarea de rendimiento; para el segundo cupo de 4.1 no hay otro caso de la misma magnitud.
 
 **Pasos**
-1. Crear `docs/perf/README.md` con la máquina usada (CPU, RAM, sistema) y el método.
+1. Crear `docs/perf/README.md` con la máquina usada (CPU, RAM, sistema) y el método. ✅ (2026-11-09)
 2. Preparar tres escenarios y guardarlos como fixtures en `tests/perf/`:
    - Arranque en frío hasta tener la primera colección visible.
    - Colección de **más de 500 peticiones** (generar con un script, para que sea reproducible).
@@ -107,7 +107,12 @@ Ver tabla "Pendiente" de `docs/branding.md`. Resumen:
 
 ### 4.2 Respuestas enormes que no congelan la app · M · A
 
-Cae dentro de 4.1 si el perfil lo señala; si no, se hace aparte.
+Cae dentro de 4.1 y **el perfil lo señala** (2026-11-09, ver `docs/perf/README.md` §6.6). Antes de añadir límites y avisos hay mejoras que quitan el bloqueo sin cambiar lo que ve el usuario, y conviene hacerlas primero y volver a medir:
+- **Decodificar la respuesta sin los polyfills de Node** (`atob` + `TextDecoder`, o recibir ya texto): `packages/bruno-app/src/utils/common/index.js:249` (`formatResponse`). ≈220 ms de 850 en una respuesta de 10 MB.
+- **No pasar el lint de JSON por el visor de respuesta**, que es de solo lectura: `components/CodeEditor/index.js:264-274`.
+- Medir antes y después con `large-json.bench.ts` y `profile-large-json.bench.ts` **en producción** (`docs/perf/README.md` §3.7). Objetivo: tarea larga máxima por debajo de 200 ms con 5 MB (hoy 303 ms) y con 10 MB (hoy 533 ms).
+
+Después, si aún hace falta:
 1. Fijar un límite configurable (por ejemplo 5 MB) a partir del cual la respuesta no se resalta ni se formatea en pantalla.
 2. Mostrar un aviso con tres acciones: *ver como texto sin formato*, *guardar en archivo*, *formatear de todos modos*.
 3. Prueba con la respuesta de 10 MB: la ventana debe seguir respondiendo (medir bloqueo del hilo principal).
