@@ -36,6 +36,10 @@ export default defineConfig({
   ],
   source: {
     define: {
+      // styled-components 5 injects each rule as a text node outside production, so a theme switch
+      // rewrites thousands of DOM nodes (measured: ~3.7 s vs ~80 ms). Force the CSSOM insertRule
+      // path in every mode; the cost is that DevTools shows the rules read-only.
+      'process.env.SC_DISABLE_SPEEDY': JSON.stringify('false'),
       __BRUNO_BENCHMARK__: JSON.stringify(process.env.BRUNO_BENCHMARK === 'true')
     },
     tsconfigPath: './jsconfig.json', // Specifies the path to the JavaScript/TypeScript configuration file,

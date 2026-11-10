@@ -556,3 +556,29 @@ salen las causas concretas:
 tamaño es el montaje de 3000 peticiones en `bru` (3,7 s, lineal), que no justifica una corrección. Se
 propone corregir **solo la respuesta grande** y dejar el segundo cupo para lo que aparezca al medir
 operaciones nuevas (envío de peticiones, runner).
+
+### 6.7 Interacciones de la interfaz: cambio de tema y apertura de pestañas
+
+Medido el 2026-11-10 con `tests/benchmarks/interaction/ui-interaction.bench.ts` (diagnóstico, solo con
+`BENCH_PROFILE=1`): colección `bru` de 200 peticiones cargada, 8 pestañas abiertas con doble clic, apertura de
+Preferencias y 4 cambios de tema. El tiempo «wall» incluye la comprobación de accionabilidad de Playwright
+(≈100 ms), así que el dato fiable es el tiempo ocupado del hilo principal («busy») del perfil de CPU.
+
+| Acción | Producción (busy) | Desarrollo antes (busy) | Desarrollo después (busy) |
+|---|---:|---:|---:|
+| Cambio de tema | 44–90 ms | 830–3580 ms | 61–103 ms |
+| Abrir Preferencias | 97 ms | 413 ms | 92 ms |
+| Primera pestaña de petición | — | 563 ms | 205 ms |
+
+**Causa de la lentitud del tema en desarrollo.** El 99 % del tiempo era `insertBefore`/`removeChild` del DOM:
+styled-components 5 solo usa `CSSStyleSheet.insertRule` en producción; fuera de producción añade cada regla
+como nodo de texto de una etiqueta `<style>`, y al cambiar el tema se reescriben miles. En producción el
+problema no existía, por eso la aplicación empaquetada no lo sufre.
+
+**Corrección.** `packages/bruno-app/rsbuild.config.mjs` define `process.env.SC_DISABLE_SPEEDY = 'false'`, que
+activa la vía `insertRule` en todos los modos. Coste: en DevTools las reglas de styled-components se ven en
+solo lectura.
+
+**Lo que no se encontró.** En producción ninguna de las tres acciones pasa de ~100 ms de trabajo del hilo
+principal con 200 peticiones, así que no hay una optimización de código pendiente para ellas. Pendiente:
+repetir con colecciones de 1000+ y con muchas pestañas abiertas (`INTERACTION_REQUESTS=1000`).
