@@ -96,6 +96,8 @@ export class RendererMemorySampler implements PhasedMemorySampler<RendererPhaseS
   }
 
   static async measureRetainedBytes(cdp: CDPSession): Promise<number> {
+    // `Performance.getMetrics` answers 0 for JSHeapUsedSize until the domain is enabled.
+    await cdp.send('Performance.enable');
     await cdp.send('HeapProfiler.enable');
     await cdp.send('HeapProfiler.collectGarbage');
     return readHeapUsedBytes(cdp);
