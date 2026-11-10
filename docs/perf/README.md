@@ -58,11 +58,11 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 |---|---|---|---|
 | Montaje de colecciones | `tests/benchmarks/mounting/collection-mount.bench.ts` | Abre colecciones de 50, 200, 500, 1000 y 3000 peticiones, en formato `bru` y `yml` | 3 por tamaño y formato |
 | Memoria del runner | `tests/benchmarks/runner/runner-allocation.bench.ts` | Copia la colección `bruno-testbench`, la ejecuta y muestrea el heap del renderer y del proceso principal | 3 ejecuciones × 1 iteración |
-| Arranque en frío | `tests/benchmarks/startup/cold-start.bench.ts` | Desde el lanzamiento hasta que la primera colección es visible (T3) | 5 (previsto) |
+| Arranque en frío | `tests/benchmarks/startup/cold-start.bench.ts` | Desde el lanzamiento hasta que la primera colección es visible (T3) | 1 calentamiento + 5 medidas |
 | Respuesta JSON grande | `tests/benchmarks/response/large-json.bench.ts` | Pinta una respuesta JSON de 5 MB y 10 MB y mide el bloqueo del hilo principal (T4) | Por definir en T4 |
 
-Los dos últimos bancos todavía no existen; se añaden en las tareas T3 y T4 del plan del día. Hasta
-entonces, `npm run test:benchmark` ejecuta solo montaje y runner.
+El banco de respuesta JSON grande todavía no existe; se añade en T4. `npm run test:benchmark` ejecuta
+montaje, runner y arranque en frío.
 
 ### Qué mide cada número
 
@@ -163,7 +163,7 @@ PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" npm run test:benchmark
 |---|---|
 | `tests/benchmarks/results/mounting.json` | Resumen y tiempos crudos del montaje, por formato y tamaño |
 | `tests/benchmarks/results/runner-allocation.json` | Picos y heap retenido del runner |
-| `tests/benchmarks/results/startup.json` | Arranque en frío (cuando exista T3) |
+| `tests/benchmarks/results/startup.json` | Arranque en frío: 5 tiempos crudos y su resumen |
 | `benchmark-report/results.json` | Reporte JSON de Playwright con todas las pruebas y anotaciones |
 | `[benchmark] WAL path: …` en la salida | Ruta del WAL con los `checkpoint` del proceso principal |
 
@@ -226,7 +226,7 @@ relaciones.
 
 ## 6. Resultados
 
-> T2 está medido. T5, T3 y T4 siguen pendientes. No borrar la tabla de referencia: sirve para comparar.
+> T2 y T3 están medidos. T4 y T5 siguen pendientes. No borrar la tabla de referencia: sirve para comparar.
 
 ### 6.1 Montaje de colecciones (T2)
 
@@ -288,11 +288,42 @@ fija la ventana en 1280×800 y usa un timeout de 10 minutos al abrir y cerrar la
 | `bruno-testbench` | — | — | — | — |
 | `bruno-testbench` tras 5 min en reposo | — | — | — | — |
 
-### 6.3 Arranque en frío y respuesta grande (T3/T4)
+### 6.3 Arranque en frío (T3)
+
+Medido el 2026-11-09 con Node v26.13.0, Electron 43.8.4, gobernador `powersave` y
+`PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11"`. La colección es `cold-start`, generada con 10
+peticiones en formato `bru`.
+
+| Métrica | Valor |
+|---|---:|
+| Mediana de 5 arranques | **4025 ms** |
+| Media | 4012 ms |
+| p90 | 4143 ms |
+| Desviación estándar | 124 ms |
+| Tiempos crudos (ms) | 4188, 4025, 4076, 3814, 3958 |
+
+Método:
+
+1. Se crea un perfil de usuario temporal con `lastOpenedCollections` apuntando a la colección.
+2. El primer lanzamiento es de **calentamiento**: migra `lastOpenedCollections` al workspace por
+   defecto y deja la caché de disco caliente. No se mide.
+3. Se hacen 5 lanzamientos medidos con el mismo perfil, cerrando la app entre cada uno.
+4. El cronómetro empieza justo antes de `launchElectronApp` (spawn de Electron y conexión de
+   Playwright) y termina cuando `#sidebar-collection-name` de la colección es visible.
+5. Los tiempos se escriben en `tests/benchmarks/results/startup.json` (ignorado por git).
+
+Es un arranque en frío de **proceso** con disco caliente: no se vacía la caché del sistema operativo.
+No mezclar estos números con una tanda que vacíe cachés.
+
+```bash
+PLAYWRIGHT_ELECTRON_ARGS="--ozone-platform=x11" \
+  npm run test:benchmark -- -g "cold start"
+```
+
+### 6.4 Respuesta JSON grande (T4, pendiente)
 
 | Caso | Métrica | Valor |
 |---|---|---:|
-| Arranque en frío hasta la primera colección | mediana de 5 arranques | — |
 | Respuesta JSON de 5 MB | tiempo hasta pintar | — |
 | Respuesta JSON de 5 MB | tarea larga máxima | — |
 | Respuesta JSON de 10 MB | tiempo hasta pintar | — |
