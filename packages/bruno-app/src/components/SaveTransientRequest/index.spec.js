@@ -34,42 +34,45 @@ jest.mock('hooks/useCollectionFolderTree', () => {
 });
 jest.mock('providers/ReduxStore/slices/collections', () => ({ removeSaveTransientRequestModal: jest.fn() }));
 jest.mock('providers/ReduxStore/slices/app', () => ({ insertTaskIntoQueue: jest.fn() }));
+const mockCreateCollection = jest.fn();
 jest.mock('providers/ReduxStore/slices/collections/actions', () => ({
   newFolder: jest.fn(),
   closeTabs: jest.fn(),
   mountCollection: jest.fn(),
-  createCollection: jest.fn(),
+  createCollection: (...args) => mockCreateCollection(...args),
   browseDirectory: jest.fn()
 }));
 
 import SaveTransientRequest from './index';
 
 const SCRATCH_UID = 'scratch-1';
+const SCRATCH = { uid: SCRATCH_UID, name: 'scratch', pathname: '/scratch', items: [] };
 
-const renderModal = () => {
+const renderModal = ({ workspaceCollections = () => [], extraCollections = () => [] } = {}) => {
   const store = configureStore({
     reducer: {
-      collections: () => ({ collections: [{ uid: SCRATCH_UID, name: 'scratch', pathname: '/scratch', items: [] }] }),
+      collections: () => ({ collections: [SCRATCH, ...extraCollections()] }),
       workspaces: () => ({
-        workspaces: [{ uid: 'ws-1', type: 'default', scratchCollectionUid: SCRATCH_UID, collections: [] }],
+        workspaces: [{ uid: 'ws-1', type: 'default', scratchCollectionUid: SCRATCH_UID, collections: workspaceCollections() }],
         activeWorkspaceUid: 'ws-1'
       }),
       app: () => ({ preferences: { general: { defaultLocation: '/home/user/collections' } } })
     }
   });
 
-  return render(
+  const utils = render(
     <Provider store={store}>
       <ThemeProvider theme={{}}>
         <SaveTransientRequest
           isOpen
           onClose={() => {}}
           item={{ uid: 'req-1', name: 'quick request', type: 'http-request', request: { url: '', method: 'GET' } }}
-          collection={{ uid: SCRATCH_UID, name: 'scratch', pathname: '/scratch', items: [] }}
+          collection={SCRATCH}
         />
       </ThemeProvider>
     </Provider>
   );
+  return utils;
 };
 
 describe('SaveTransientRequest focus', () => {
@@ -86,5 +89,34 @@ describe('SaveTransientRequest focus', () => {
 
     expect(requestNameInput).toHaveValue('quick requests');
     expect(requestNameInput).toHaveFocus();
+  });
+});
+
+describe('SaveTransientRequest new collection', () => {
+  it('selects the collection it just created so the request is saved into it', async () => {
+    let created = false;
+    // The real flow adds the collection to the workspace when the main process reports it opened.
+    mockCreateCollection.mockImplementation(() => (dispatch) => {
+      created = true;
+      dispatch({ type: 'collection-opened' });
+      return Promise.resolve();
+    });
+
+    renderModal({
+      workspaceCollections: () => (created ? [{ name: 'fresh', path: '/home/user/collections/fresh' }] : []),
+      extraCollections: () => (created
+        ? [{ uid: 'fresh-uid', name: 'fresh', pathname: '/home/user/collections/fresh', mountStatus: 'mounted', items: [] }]
+        : [])
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'New collection' }));
+    fireEvent.change(screen.getByPlaceholderText('Enter collection name'), { target: { value: 'fresh' } });
+    expect(screen.getByText('Select a collection to save to')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText('Save to Collections')).toBeInTheDocument();
+    expect(screen.queryByText('Select a collection to save to')).not.toBeInTheDocument();
+    expect(mockCreateCollection).toHaveBeenCalledTimes(1);
   });
 });

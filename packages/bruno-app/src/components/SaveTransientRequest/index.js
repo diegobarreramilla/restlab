@@ -78,6 +78,8 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
   const [newCollection, setNewCollection] = useState({ show: false, name: '', location: '', format: DEFAULT_COLLECTION_FORMAT });
 
   const [selectedTargetCollectionPath, setSelectedTargetCollectionPath] = useState(null);
+  // Paths already listed when a collection was just created; the first path outside this list is the new one.
+  const [pathsBeforeNewCollection, setPathsBeforeNewCollection] = useState(null);
   const [isSelectingCollection, setIsSelectingCollection] = useState(isScratchCollection);
   const folderTreeCollectionUid = selectedTargetCollectionPath
     ? availableCollections.find((c) => (c.path || c.pathname) === selectedTargetCollectionPath)?.uid
@@ -119,6 +121,7 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
     setIsEditingFolderFilename(false);
     setPendingFolderNavigation(null);
     setSelectedTargetCollectionPath(null);
+    setPathsBeforeNewCollection(null);
     setIsSelectingCollection(isScratchCollection);
     // Reset new collection state
     setNewCollection({ show: false, name: '', location: '', format: DEFAULT_COLLECTION_FORMAT });
@@ -175,6 +178,15 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
       );
     }
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!pathsBeforeNewCollection) return;
+    const created = availableCollections.find((c) => !pathsBeforeNewCollection.includes(c.path || c.pathname));
+    if (created) {
+      setPathsBeforeNewCollection(null);
+      handleSelectCollection(created);
+    }
+  }, [pathsBeforeNewCollection, availableCollections, handleSelectCollection]);
 
   const handleConfirm = async () => {
     if (!item || !collection || !latestItem) {
@@ -363,10 +375,12 @@ const SaveTransientRequest = ({ item: itemProp, collection: collectionProp, isOp
       return;
     }
     try {
+      setPathsBeforeNewCollection(availableCollections.map((c) => c.path || c.pathname));
       await dispatch(createCollection(trimmedName, sanitizeName(trimmedName), newCollection.location, { format: newCollection.format, source: 'save-transient-request', entryPoint: 'save-transient-request' }));
       toast.success('Collection created!');
       handleCancelNewCollection();
     } catch (err) {
+      setPathsBeforeNewCollection(null);
       toast.error(err?.message || 'An error occurred while creating the collection');
     }
   };
