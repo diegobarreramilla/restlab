@@ -293,7 +293,10 @@ export const test = baseTest.extend<
         const extraArgs = (process.env.PLAYWRIGHT_ELECTRON_ARGS || '').split(/\s+/).filter(Boolean);
 
         const app = await playwright._electron.launch({
-          args: [electronAppPath, '--disable-gpu', ...extraArgs],
+          // `ELECTRON_USER_DATA_PATH` below is only honored when Electron runs in dev mode. The
+          // switch makes the isolated profile apply in every mode, so a run with
+          // ELECTRON_IS_DEV=0 (production renderer) can never fall back to the real user profile.
+          args: [electronAppPath, '--disable-gpu', `--user-data-dir=${userDataPath}`, ...extraArgs],
           env: {
             ...process.env,
             ELECTRON_USER_DATA_PATH: userDataPath,
