@@ -27,7 +27,7 @@ describe('findSecretsInCollection', () => {
     ])('flags %s in a harmless-looking header', (_label, value, kind) => {
       const found = findSecretsInCollection(collection({ items: [request({ headers: [{ name: 'X-Trace', value, enabled: true }] })] }));
 
-      expect(found).toEqual([{ kind, severity: 'high', location: { type: 'request', uid: 'request-uid' }, path: ['r'], field: 'X-Trace' }]);
+      expect(found).toEqual([{ kind, severity: 'high', location: { type: 'request', uid: 'request-uid' }, source: { section: 'headers', name: 'X-Trace' }, path: ['r'], field: 'X-Trace' }]);
     });
 
     it('flags a password written into the URL', () => {
@@ -126,6 +126,36 @@ describe('findSecretsInCollection', () => {
 
     expect(found.map((f) => f.path)).toEqual([['users'], ['users', 'list']]);
     expect(found.map((f) => f.location.type)).toEqual(['folder', 'request']);
+  });
+
+  describe('source', () => {
+    it('says which header, parameter or auth field holds the value', () => {
+      const items = [
+        request({ headers: [{ name: 'X-Trace', value: JWT, enabled: true }] }),
+        request({ params: [{ name: 'api_key', value: 'abcd-1234-efgh', enabled: true }] }),
+        request({ auth: { mode: 'bearer', bearer: { token: 'abc123def456' } } })
+      ];
+
+      const found = findSecretsInCollection(collection({ items }));
+
+      expect(found.map((f) => f.source)).toEqual([
+        { section: 'headers', name: 'X-Trace' },
+        { section: 'params', name: 'api_key' },
+        { section: 'auth', name: 'bearer.token' }
+      ]);
+    });
+
+    it('has none for the URL, which cannot be rewritten in place', () => {
+      const found = findSecretsInCollection(collection({ items: [request({ url: 'postgres://admin:hunter2pass@db.local/app' })] }));
+
+      expect(found[0].source).toBeUndefined();
+    });
+
+    it('has none outside a request', () => {
+      const found = findSecretsInCollection(collection({ root: { request: { auth: { mode: 'bearer', bearer: { token: 'abc123def456' } } } } }));
+
+      expect(found[0].source).toBeUndefined();
+    });
   });
 
   it('reports collection-level settings as the collection', () => {

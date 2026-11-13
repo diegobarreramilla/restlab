@@ -22,10 +22,20 @@ export interface SecretFindingLocation {
   uid?: string;
 }
 
+/**
+ * Where inside a request the value sits, for the fields a caller can rewrite in place: a header or parameter by
+ * name, or an auth field by its path in the auth object (`bearer.token`). Absent for the URL and the body.
+ */
+export interface SecretFindingSource {
+  section: 'headers' | 'params' | 'auth';
+  name: string;
+}
+
 export interface SecretFinding {
   kind: SecretFindingKind;
   severity: SecretFindingSeverity;
   location: SecretFindingLocation;
+  source?: SecretFindingSource;
   /** Where the value lives, from the outside in: `['Environment', 'dev']`, `['users', 'list']`, ... */
   path: string[];
   /** The field that holds it: a variable, header or parameter name, or an auth field such as `bearer.token`. */
@@ -81,6 +91,10 @@ const classifyValue = (value: string): { kind: SecretFindingKind; severity: Secr
   return match ? { kind: match.kind, severity: match.severity } : null;
 };
 
+// Only a request can be rewritten in place, so the source is reported for requests alone.
+const sourceOf = (where: Where, source?: SecretFindingSource) =>
+  source && where.location.type === 'request' ? { source } : {};
+
 /** Where a value was found: the names leading to it and what holds it. */
 interface Where {
   path: string[];
@@ -99,22 +113,22 @@ class Collector {
   }
 
   /** A value in a field that is not a credential by name: only its shape can give it away. */
-  checkValue(where: Where, field: string, value: unknown) {
+  checkValue(where: Where, field: string, value: unknown, source?: SecretFindingSource) {
     const text = textOf(value);
     if (!text) return;
     const byShape = classifyValue(text);
-    if (byShape) this.add({ ...byShape, ...where, field });
+    if (byShape) this.add({ ...byShape, ...where, ...sourceOf(where, source), field });
   }
 
   /** A value in a field that is a credential by name or by role: a literal there is a finding. */
-  checkCredential(where: Where, field: string, value: unknown) {
+  checkCredential(where: Where, field: string, value: unknown, source?: SecretFindingSource) {
     const text = textOf(value);
     if (!text) return;
     const byShape = classifyValue(text);
     if (byShape) {
-      this.add({ ...byShape, ...where, field });
+      this.add({ ...byShape, ...where, ...sourceOf(where, source), field });
     } else if (looksLikeLiteralSecret(text)) {
-      this.add({ kind: 'plain-credential', severity: 'medium', ...where, field });
+      this.add({ kind: 'plain-credential', severity: 'medium', ...where, ...sourceOf(where, source), field });
     }
   }
 }
@@ -137,11 +151,11 @@ const scanAuth = (collector: Collector, where: Where, auth: Loose) => {
     const section = auth[mode];
     if (!section) continue;
     for (const field of fields) {
-      collector.checkCredential(where, `auth.${mode}.${field}`, section[field]);
+      collector.checkCredential(where, `auth.${mode}.${field}`, section[field], { section: 'auth', name: `${mode}.${field}` });
     }
   }
   if (auth.apikey) {
-    collector.checkCredential(where, 'auth.apikey.value', auth.apikey.value);
+    collector.checkCredential(where, 'auth.apikey.value', auth.apikey.value, { section: 'auth', name: 'apikey.value' });
   }
 };
 
@@ -153,10 +167,11 @@ const scanKeyValues = (collector: Collector, where: Where, list: Loose, kind: 'h
     if (!isEnabled(entry) || !entry.name) continue;
     const name = String(entry.name);
     const sensitive = kind === 'header' ? SENSITIVE_HEADER.some((re) => re.test(name)) || isSensitiveName(name) : isSensitiveName(name);
+    const source = kind === 'var' ? undefined : { section: kind === 'header' ? ('headers' as const) : ('params' as const), name };
     if (sensitive) {
-      collector.checkCredential(where, name, entry.value);
+      collector.checkCredential(where, name, entry.value, source);
     } else {
-      collector.checkValue(where, name, entry.value);
+      collector.checkValue(where, name, entry.value, source);
     }
   }
 };
