@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useDispatch } from 'react-redux';
+import { loadStoredOauth2Credentials } from 'providers/ReduxStore/slices/collections/actions';
 import { find } from 'lodash';
 import StyledWrapper from './StyledWrapper';
 import { IconChevronDown, IconChevronRight, IconCopy, IconCheck } from '@tabler/icons';
@@ -43,7 +45,7 @@ const TokenSection = ({ title, token }) => {
             ? <IconChevronDown size={18} className="text-gray-500" />
             : <IconChevronRight size={18} className="text-gray-500" />}
           <div className="flex flex-row justify-between w-full">
-            <h3 className="font-medium">{title}</h3>
+            <h3 className="font-medium" data-testid="oauth2-token-section-title">{title}</h3>
             {decodedToken?.exp && <ExpiryTimer expiresIn={decodedToken?.exp} />}
           </div>
         </div>
@@ -133,6 +135,19 @@ const Oauth2TokenViewer = ({ collection, item, url, credentialsId, handleRun }) 
   const credentialsData = find(collection?.oauth2Credentials, (creds) => creds?.url == interpolatedUrl && creds?.collectionUid == collectionUid && creds?.credentialsId == credentialsId);
   const creds = credentialsData?.credentials || {};
 
+  // The state starts empty when the app opens, but the token is still on disk. Ask for it once per token key.
+  const dispatch = useDispatch();
+  const askedForKey = useRef(null);
+  const hasCredentials = Boolean(credentialsData);
+  useEffect(() => {
+    const key = `${collectionUid}|${interpolatedUrl}|${credentialsId}`;
+    if (hasCredentials || !interpolatedUrl || askedForKey.current === key) {
+      return;
+    }
+    askedForKey.current = key;
+    dispatch(loadStoredOauth2Credentials({ collectionUid, url: interpolatedUrl, credentialsId })).catch(() => {});
+  }, [hasCredentials, collectionUid, interpolatedUrl, credentialsId, dispatch]);
+
   return (
     <StyledWrapper className="relative w-auto h-fit mt-2">
       {Object.keys(creds)?.length ? (
@@ -166,7 +181,7 @@ const Oauth2TokenViewer = ({ collection, item, url, credentialsId, handleRun }) 
           </div>
         )
       ) : (
-        <div className="text-gray-500 dark:text-gray-400">No token found</div>
+        <div className="text-gray-500 dark:text-gray-400" data-testid="oauth2-no-token">No token found</div>
       )}
     </StyledWrapper>
   );

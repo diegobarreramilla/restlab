@@ -3409,6 +3409,23 @@ export const hydrateCollectionWithUiStateSnapshot = (payload) => (dispatch, getS
   });
 };
 
+// Puts the token saved on disk back into the collection state. Without it the Auth panel says "No token found"
+// after a restart even though the next request would reuse the stored token.
+export const loadStoredOauth2Credentials = ({ collectionUid, url, credentialsId }) => async (dispatch) => {
+  const credentials = await window.ipcRenderer.invoke('renderer:get-stored-oauth2-credentials', {
+    collectionUid,
+    url,
+    credentialsId
+  });
+
+  if (!credentials) {
+    return null;
+  }
+
+  dispatch(collectionAddOauth2CredentialsByUrl({ credentials, url, collectionUid, credentialsId, folderUid: null, itemUid: null }));
+  return credentials;
+};
+
 export const fetchOauth2Credentials = (payload) => async (dispatch, getState) => {
   const { request, collection, itemUid, folderUid } = payload;
   const state = getState();

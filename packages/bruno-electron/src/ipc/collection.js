@@ -80,7 +80,7 @@ const { interpolateString } = require('./network/interpolate-string');
 const { getEnvVars, getTreePathFromCollectionToItem, mergeVars, parseBruFileMeta, hydrateRequestWithUuid, transformRequestToSaveToFilesystem } = require('../utils/collection');
 const { getProcessEnvVars } = require('../store/process-env');
 const { setBrunoConfig } = require('../store/bruno-config');
-const { getOAuth2TokenUsingAuthorizationCode, getOAuth2TokenUsingClientCredentials, getOAuth2TokenUsingPasswordCredentials, getOAuth2TokenUsingImplicitGrant, refreshOauth2Token } = require('../utils/oauth2');
+const { getOAuth2TokenUsingAuthorizationCode, getOAuth2TokenUsingClientCredentials, getOAuth2TokenUsingPasswordCredentials, getOAuth2TokenUsingImplicitGrant, refreshOauth2Token, getStoredOauth2Credentials } = require('../utils/oauth2');
 const { getCertsAndProxyConfig } = require('./network/cert-utils');
 const collectionWatcher = require('../app/collection-watcher');
 const { transformBrunoConfigBeforeSave, transformBrunoConfigAfterRead } = require('../utils/transformBrunoConfig');
@@ -2042,6 +2042,11 @@ const registerRendererEventHandlers = (mainWindow, watcher) => {
     } catch (error) {
       throw new Error(error.message);
     }
+  });
+
+  // The token saved on disk for this collection, so the Auth panel can show it after the app is reopened.
+  ipcMain.handle('renderer:get-stored-oauth2-credentials', async (event, { collectionUid, url, credentialsId }) => {
+    return getStoredOauth2Credentials({ collectionUid, url, credentialsId }) || null;
   });
 
   ipcMain.handle('renderer:fetch-oauth2-credentials', async (event, { itemUid, request, collection }) => {

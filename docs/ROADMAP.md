@@ -132,7 +132,7 @@ Todas las metas de esta etapa son pequeñas o medianas. **Antes de cada una, ver
 | Meta | Referencia | Verificar primero | Tamaño |
 |---|---|---|---|
 | Entornos anidados ✅ (2026-11-12) | Bruno #292 (49 reacciones) | El esquema ya admite `extends` entre entornos (`packages/bruno-schema/src/collections/index.js`). Probarlo en la app antes de tocar nada; puede que solo falte descubribilidad en la interfaz | S |
-| OAuth2: reinicio del token | #4392 | Reproducir en la app: ¿se pierde el token al reiniciar? | M |
+| OAuth2: reinicio del token ✅ (2026-11-12) | #4392 | Reproducir en la app: ¿se pierde el token al reiniciar? | M |
 | Certificados autofirmados ✅ parcial (2026-11-12) | #4949 | Reproducir con un servidor HTTPS de prueba con certificado propio | M |
 | Pestañas desactivables | Bruno #1739, Insomnia #8488 | `components/Tabs` y `RequestTabs`; ver si hay ajuste ya | S–M |
 
@@ -147,6 +147,11 @@ Todas las metas de esta etapa son pequeñas o medianas. **Antes de cada una, ver
 - **Corrección:** `utils/certificate-errors` reconoce las variantes (autofirmado, sin emisor local, primer certificado, caducado o aún no válido, nombre de host que no coincide) y `QueryResult/CertificateErrorHint` explica la causa, ofrece primero el CA propio, avisa de que apagar la verificación afecta a todas las peticiones y abre Preferencias con un botón (antes: «haz clic en el engranaje abajo a la izquierda»).
 - **Pruebas:** 17 del reconocedor (mutación: volver a la expresión antigua hace fallar 3), 3 del componente, e2e `tests/ssl/self-signed-hint/` con servidor HTTPS local y certificado generado con `openssl` (sin red; proyecto `ssl`; pasa dos veces seguidas).
 - **No hecho (decisión de producto):** «confiar en este certificado» por servidor, con huella guardada, sin apagar la verificación global. Es lo que más pedirían las empresas con servidores internos, pero introduce una lista de confianza en disco y es una decisión de seguridad; ver sección de decisiones. Tampoco se probó la CLI (`bru run` con `--insecure`/`--cacert` ya existen).
+
+**OAuth2: reinicio del token (2026-11-12) — resultado de «Verificar primero».** El token **sí se guarda en disco y se reutiliza** tras reiniciar (`<userData>/oauth2.json`, cifrado, clave por ruta de colección): un e2e con dos arranques sobre el mismo perfil lo confirma para `client_credentials` (la segunda petición no pide un token nuevo). **Lo que se perdía era lo visible:** el panel de Auth lee el token del estado de la interfaz, que solo se llenaba cuando una petición lo pedía; tras reiniciar mostraba «No token found» y «Get Access Token» aunque el token estuviera guardado y fuera a usarse. El usuario lo vive como «se perdió el token».
+- **Corrección:** `Oauth2TokenViewer` pide el token guardado una vez por clave (colección, URL, id) cuando el estado no lo tiene (`loadStoredOauth2Credentials` → canal nuevo `renderer:get-stored-oauth2-credentials`). No añade entradas al historial de la línea de tiempo. Sin red y sin cambios de formato en disco.
+- **Pruebas:** e2e `tests/auth/oauth2-persistence/` (proyecto `auth`; fallaba antes de la corrección con «No token found», pasa dos veces seguidas después), 3 de la acción. Suites de `RequestPane` y `slices/collections`: 286 en verde.
+- **No comprobado:** `authorization_code` con proveedor real (necesita el navegador y un proveedor; es la verificación 3.1), un token ya caducado con renovación automática tras el reinicio, y equipos Linux donde el llavero (`safeStorage`) no esté disponible al arrancar: en ese caso el token cifrado con el llavero no se puede leer y habría que pedir uno nuevo. Anotado como riesgo, no reproducido.
 
 **Cómo ejecutar cada una:** (1) reproducir y escribir una prueba que falle, (2) corregir, (3) la prueba pasa, (4) abrir la app y verlo, (5) registrar el commit de Bruno si el arreglo viene de allí (regla de sincronización selectiva), (6) revisar el gemelo en la CLI.
 
