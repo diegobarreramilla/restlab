@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const git = require('./git');
 const { uuid } = require('./common');
-const { parseRequest } = require('@usebruno/filestore');
+const { parseRequest, stringifyRequest } = require('@usebruno/filestore');
+const { listConflictParts, mergeRequestParts } = require('./git-merge-request');
 const { parseBlamePorcelain, summarizeBlameByField } = require('./git-blame');
 
 const FIELD_SEPARATOR = '\x1f';
@@ -227,10 +228,10 @@ const getCommitFiles = async (collectionPath, commitHash) => {
   return files.filter((file) => isInsideCollection(repository, file.path));
 };
 
-const CONFLICT_STAGES = { ours: 2, theirs: 3 };
+const CONFLICT_STAGES = { base: 1, ours: 2, theirs: 3 };
 
-// During a merge git keeps both versions of a conflicted file in the index: stage 2 is the current branch,
-// stage 3 the one being merged. A side that deleted the file has no stage.
+// During a merge git keeps the versions of a conflicted file in the index: stage 1 is the common ancestor,
+// stage 2 the current branch, stage 3 the one being merged. A side that does not have the file has no stage.
 const readConflictStage = (repository, repositoryPath, side) =>
   git.getSimpleGitInstanceForPath(repository.gitRootPath).raw(['show', `:${CONFLICT_STAGES[side]}:${repositoryPath}`]).catch(() => null);
 
@@ -264,7 +265,7 @@ const getConflictSides = async (repository, repositoryPath) => {
  */
 const resolveConflict = async (collectionPath, filePath, side) => {
   const repository = requireRepository(collectionPath);
-  if (!CONFLICT_STAGES[side]) {
+  if (side !== 'ours' && side !== 'theirs') {
     throw new Error('Side is not valid');
   }
   const absolutePath = resolveFile(repository, filePath);
@@ -282,6 +283,52 @@ const resolveConflict = async (collectionPath, filePath, side) => {
   }
   await simpleGit.raw(['checkout', `--${side}`, '--', repositoryPath]);
   await simpleGit.raw(['add', '--', repositoryPath]);
+};
+
+const requireConflictedFile = async (repository, filePath) => {
+  const repositoryPath = repositoryPathOf(repository, resolveFile(repository, filePath));
+  const unmerged = (await git.getSimpleGitInstanceForPath(repository.gitRootPath).raw(['diff', '--name-only', '--diff-filter=U'])).split('\n');
+  if (!unmerged.includes(repositoryPath)) {
+    throw new Error('This file is not in conflict');
+  }
+  return repositoryPath;
+};
+
+// The three versions of a conflicted request, parsed. `null` for a version that is missing or is not a request.
+const readConflictVersions = async (repository, repositoryPath) => {
+  const [base, ours, theirs] = await Promise.all(
+    ['base', 'ours', 'theirs'].map(async (side) => parseRequestFile(await readConflictStage(repository, repositoryPath, side), repositoryPath))
+  );
+  return { base, ours, theirs };
+};
+
+/**
+ * The parts of a conflicted request that differ between the two sides, and who changed each. `mergeable` is
+ * false when the file cannot be merged part by part: it is not a request, or one side deleted it.
+ */
+const getConflictParts = async (collectionPath, filePath) => {
+  const repository = requireRepository(collectionPath);
+  const repositoryPath = await requireConflictedFile(repository, filePath);
+  const versions = await readConflictVersions(repository, repositoryPath);
+  if (!versions.ours || !versions.theirs) {
+    return { mergeable: false, parts: [] };
+  }
+  return { mergeable: true, parts: listConflictParts(versions) };
+};
+
+/** Settles a conflicted request by taking each differing part from the side chosen for it. */
+const resolveConflictByParts = async (collectionPath, filePath, choices) => {
+  const repository = requireRepository(collectionPath);
+  const repositoryPath = await requireConflictedFile(repository, filePath);
+  const versions = await readConflictVersions(repository, repositoryPath);
+  if (!versions.ours || !versions.theirs) {
+    throw new Error('This file cannot be merged part by part');
+  }
+
+  const merged = mergeRequestParts(versions, choices);
+  const content = stringifyRequest(merged, { format: repositoryPath.endsWith('.bru') ? 'bru' : 'yml' });
+  await fs.promises.writeFile(path.join(repository.gitRootPath, repositoryPath), content, 'utf8');
+  await git.getSimpleGitInstanceForPath(repository.gitRootPath).raw(['add', '--', repositoryPath]);
 };
 
 /** Closes a merge once nothing is left in conflict, with the message git prepared for it. */
@@ -412,6 +459,8 @@ module.exports = {
   sync,
   abortMerge,
   resolveConflict,
+  getConflictParts,
+  resolveConflictByParts,
   finishMerge,
   setRemote,
   removeRemote,

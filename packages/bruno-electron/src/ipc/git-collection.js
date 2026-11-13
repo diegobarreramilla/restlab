@@ -28,6 +28,10 @@ const registerGitCollectionIpc = (mainWindow) => {
   ipcMain.handle('renderer:git-resolve-conflict', (event, { collectionPath, filePath, side }) =>
     gitCollection.resolveConflict(collectionPath, filePath, side)
   );
+  ipcMain.handle('renderer:git-conflict-parts', (event, { collectionPath, filePath }) => gitCollection.getConflictParts(collectionPath, filePath));
+  ipcMain.handle('renderer:git-resolve-conflict-parts', (event, { collectionPath, filePath, choices }) =>
+    gitCollection.resolveConflictByParts(collectionPath, filePath, choices)
+  );
   ipcMain.handle('renderer:git-finish-merge', (event, { collectionPath }) => gitCollection.finishMerge(collectionPath));
   ipcMain.handle('renderer:git-set-remote', (event, { collectionPath, remoteUrl }) => gitCollection.setRemote(collectionPath, remoteUrl));
   ipcMain.handle('renderer:git-remove-remote', (event, { collectionPath }) => gitCollection.removeRemote(collectionPath));

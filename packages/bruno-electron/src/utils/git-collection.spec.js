@@ -424,6 +424,68 @@ describe('conflicts', () => {
     await expect(gitCollection.finishMerge(await makeCommittedCollection())).rejects.toThrow('no merge in progress');
   });
 
+  describe('part by part', () => {
+    /** main changed the URL; feature changed the URL and the Accept header. */
+    const makeMixedConflict = async () => {
+      const collectionPath = await makeCommittedCollection();
+      await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'feature', create: true });
+      write(collectionPath, 'list.yml', requestFile('https://theirs.example.com', 'application/json'));
+      runGit(collectionPath, 'commit', '-q', '-am', 'on feature');
+      await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'main' });
+      write(collectionPath, 'list.yml', requestFile('https://ours.example.com'));
+      runGit(collectionPath, 'commit', '-q', '-am', 'on main');
+      expect(() => runGit(collectionPath, 'merge', '-q', 'feature')).toThrow();
+      return collectionPath;
+    };
+
+    it('lists the parts that differ and who changed each', async () => {
+      const { mergeable, parts } = await gitCollection.getConflictParts(await makeMixedConflict(), 'list.yml');
+
+      expect(mergeable).toBe(true);
+      expect(parts).toEqual([
+        { key: 'request.url', changedBy: 'both' },
+        { key: 'request.headers', changedBy: 'theirs' }
+      ]);
+    });
+
+    it('writes a request with my URL and their headers, and settles the conflict', async () => {
+      const collectionPath = await makeMixedConflict();
+
+      await gitCollection.resolveConflictByParts(collectionPath, 'list.yml', { 'request.url': 'ours', 'request.headers': 'theirs' });
+
+      const content = fs.readFileSync(path.join(collectionPath, 'list.yml'), 'utf8');
+      expect(content).toContain('ours.example.com');
+      expect(content).toContain('application/json');
+      expect(content).not.toContain('<<<<<<<');
+      expect((await gitCollection.getOverview(collectionPath)).conflicted).toEqual([]);
+
+      await gitCollection.finishMerge(collectionPath);
+      expect((await gitCollection.getOverview(collectionPath)).isMerging).toBe(false);
+    });
+
+    it('refuses to write while a part is undecided, and leaves the conflict as it was', async () => {
+      const collectionPath = await makeMixedConflict();
+
+      await expect(gitCollection.resolveConflictByParts(collectionPath, 'list.yml', { 'request.url': 'ours' })).rejects.toThrow('missing: request.headers');
+
+      expect((await gitCollection.getOverview(collectionPath)).conflicted).toHaveLength(1);
+      expect(fs.readFileSync(path.join(collectionPath, 'list.yml'), 'utf8')).toContain('<<<<<<<');
+    });
+
+    it('says a file one side deleted cannot be mixed', async () => {
+      const collectionPath = await makeConflict({ deleteOnFeature: true });
+
+      expect(await gitCollection.getConflictParts(collectionPath, 'list.yml')).toEqual({ mergeable: false, parts: [] });
+      await expect(gitCollection.resolveConflictByParts(collectionPath, 'list.yml', {})).rejects.toThrow('cannot be merged part by part');
+    });
+
+    it('only works on a file that is in conflict', async () => {
+      const collectionPath = await makeMixedConflict();
+
+      await expect(gitCollection.getConflictParts(collectionPath, 'opencollection.yml')).rejects.toThrow('not in conflict');
+    });
+  });
+
   it('abandons the merge and leaves the branch as it was', async () => {
     const collectionPath = await makeConflict();
 
