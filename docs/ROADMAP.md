@@ -44,7 +44,7 @@ Documentos relacionados, para no repetir:
 | **0. Base y marca** (nombre RestLab, logo provisional, `appId`, esquema `restlab://`, copyright, changelog propio, enlaces ajenos fuera) | ✅ Hecho (2026-11-07) |
 | **1. Local-first** (sin telemetría, anuncios opt-in, OAuth2 por dirección local, aviso sin conexión, documentación generada sin red) | Hecho en código y pruebas; falta probar con un proveedor OAuth2 real y con la red desconectada de verdad |
 | **2. IA opcional** (apagada por defecto, claves propias, Ollama, redacción reversible de secretos, vista previa "What's sent", "Review before sending") | Hecho en código y pruebas; falta verla responder con un proveedor real |
-| **3. Rendimiento** | Sin empezar |
+| **3. Rendimiento** | Medido y corregido (4.1 y 4.2); queda opcional el límite con aviso para respuestas de 10 MB o más |
 | **4. Fallos del fork y calidad de vida** | Sin empezar |
 | **5. Apuestas** (rutas desde OpenAPI, archivos) | Sin empezar, sujetas a validación |
 | **6. Interfaz** | Sin empezar |
@@ -105,7 +105,9 @@ Ver tabla "Pendiente" de `docs/branding.md`. Resumen:
 
 **Listo cuando:** `docs/perf/` tiene la tabla antes/después y los dos casos mejoran. Un commit por corrección.
 
-### 4.2 Respuestas enormes que no congelan la app · M · A
+### 4.2 Respuestas enormes que no congelan la app · M · A ✅ parcial (2026-11-12)
+
+> **Hecho (2026-11-12):** decodificación nativa y sin lint en el visor de solo lectura (`9e6016b3b`). Tarea larga máxima en producción: 5 MB 303 → 150 ms (objetivo cumplido), 10 MB 533 → 248 ms (objetivo no cumplido). Detalle en `docs/perf/README.md` §6.8. **Pendiente:** límite configurable y aviso con tres acciones para respuestas de varios MB; solo si se decide que hace falta, porque 10 MB ya pinta en 0,8 s.
 
 Cae dentro de 4.1 y **el perfil lo señala** (2026-11-09, ver `docs/perf/README.md` §6.6). Antes de añadir límites y avisos hay mejoras que quitan el bloqueo sin cambiar lo que ve el usuario, y conviene hacerlas primero y volver a medir:
 - **Decodificar la respuesta sin los polyfills de Node** (`atob` + `TextDecoder`, o recibir ya texto): `packages/bruno-app/src/utils/common/index.js:249` (`formatResponse`). ≈220 ms de 850 en una respuesta de 10 MB.

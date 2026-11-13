@@ -582,3 +582,26 @@ solo lectura.
 **Lo que no se encontró.** En producción ninguna de las tres acciones pasa de ~100 ms de trabajo del hilo
 principal con 200 peticiones, así que no hay una optimización de código pendiente para ellas. Pendiente:
 repetir con colecciones de 1000+ y con muchas pestañas abiertas (`INTERACTION_REQUESTS=1000`).
+
+### 6.8 Corrección de la respuesta grande (4.2) — 2026-11-12
+
+Dos cambios, sin alterar lo que ve el usuario:
+
+1. `formatResponse` (`utils/common/index.js`) decodifica el base64 con `atob` + `TextDecoder` (con
+   `ignoreBOM: true`, igual que `Buffer#toString`) y calcula el tamaño de la respuesta desde la longitud del
+   base64, sin decodificar. Si `atob` rechaza la entrada (alfabeto URL-safe, espacios) vuelve a `Buffer`.
+2. `CodeEditor` no activa el lint cuando el editor es de solo lectura (visor de respuesta).
+
+Medido en **producción** (sección 3.7), `large-json.bench.ts`, 3 iteraciones tras calentar, mediana:
+
+| Respuesta JSON | Pintado antes | Pintado después | Tarea larga máx. antes | Tarea larga máx. después |
+|---|---:|---:|---:|---:|
+| 5 MB | 0,6 s | **454 ms** | 303 ms | **150 ms** (134–164) |
+| 10 MB | 1,1 s | **809 ms** | 533 ms | **248 ms** (236–386) |
+
+Objetivo de 4.2 (< 200 ms): **cumplido con 5 MB, no con 10 MB** (mediana 248 ms, con una iteración de 386 ms). Lo que
+queda en 10 MB es CodeMirror releyendo el documento (≈144 ms), el formateo (≈54 ms) y el recolector de basura; ya
+no hay una causa única que corregir. Para tamaños así corresponde la segunda parte de 4.2 (límite configurable y
+aviso con *ver como texto sin formato*, *guardar en archivo*, *formatear de todos modos*), que **no se ha hecho**.
+El perfil de CPU (`profile-large-json`) no se repitió.
+
