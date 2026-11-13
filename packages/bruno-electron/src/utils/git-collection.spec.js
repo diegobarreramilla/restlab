@@ -305,6 +305,135 @@ describe('the remote in the overview', () => {
   });
 });
 
+describe('connecting a remote', () => {
+  it('adds a remote, points it somewhere else and removes it', async () => {
+    const collectionPath = await makeCommittedCollection();
+
+    await gitCollection.setRemote(collectionPath, 'https://github.com/acme/billing-api.git');
+    expect(await gitCollection.getOverview(collectionPath)).toMatchObject({ hasRemote: true, remoteName: 'origin', remoteUrl: 'https://github.com/acme/billing-api.git' });
+
+    await gitCollection.setRemote(collectionPath, 'git@gitlab.com:acme/billing-api.git');
+    expect((await gitCollection.getOverview(collectionPath)).remoteUrl).toBe('git@gitlab.com:acme/billing-api.git');
+    expect(runGit(collectionPath, 'remote').trim()).toBe('origin');
+
+    await gitCollection.removeRemote(collectionPath);
+    expect(await gitCollection.getOverview(collectionPath)).toMatchObject({ hasRemote: false, remoteUrl: null });
+  });
+
+  it('connects to a folder and can push to it right away', async () => {
+    const remote = makeTmpDir();
+    runGit(remote, 'init', '-q', '--bare', '-b', 'main');
+    const collectionPath = await makeCommittedCollection();
+
+    await gitCollection.setRemote(collectionPath, remote);
+    await gitCollection.sync(fakeWindow, collectionPath, 'push');
+
+    expect(runGit(remote, 'log', '--format=%s').trim()).toBe('first');
+  });
+
+  it.each([['--upload-pack=touch /tmp/x'], [''], ['not a url'], ['-o']])('rejects the address %p', async (url) => {
+    const collectionPath = await makeCommittedCollection();
+
+    await expect(gitCollection.setRemote(collectionPath, url)).rejects.toThrow('address is not valid');
+  });
+
+  it('has nothing to remove without a remote', async () => {
+    await expect(gitCollection.removeRemote(await makeCommittedCollection())).rejects.toThrow('no remote');
+  });
+});
+
+describe('conflicts', () => {
+  /** main and feature both changed the URL of the same request; merging feature into main stops in a conflict. */
+  const makeConflict = async ({ deleteOnFeature = false } = {}) => {
+    const collectionPath = await makeCommittedCollection();
+    await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'feature', create: true });
+    if (deleteOnFeature) {
+      runGit(collectionPath, 'rm', '-q', 'list.yml');
+    } else {
+      write(collectionPath, 'list.yml', requestFile('https://theirs.example.com'));
+      runGit(collectionPath, 'add', 'list.yml');
+    }
+    runGit(collectionPath, 'commit', '-q', '-m', 'on feature');
+    await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'main' });
+    write(collectionPath, 'list.yml', requestFile('https://ours.example.com'));
+    await gitCollection.stage(collectionPath, ['list.yml']);
+    await gitCollection.commit(collectionPath, 'on main');
+    expect(() => runGit(collectionPath, 'merge', '-q', 'feature')).toThrow();
+    return collectionPath;
+  };
+
+  it('lists the file in conflict and says a merge is in progress', async () => {
+    const overview = await gitCollection.getOverview(await makeConflict());
+
+    expect(overview).toMatchObject({ isMerging: true, conflictedOutsideCollection: 0 });
+    expect(overview.conflicted).toEqual([{ path: 'list.yml', status: 'conflicted' }]);
+  });
+
+  it('shows both versions of the request', async () => {
+    const collectionPath = await makeConflict();
+
+    const sides = await gitCollection.getDiff(collectionPath, { filePath: 'list.yml', source: 'conflict' });
+
+    expect(sides.oldParsed.request.url).toBe('https://ours.example.com');
+    expect(sides.newParsed.request.url).toBe('https://theirs.example.com');
+  });
+
+  it.each([['ours', 'ours.example.com'], ['theirs', 'theirs.example.com']])('keeps the %s side whole', async (side, expectedHost) => {
+    const collectionPath = await makeConflict();
+
+    await gitCollection.resolveConflict(collectionPath, 'list.yml', side);
+
+    const content = fs.readFileSync(path.join(collectionPath, 'list.yml'), 'utf8');
+    expect(content).toContain(expectedHost);
+    expect(content).not.toContain('<<<<<<<');
+    expect((await gitCollection.getOverview(collectionPath)).conflicted).toEqual([]);
+  });
+
+  it('finishes the merge once nothing is in conflict', async () => {
+    const collectionPath = await makeConflict();
+
+    await expect(gitCollection.finishMerge(collectionPath)).rejects.toThrow('still in conflict');
+
+    await gitCollection.resolveConflict(collectionPath, 'list.yml', 'theirs');
+    await gitCollection.finishMerge(collectionPath);
+
+    const overview = await gitCollection.getOverview(collectionPath);
+    expect(overview).toMatchObject({ isMerging: false, staged: [], unstaged: [], conflicted: [] });
+    expect((await gitCollection.getHistory(collectionPath))[0].parents).toHaveLength(2);
+  });
+
+  it('removes the file when the chosen side had deleted it, and keeps it otherwise', async () => {
+    const removed = await makeConflict({ deleteOnFeature: true });
+    const sides = await gitCollection.getDiff(removed, { filePath: 'list.yml', source: 'conflict' });
+    expect(sides.newContent).toBeNull();
+
+    await gitCollection.resolveConflict(removed, 'list.yml', 'theirs');
+    expect(fs.existsSync(path.join(removed, 'list.yml'))).toBe(false);
+
+    const kept = await makeConflict({ deleteOnFeature: true });
+    await gitCollection.resolveConflict(kept, 'list.yml', 'ours');
+    expect(fs.readFileSync(path.join(kept, 'list.yml'), 'utf8')).toContain('ours.example.com');
+    expect((await gitCollection.getOverview(kept)).conflicted).toEqual([]);
+  });
+
+  it('refuses a side that does not exist, a file that is not in conflict and a merge that is not there', async () => {
+    const collectionPath = await makeConflict();
+
+    await expect(gitCollection.resolveConflict(collectionPath, 'list.yml', 'both')).rejects.toThrow('Side is not valid');
+    await expect(gitCollection.resolveConflict(collectionPath, 'opencollection.yml', 'ours')).rejects.toThrow('not in conflict');
+    await expect(gitCollection.finishMerge(await makeCommittedCollection())).rejects.toThrow('no merge in progress');
+  });
+
+  it('abandons the merge and leaves the branch as it was', async () => {
+    const collectionPath = await makeConflict();
+
+    await gitCollection.abortMerge(collectionPath);
+
+    expect(await gitCollection.getOverview(collectionPath)).toMatchObject({ isMerging: false, conflicted: [] });
+    expect(fs.readFileSync(path.join(collectionPath, 'list.yml'), 'utf8')).toContain('ours.example.com');
+  });
+});
+
 describe('branches', () => {
   it('creates a branch, switches to it and back', async () => {
     const collectionPath = await makeCommittedCollection();

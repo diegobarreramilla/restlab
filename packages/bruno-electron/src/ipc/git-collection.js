@@ -25,6 +25,12 @@ const registerGitCollectionIpc = (mainWindow) => {
   ipcMain.handle('renderer:git-blame', (event, { collectionPath, filePath }) => gitCollection.getBlame(collectionPath, filePath));
   ipcMain.handle('renderer:git-sync', (event, { collectionPath, action }) => gitCollection.sync(mainWindow, collectionPath, action));
   ipcMain.handle('renderer:git-abort-merge', (event, { collectionPath }) => gitCollection.abortMerge(collectionPath));
+  ipcMain.handle('renderer:git-resolve-conflict', (event, { collectionPath, filePath, side }) =>
+    gitCollection.resolveConflict(collectionPath, filePath, side)
+  );
+  ipcMain.handle('renderer:git-finish-merge', (event, { collectionPath }) => gitCollection.finishMerge(collectionPath));
+  ipcMain.handle('renderer:git-set-remote', (event, { collectionPath, remoteUrl }) => gitCollection.setRemote(collectionPath, remoteUrl));
+  ipcMain.handle('renderer:git-remove-remote', (event, { collectionPath }) => gitCollection.removeRemote(collectionPath));
   ipcMain.handle('renderer:git-stash-list', (event, { collectionPath }) => gitCollection.listStashes(collectionPath));
   ipcMain.handle('renderer:git-stash-create', (event, { collectionPath, message }) => gitCollection.createStash(collectionPath, message));
   ipcMain.handle('renderer:git-stash-apply', (event, { collectionPath, index }) => gitCollection.applyStash(collectionPath, index));

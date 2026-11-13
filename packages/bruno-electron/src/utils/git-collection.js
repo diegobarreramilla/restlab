@@ -2,9 +2,11 @@
  * Git for one collection. Everything here takes the collection's folder and stays inside it: the repository
  * may hold other things, but changes, history and file operations are limited to the collection.
  */
+const fs = require('fs');
 const path = require('path');
 const git = require('./git');
 const { uuid } = require('./common');
+const { parseRequest } = require('@usebruno/filestore');
 const { parseBlamePorcelain, summarizeBlameByField } = require('./git-blame');
 
 const FIELD_SEPARATOR = '\x1f';
@@ -85,6 +87,11 @@ const getOverview = async (collectionPath) => {
   const currentBranch = (await simpleGit.raw(['symbolic-ref', '--short', '-q', 'HEAD']).catch(() => '')).trim();
 
   const inCollection = (file) => isInsideCollection(repository, file.path);
+  // Every file git could not merge, whatever the reason (both changed it, one side deleted it, both added it).
+  const unmerged = (await simpleGit.raw(['diff', '--name-only', '--diff-filter=U']).catch(() => ''))
+    .split('\n')
+    .filter(Boolean)
+    .map((file) => ({ path: file, type: 'conflicted' }));
   const hasRemote = remotes.length > 0;
   let ahead = 0;
   let behind = 0;
@@ -113,7 +120,9 @@ const getOverview = async (collectionPath) => {
     tooManyFiles: Boolean(changed.tooManyFiles),
     staged: (changed.staged || []).filter(inCollection).map(toChange('staged')),
     unstaged: (changed.unstaged || []).filter(inCollection).map(toChange('unstaged')),
-    conflicted: (changed.conflicted || []).filter(inCollection).map(toChange('unstaged')),
+    conflicted: unmerged.filter(inCollection).map((file) => ({ path: file.path, status: 'conflicted' })),
+    conflictedOutsideCollection: unmerged.filter((file) => !inCollection(file)).length,
+    isMerging: fs.existsSync(path.join(gitRootPath, '.git', 'MERGE_HEAD')),
     // Staged elsewhere in the repository: a commit takes them too, so the user is told.
     stagedOutsideCollection: (changed.staged || []).filter((file) => !inCollection(file)).length
   };
@@ -186,16 +195,18 @@ const HISTORY_FORMAT = ['%H', '%P', '%s', '%an', '%aI', '%D'].join(FIELD_SEPARAT
  */
 const getHistory = async (collectionPath, { filePath, allBranches = false } = {}) => {
   const repository = requireRepository(collectionPath);
-  const target = filePath ? repositoryPathOf(repository, resolveFile(repository, filePath)) : repository.prefix || '.';
   const args = ['log', `--format=${HISTORY_FORMAT}`, '-n', String(HISTORY_LIMIT)];
   if (filePath) {
-    args.push('--follow');
+    args.push('--follow', '--', repositoryPathOf(repository, resolveFile(repository, filePath)));
   } else {
     args.push('--parents', '--date-order');
     // Not `--all`: that also walks `refs/stash`, and changes put aside are not part of the history.
     if (allBranches) args.push('--branches', '--remotes', '--tags');
+    // Limiting the log to a path makes git drop merges that ended up equal to one of their sides. A collection
+    // that is the whole repository needs no limit, so its history keeps every merge; a collection inside a
+    // larger repository keeps the merges that matter to it.
+    if (repository.prefix) args.push('--full-history', '--simplify-merges', '--', repository.prefix);
   }
-  args.push('--', target);
   // A repository without commits makes `git log` fail; that is an empty history, not an error.
   const output = await git.getSimpleGitInstanceForPath(repository.gitRootPath).raw(args).catch(() => '');
   return parseHistory(output);
@@ -216,12 +227,113 @@ const getCommitFiles = async (collectionPath, commitHash) => {
   return files.filter((file) => isInsideCollection(repository, file.path));
 };
 
+const CONFLICT_STAGES = { ours: 2, theirs: 3 };
+
+// During a merge git keeps both versions of a conflicted file in the index: stage 2 is the current branch,
+// stage 3 the one being merged. A side that deleted the file has no stage.
+const readConflictStage = (repository, repositoryPath, side) =>
+  git.getSimpleGitInstanceForPath(repository.gitRootPath).raw(['show', `:${CONFLICT_STAGES[side]}:${repositoryPath}`]).catch(() => null);
+
+const parseRequestFile = (content, repositoryPath) => {
+  const format = repositoryPath.endsWith('.bru') ? 'bru' : repositoryPath.endsWith('.yml') ? 'yml' : null;
+  if (!content || !format) return null;
+  try {
+    return parseRequest(content, { format });
+  } catch (error) {
+    return null;
+  }
+};
+
+/** Both versions of a conflicted file, "old" being yours and "new" theirs, in the shape of any other diff. */
+const getConflictSides = async (repository, repositoryPath) => {
+  const [oldContent, newContent] = await Promise.all([
+    readConflictStage(repository, repositoryPath, 'ours'),
+    readConflictStage(repository, repositoryPath, 'theirs')
+  ]);
+  return {
+    oldContent,
+    newContent,
+    oldParsed: parseRequestFile(oldContent, repositoryPath),
+    newParsed: parseRequestFile(newContent, repositoryPath)
+  };
+};
+
+/**
+ * Settles a conflicted file by keeping one side whole: `ours` is the current branch, `theirs` the one being
+ * merged. When the chosen side had deleted the file, the file is removed.
+ */
+const resolveConflict = async (collectionPath, filePath, side) => {
+  const repository = requireRepository(collectionPath);
+  if (!CONFLICT_STAGES[side]) {
+    throw new Error('Side is not valid');
+  }
+  const absolutePath = resolveFile(repository, filePath);
+  const repositoryPath = repositoryPathOf(repository, absolutePath);
+  const simpleGit = git.getSimpleGitInstanceForPath(repository.gitRootPath);
+  const unmerged = (await simpleGit.raw(['diff', '--name-only', '--diff-filter=U'])).split('\n');
+  if (!unmerged.includes(repositoryPath)) {
+    throw new Error('This file is not in conflict');
+  }
+
+  const content = await readConflictStage(repository, repositoryPath, side);
+  if (content === null) {
+    await simpleGit.raw(['rm', '-q', '--', repositoryPath]);
+    return;
+  }
+  await simpleGit.raw(['checkout', `--${side}`, '--', repositoryPath]);
+  await simpleGit.raw(['add', '--', repositoryPath]);
+};
+
+/** Closes a merge once nothing is left in conflict, with the message git prepared for it. */
+const finishMerge = async (collectionPath) => {
+  const repository = requireRepository(collectionPath);
+  const overview = await getOverview(collectionPath);
+  if (!overview.isMerging) {
+    throw new Error('There is no merge in progress');
+  }
+  if (overview.conflicted.length || overview.conflictedOutsideCollection) {
+    throw new Error('Some files are still in conflict');
+  }
+  await git.getSimpleGitInstanceForPath(repository.gitRootPath).raw(['commit', '--no-edit']);
+};
+
+// What git accepts as a repository address: a URL, the `user@host:path` form, or a folder. A leading dash would
+// be read as an option.
+const REMOTE_URL = /^(?!-)(?:[a-z][a-z0-9+.-]*:\/\/\S+|[\w.-]+@[\w.-]+:\S+|\/\S.*|[A-Za-z]:[\\/].*)$/;
+
+/** Connects the repository to a remote, or points the existing one somewhere else. Nothing is sent or fetched. */
+const setRemote = async (collectionPath, remoteUrl) => {
+  const repository = requireRepository(collectionPath);
+  const url = typeof remoteUrl === 'string' ? remoteUrl.trim() : '';
+  if (!REMOTE_URL.test(url)) {
+    throw new Error('Repository address is not valid');
+  }
+  const { gitRootPath } = repository;
+  const remotes = await git.fetchRemotes(gitRootPath);
+  // Run directly rather than through the engine's `addRemote`, which writes the address to the log: an address
+  // can carry a token.
+  const args = remotes.length ? ['remote', 'set-url', remotes[0].name, url] : ['remote', 'add', 'origin', url];
+  await git.getSimpleGitInstanceForPath(gitRootPath).raw(args);
+};
+
+const removeRemote = async (collectionPath) => {
+  const { gitRootPath } = requireRepository(collectionPath);
+  const remotes = await git.fetchRemotes(gitRootPath);
+  if (!remotes.length) {
+    throw new Error('This repository has no remote');
+  }
+  await git.getSimpleGitInstanceForPath(gitRootPath).raw(['remote', 'remove', remotes[0].name]);
+};
+
 /** Before and after of one file: a pending change (`staged` / `unstaged`) or what a commit did to it. */
 const getDiff = async (collectionPath, { filePath, source, commitHash }) => {
   const repository = requireRepository(collectionPath);
   const repositoryPath = repositoryPathOf(repository, resolveFile(repository, filePath));
   if (source === 'commit') {
     return git.getFileContentForVisualDiff(repository.gitRootPath, requireCommitHash(commitHash), repositoryPath);
+  }
+  if (source === 'conflict') {
+    return getConflictSides(repository, repositoryPath);
   }
   if (source !== 'staged' && source !== 'unstaged') {
     throw new Error('Diff source is not valid');
@@ -299,6 +411,10 @@ module.exports = {
   getBlame,
   sync,
   abortMerge,
+  resolveConflict,
+  finishMerge,
+  setRemote,
+  removeRemote,
   listStashes,
   createStash,
   applyStash,
