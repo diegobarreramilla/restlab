@@ -538,6 +538,7 @@ Hecho ─ marca, local-first, IA opcional, fin de enlaces ajenos
 | 7 | Modelo comercial | Antes de cualquier función de pago | Definir una promesa escrita de lo que siempre será gratis |
 | 8 | Qué hacer con los anuncios de Bruno | Antes de la v1 | Eliminar el código |
 | 9 | Logo e iconos oficiales | Antes de publicar | Ver `docs/branding.md` |
+| 10 | «Confiar en este certificado» por servidor (huella guardada por colección, sin apagar la verificación global) | Después del token OAuth2 (5.1) | Hacerlo: básico gratis (un servidor, una colección); lista aprobada por la organización como función de empresa. Pide `/security-review` |
 
 ---
 
