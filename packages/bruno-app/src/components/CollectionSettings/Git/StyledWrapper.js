@@ -67,6 +67,36 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.muted};
   }
 
+  .connection-button {
+    padding: 3px 6px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+
+    &:hover {
+      background: ${(props) => props.theme.sidebar.collection.item.hoverBg};
+    }
+  }
+
+  .connection-link {
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    color: ${(props) => props.theme.textLink};
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .new-branch-name.remote-address {
+    width: 30rem;
+    max-width: 100%;
+  }
+
   .connection-project {
     max-width: 22rem;
     overflow: hidden;

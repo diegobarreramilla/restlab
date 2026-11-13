@@ -16,23 +16,27 @@ const NEW_BRANCH_ID = 'git-new-branch';
 const SERVICE_ICONS = { GitHub: IconBrandGithub, GitLab: IconBrandGitlab };
 
 // Where the collection is connected: the project on the hosting service, or nothing but this computer.
-const Connection = ({ remoteUrl }) => {
+// Clicking it opens the row where the remote is connected, changed or removed.
+const Connection = ({ remoteUrl, onEdit }) => {
   const remote = describeRemote(remoteUrl);
   if (!remote) {
     return (
       <span className="connection" title="This repository has no remote: its history is only on this computer" data-testid="git-connection">
         <IconDeviceDesktop size={14} strokeWidth={1.5} />
         <span>Only on this computer</span>
+        <button type="button" className="connection-link" onClick={onEdit} data-testid="git-connect">
+          Connect to a remote
+        </button>
       </span>
     );
   }
   const Icon = SERVICE_ICONS[remote.service] || IconWorld;
   return (
-    <span className="connection" title={remoteUrl} data-testid="git-connection">
+    <button type="button" className="connection connection-button" title={`${remoteUrl} — click to change`} onClick={onEdit} data-testid="git-connection">
       <Icon size={14} strokeWidth={1.5} />
       <span className="connection-project">{remote.project}</span>
       {remote.service && <span>on {remote.service}</span>}
-    </span>
+    </button>
   );
 };
 
@@ -47,6 +51,7 @@ const Git = ({ collection }) => {
   const [isNamingBranch, setIsNamingBranch] = useState(false);
   const [branchName, setBranchName] = useState('');
   const [syncing, setSyncing] = useState(null);
+  const [remoteDraft, setRemoteDraft] = useState(null);
 
   if (!overview) {
     return null;
@@ -82,6 +87,28 @@ const Git = ({ collection }) => {
     setSyncing(action);
     await run('sync', { action });
     setSyncing(null);
+  };
+
+  const isEditingRemote = remoteDraft !== null;
+
+  const saveRemote = async () => {
+    // Unchanged means leave it alone: the address shown has its credentials removed, and writing it back
+    // would strip them from the real one.
+    if (remoteDraft.trim() === (overview.remoteUrl || '')) {
+      setRemoteDraft(null);
+      return;
+    }
+    const { ok } = await run('set-remote', { remoteUrl: remoteDraft });
+    if (ok) {
+      setRemoteDraft(null);
+    }
+  };
+
+  const disconnectRemote = async () => {
+    const { ok } = await run('remove-remote');
+    if (ok) {
+      setRemoteDraft(null);
+    }
   };
 
   const createBranch = async () => {
@@ -123,7 +150,7 @@ const Git = ({ collection }) => {
           </button>
         </MenuDropdown>
 
-        <Connection remoteUrl={overview.remoteUrl} />
+        <Connection remoteUrl={overview.remoteUrl} onEdit={() => setRemoteDraft(overview.remoteUrl || '')} />
 
         {overview.hasRemote && (
           <>
@@ -147,6 +174,34 @@ const Git = ({ collection }) => {
           <IconRefresh size={14} strokeWidth={1.5} />
         </button>
       </div>
+
+      {isEditingRemote && (
+        <div className="new-branch" data-testid="git-remote-form">
+          <input
+            className="new-branch-name remote-address"
+            placeholder="https://github.com/you/project.git or git@host:you/project.git"
+            value={remoteDraft}
+            autoFocus
+            onChange={(event) => setRemoteDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && remoteDraft.trim()) saveRemote();
+              if (event.key === 'Escape') setRemoteDraft(null);
+            }}
+            data-testid="git-remote-address"
+          />
+          <Button size="sm" onClick={saveRemote} disabled={!remoteDraft.trim()} data-testid="git-remote-save">
+            {overview.hasRemote ? 'Save' : 'Connect'}
+          </Button>
+          {overview.hasRemote && (
+            <Button size="sm" variant="ghost" color="danger" onClick={disconnectRemote} data-testid="git-remote-disconnect">
+              Disconnect
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setRemoteDraft(null)}>
+            Cancel
+          </Button>
+        </div>
+      )}
 
       {isNamingBranch && (
         <div className="new-branch">

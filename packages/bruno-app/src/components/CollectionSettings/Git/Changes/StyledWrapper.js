@@ -65,6 +65,13 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.danger};
   }
 
+  .conflict-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 6px;
+  }
+
   .commit-box {
     display: flex;
     align-items: flex-start;

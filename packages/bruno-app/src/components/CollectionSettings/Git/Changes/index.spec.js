@@ -24,6 +24,8 @@ const overview = (overrides = {}) => ({
   unstaged: [],
   conflicted: [],
   stagedOutsideCollection: 0,
+  conflictedOutsideCollection: 0,
+  isMerging: false,
   tooManyFiles: false,
   ...overrides
 });
@@ -113,11 +115,54 @@ describe('Git changes', () => {
     expect(screen.getByTestId('git-commit-summary')).toHaveTextContent('a.yml, b.yml, c.yml, d.yml, e.yml and 2 more.');
   });
 
-  it('offers to abort a merge that left conflicts', () => {
-    const run = renderChanges({ conflicted: [{ path: 'list.yml', status: 'modified' }] });
+  describe('during a merge', () => {
+    const conflict = { conflicted: [{ path: 'list.yml', status: 'conflicted' }], isMerging: true };
 
-    fireEvent.click(screen.getByTestId('git-abort-merge'));
+    it('lists the file in conflict and keeps one side on request', () => {
+      const run = renderChanges(conflict);
 
-    expect(run).toHaveBeenCalledWith('abort-merge');
+      expect(screen.getByTestId('git-conflicts')).toHaveTextContent('Choose which version to keep');
+      expect(screen.getByTestId('git-conflicted-list')).toHaveTextContent('List users');
+
+      fireEvent.click(screen.getByTestId('git-keep-mine'));
+      expect(run).toHaveBeenCalledWith('resolve-conflict', { filePath: 'list.yml', side: 'ours' });
+
+      fireEvent.click(screen.getByTestId('git-take-theirs'));
+      expect(run).toHaveBeenCalledWith('resolve-conflict', { filePath: 'list.yml', side: 'theirs' });
+    });
+
+    it('compares both versions of the selected file', () => {
+      renderChanges(conflict);
+
+      fireEvent.click(screen.getByTestId('git-file-row'));
+
+      expect(screen.getByTestId('git-file-diff')).toHaveTextContent('conflict:list.yml');
+    });
+
+    it('cannot finish while something is in conflict, and can abort', () => {
+      const run = renderChanges(conflict);
+
+      expect(screen.queryByTestId('git-finish-merge')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('git-abort-merge'));
+
+      expect(run).toHaveBeenCalledWith('abort-merge');
+    });
+
+    it('offers to finish once everything is settled, instead of a normal commit', () => {
+      const run = renderChanges({ isMerging: true, staged: [{ path: 'list.yml', status: 'modified' }] });
+
+      expect(screen.getByTestId('git-conflicts')).toHaveTextContent('Every conflict is settled');
+      expect(screen.queryByTestId('git-commit')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('git-finish-merge'));
+
+      expect(run).toHaveBeenCalledWith('finish-merge');
+    });
+
+    it('waits for conflicts elsewhere in the repository', () => {
+      renderChanges({ isMerging: true, conflictedOutsideCollection: 2 });
+
+      expect(screen.getByTestId('git-conflicts')).toHaveTextContent('2 files elsewhere in the repository still are');
+      expect(screen.queryByTestId('git-finish-merge')).not.toBeInTheDocument();
+    });
   });
 });

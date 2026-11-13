@@ -26,7 +26,7 @@ test.describe('Git panel of a collection', () => {
       await expect(page.getByTestId('git-not-a-repository')).toBeVisible();
       await page.getByTestId('git-init').click();
       await expect(page.getByTestId('git-branch')).toContainText('main');
-      await expect(page.getByTestId('git-connection')).toHaveText('Only on this computer');
+      await expect(page.getByTestId('git-connection')).toContainText('Only on this computer');
       expect(fs.existsSync(path.join(collectionPath, '.git'))).toBe(true);
       // The commits below must not depend on a git identity being configured on the machine.
       git(collectionPath, 'config', 'user.name', 'Ana');

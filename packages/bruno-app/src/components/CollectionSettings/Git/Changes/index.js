@@ -52,20 +52,60 @@ const Changes = ({ collection, git }) => {
     }
   };
 
-  const hasNothing = !staged.length && !unstaged.length && !conflicted.length;
+  const hasNothing = !staged.length && !unstaged.length && !conflicted.length && !overview.isMerging;
+  const selectedConflict = selected?.source === 'conflict' && conflicted.some((file) => file.path === selected.path);
+  const canFinishMerge = overview.isMerging && !conflicted.length && !overview.conflictedOutsideCollection;
 
   return (
     <StyledWrapper data-testid="git-changes">
-      {conflicted.length > 0 && (
+      {overview.isMerging && (
         <div className="conflicts" data-testid="git-conflicts">
           <div>
-            {plural(conflicted.length, 'file')} in conflict: {conflicted.map((file) => describe(file).pathInCollection).join(', ')}.
-            Resolve them in your editor and stage them, or abort the merge.
+            {conflicted.length > 0
+              ? `A merge stopped because both sides changed ${conflicted.length === 1 ? 'the same file' : 'the same files'}. Choose which version to keep for each one.`
+              : overview.conflictedOutsideCollection > 0
+                ? `Nothing is in conflict in this collection, but ${plural(overview.conflictedOutsideCollection, 'file')} elsewhere in the repository still ${overview.conflictedOutsideCollection === 1 ? 'is' : 'are'}.`
+                : 'Every conflict is settled. Finish the merge to save the result.'}
           </div>
-          <button type="button" className="section-action" onClick={() => run('abort-merge')} data-testid="git-abort-merge">
-            Abort merge
-          </button>
+          <div className="conflict-actions">
+            {canFinishMerge && (
+              <Button size="sm" onClick={() => run('finish-merge')} data-testid="git-finish-merge">
+                Finish merge
+              </Button>
+            )}
+            <button type="button" className="section-action" onClick={() => run('abort-merge')} data-testid="git-abort-merge">
+              Abort merge
+            </button>
+          </div>
         </div>
+      )}
+
+      {conflicted.length > 0 && (
+        <>
+          <div className="section-head">
+            <span>In conflict · {conflicted.length}</span>
+          </div>
+          <div role="listbox" data-testid="git-conflicted-list">
+            {conflicted.map((file) => {
+              const { name, pathInCollection } = describe(file);
+              return (
+                <FileRow
+                  key={file.path}
+                  name={name}
+                  path={pathInCollection}
+                  status="conflicted"
+                  selected={isSelected(file, 'conflict')}
+                  onSelect={() => setSelected({ path: file.path, source: 'conflict', title: name })}
+                  actions={[
+                    { label: 'Keep mine', onClick: () => run('resolve-conflict', { filePath: file.path, side: 'ours' }), testId: 'git-keep-mine' },
+                    { label: 'Take theirs', onClick: () => run('resolve-conflict', { filePath: file.path, side: 'theirs' }), testId: 'git-take-theirs' }
+                  ]}
+                />
+              );
+            })}
+          </div>
+          {selectedConflict && <FileDiff git={git} filePath={selected.path} title={selected.title} source="conflict" />}
+        </>
       )}
 
       {hasNothing && <div className="empty" data-testid="git-no-changes">No changes. Everything in this collection is committed.</div>}
@@ -133,7 +173,7 @@ const Changes = ({ collection, git }) => {
         </>
       )}
 
-      {staged.length > 0 && (
+      {staged.length > 0 && !overview.isMerging && (
         <>
           <div className="note commit-summary" data-testid="git-commit-summary">
             This commit will save {plural(staged.length, 'file')}: {listNames(staged.map((file) => describe(file).name))}.
@@ -166,7 +206,7 @@ const Changes = ({ collection, git }) => {
         </>
       )}
 
-      {stillListed && <FileDiff git={git} filePath={selected.path} title={selected.title} source={selected.source} />}
+      {stillListed && selected.source !== 'conflict' && <FileDiff git={git} filePath={selected.path} title={selected.title} source={selected.source} />}
     </StyledWrapper>
   );
 };

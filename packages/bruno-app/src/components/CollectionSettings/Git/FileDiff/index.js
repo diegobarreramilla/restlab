@@ -7,7 +7,8 @@ import StyledWrapper from './StyledWrapper';
 const LABELS = {
   unstaged: ['Last commit', 'Your changes'],
   staged: ['Last commit', 'Staged'],
-  commit: ['Before', 'After']
+  commit: ['Before', 'After'],
+  conflict: ['Yours', 'Theirs']
 };
 
 const toLines = (text) => text.replace(/\n$/, '').split('\n');
