@@ -49,6 +49,7 @@ export interface GenerateApiDocsOptions extends ApiDocsMetadata {
   environments?: { include?: string[]; exclude?: string[] };
   gitCollectionUrl?: string | null;
   rendererBaseUrl?: string;
+  inlineAssets?: ApiDocsInlineAssets;
 }
 
 export interface ApiDocsDependencies {
