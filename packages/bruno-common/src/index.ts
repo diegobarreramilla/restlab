@@ -60,4 +60,4 @@ export * as utils from './utils';
 export * from './constants';
 
 export { findSecretsInCollection } from './secrets';
-export type { SecretFinding, SecretFindingKind, SecretFindingSeverity } from './secrets';
+export type { SecretFinding, SecretFindingKind, SecretFindingSeverity, SecretFindingLocation, SecretFindingLocationType } from './secrets';

@@ -2215,6 +2215,24 @@ export const saveEnvironment = (variables, environmentUid, collectionUid) => (di
   });
 };
 
+// Marks variables of a saved environment as secret, which moves their values out of the environment file and
+// into the secret store. Refuses while the environment has unsaved edits, because saving over them would drop
+// the user's changes or bring the old flag back.
+export const markEnvironmentVariablesAsSecret = ({ collectionUid, environmentUid, names }) => (dispatch, getState) => {
+  const collection = findCollectionByUid(getState().collections.collections, collectionUid);
+  const environment = collection ? findEnvironmentInCollection(collection, environmentUid) : null;
+  if (!environment) {
+    return Promise.reject(new Error('Environment not found'));
+  }
+  if (collection.environmentsDraft?.environmentUid === environmentUid) {
+    return Promise.reject(new Error('Save or discard the unsaved changes in this environment first'));
+  }
+
+  const namesToMark = new Set(names);
+  const variables = environment.variables.map((variable) => (namesToMark.has(variable.name) ? { ...variable, secret: true } : variable));
+  return dispatch(saveEnvironment(variables, environmentUid, collectionUid));
+};
+
 export const updateEnvironmentColor = (environmentUid, color, collectionUid) => (dispatch, getState) => {
   return new Promise((resolve, reject) => {
     const state = getState();

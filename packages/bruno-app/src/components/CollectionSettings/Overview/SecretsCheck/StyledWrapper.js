@@ -32,6 +32,34 @@ const StyledWrapper = styled.div`
     overflow-wrap: anywhere;
   }
 
+  .secrets-location,
+  .secrets-action {
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .secrets-location:hover {
+    text-decoration: underline;
+  }
+
+  .secrets-action {
+    margin-left: 0.75rem;
+    color: ${(props) => props.theme.textLink};
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .secrets-action-all {
+    display: block;
+    margin: 0.5rem 0 0;
+  }
+
   .secrets-field {
     color: ${(props) => props.theme.text};
   }

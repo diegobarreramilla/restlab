@@ -14,9 +14,18 @@ export type SecretFindingKind
 
 export type SecretFindingSeverity = 'high' | 'medium';
 
+export type SecretFindingLocationType = 'environment' | 'collection' | 'folder' | 'request';
+
+/** What holds the value, so a caller can open it or act on it. `uid` is whatever the scanned data carried. */
+export interface SecretFindingLocation {
+  type: SecretFindingLocationType;
+  uid?: string;
+}
+
 export interface SecretFinding {
   kind: SecretFindingKind;
   severity: SecretFindingSeverity;
+  location: SecretFindingLocation;
   /** Where the value lives, from the outside in: `['Environment', 'dev']`, `['users', 'list']`, ... */
   path: string[];
   /** The field that holds it: a variable, header or parameter name, or an auth field such as `bearer.token`. */
@@ -72,6 +81,12 @@ const classifyValue = (value: string): { kind: SecretFindingKind; severity: Secr
   return match ? { kind: match.kind, severity: match.severity } : null;
 };
 
+/** Where a value was found: the names leading to it and what holds it. */
+interface Where {
+  path: string[];
+  location: SecretFindingLocation;
+}
+
 class Collector {
   readonly findings: SecretFinding[] = [];
   private readonly seen = new Set<string>();
@@ -84,22 +99,22 @@ class Collector {
   }
 
   /** A value in a field that is not a credential by name: only its shape can give it away. */
-  checkValue(path: string[], field: string, value: unknown) {
+  checkValue(where: Where, field: string, value: unknown) {
     const text = textOf(value);
     if (!text) return;
     const byShape = classifyValue(text);
-    if (byShape) this.add({ ...byShape, path, field });
+    if (byShape) this.add({ ...byShape, ...where, field });
   }
 
   /** A value in a field that is a credential by name or by role: a literal there is a finding. */
-  checkCredential(path: string[], field: string, value: unknown) {
+  checkCredential(where: Where, field: string, value: unknown) {
     const text = textOf(value);
     if (!text) return;
     const byShape = classifyValue(text);
     if (byShape) {
-      this.add({ ...byShape, path, field });
+      this.add({ ...byShape, ...where, field });
     } else if (looksLikeLiteralSecret(text)) {
-      this.add({ kind: 'plain-credential', severity: 'medium', path, field });
+      this.add({ kind: 'plain-credential', severity: 'medium', ...where, field });
     }
   }
 }
@@ -116,64 +131,64 @@ const AUTH_CREDENTIAL_FIELDS: Record<string, string[]> = {
   akamaiEdgegrid: ['clientSecret', 'accessToken']
 };
 
-const scanAuth = (collector: Collector, path: string[], auth: Loose) => {
+const scanAuth = (collector: Collector, where: Where, auth: Loose) => {
   if (!auth || typeof auth !== 'object') return;
   for (const [mode, fields] of Object.entries(AUTH_CREDENTIAL_FIELDS)) {
     const section = auth[mode];
     if (!section) continue;
     for (const field of fields) {
-      collector.checkCredential(path, `auth.${mode}.${field}`, section[field]);
+      collector.checkCredential(where, `auth.${mode}.${field}`, section[field]);
     }
   }
   if (auth.apikey) {
-    collector.checkCredential(path, 'auth.apikey.value', auth.apikey.value);
+    collector.checkCredential(where, 'auth.apikey.value', auth.apikey.value);
   }
 };
 
 const isEnabled = (entry: Loose) => entry && entry.enabled !== false;
 
-const scanKeyValues = (collector: Collector, path: string[], list: Loose, kind: 'header' | 'param' | 'var') => {
+const scanKeyValues = (collector: Collector, where: Where, list: Loose, kind: 'header' | 'param' | 'var') => {
   if (!Array.isArray(list)) return;
   for (const entry of list) {
     if (!isEnabled(entry) || !entry.name) continue;
     const name = String(entry.name);
     const sensitive = kind === 'header' ? SENSITIVE_HEADER.some((re) => re.test(name)) || isSensitiveName(name) : isSensitiveName(name);
     if (sensitive) {
-      collector.checkCredential(path, name, entry.value);
+      collector.checkCredential(where, name, entry.value);
     } else {
-      collector.checkValue(path, name, entry.value);
+      collector.checkValue(where, name, entry.value);
     }
   }
 };
 
-const scanRequestLike = (collector: Collector, path: string[], request: Loose) => {
+const scanRequestLike = (collector: Collector, where: Where, request: Loose) => {
   if (!request) return;
-  collector.checkValue(path, 'url', request.url);
-  scanKeyValues(collector, path, request.headers, 'header');
-  scanKeyValues(collector, path, request.params, 'param');
-  scanKeyValues(collector, path, request.vars?.req, 'var');
-  scanAuth(collector, path, request.auth);
+  collector.checkValue(where, 'url', request.url);
+  scanKeyValues(collector, where, request.headers, 'header');
+  scanKeyValues(collector, where, request.params, 'param');
+  scanKeyValues(collector, where, request.vars?.req, 'var');
+  scanAuth(collector, where, request.auth);
   const body = request.body;
   if (body) {
-    collector.checkValue(path, 'body', body.json);
-    collector.checkValue(path, 'body', body.text);
-    collector.checkValue(path, 'body', body.xml);
+    collector.checkValue(where, 'body', body.json);
+    collector.checkValue(where, 'body', body.text);
+    collector.checkValue(where, 'body', body.xml);
   }
 };
 
 const scanEnvironments = (collector: Collector, environments: Loose) => {
   if (!Array.isArray(environments)) return;
   for (const environment of environments) {
-    const path = ['Environment', String(environment?.name ?? '')];
+    const where: Where = { path: ['Environment', String(environment?.name ?? '')], location: { type: 'environment', uid: environment?.uid } };
     for (const variable of environment?.variables ?? []) {
       if (!isEnabled(variable) || !variable.name || variable.secret) continue;
       const value = variable.value;
       if (typeof value !== 'string' || !value.length) continue;
       const byShape = classifyValue(value);
       if (byShape) {
-        collector.add({ ...byShape, path, field: String(variable.name) });
+        collector.add({ ...byShape, ...where, field: String(variable.name) });
       } else if (isSensitiveName(String(variable.name)) && looksLikeLiteralSecret(value)) {
-        collector.add({ kind: 'unmarked-environment-secret', severity: 'medium', path, field: String(variable.name) });
+        collector.add({ kind: 'unmarked-environment-secret', severity: 'medium', ...where, field: String(variable.name) });
       }
     }
   }
@@ -184,10 +199,10 @@ const scanItems = (collector: Collector, parentPath: string[], items: Loose) => 
   for (const item of items) {
     const path = [...parentPath, String(item?.name ?? '')];
     if (item?.type === 'folder') {
-      scanRequestLike(collector, path, item.root?.request);
+      scanRequestLike(collector, { path, location: { type: 'folder', uid: item.uid } }, item.root?.request);
       scanItems(collector, path, item.items);
     } else {
-      scanRequestLike(collector, path, item?.request);
+      scanRequestLike(collector, { path, location: { type: 'request', uid: item?.uid } }, item?.request);
     }
   }
 };
@@ -197,7 +212,7 @@ export const findSecretsInCollection = (collection: Loose): SecretFinding[] => {
   const collector = new Collector();
   if (!collection) return collector.findings;
   scanEnvironments(collector, collection.environments);
-  scanRequestLike(collector, ['Collection settings'], collection.root?.request);
+  scanRequestLike(collector, { path: ['Collection settings'], location: { type: 'collection' } }, collection.root?.request);
   scanItems(collector, [], collection.items);
   return collector.findings;
 };

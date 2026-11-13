@@ -5,6 +5,7 @@ const GITHUB = `ghp_${'a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8'}`;
 
 const request = (overrides: any = {}) => ({
   type: 'http-request',
+  uid: 'request-uid',
   name: 'r',
   request: { url: 'https://api.example.com', headers: [], params: [], auth: { mode: 'none' }, ...overrides }
 });
@@ -26,13 +27,13 @@ describe('findSecretsInCollection', () => {
     ])('flags %s in a harmless-looking header', (_label, value, kind) => {
       const found = findSecretsInCollection(collection({ items: [request({ headers: [{ name: 'X-Trace', value, enabled: true }] })] }));
 
-      expect(found).toEqual([{ kind, severity: 'high', path: ['r'], field: 'X-Trace' }]);
+      expect(found).toEqual([{ kind, severity: 'high', location: { type: 'request', uid: 'request-uid' }, path: ['r'], field: 'X-Trace' }]);
     });
 
     it('flags a password written into the URL', () => {
       const found = findSecretsInCollection(collection({ items: [request({ url: 'postgres://admin:hunter2pass@db.local/app' })] }));
 
-      expect(found).toEqual([{ kind: 'password-in-url', severity: 'high', path: ['r'], field: 'url' }]);
+      expect(found).toEqual([{ kind: 'password-in-url', severity: 'high', location: { type: 'request', uid: 'request-uid' }, path: ['r'], field: 'url' }]);
     });
 
     it('does not flag a URL whose password is a variable', () => {
@@ -80,12 +81,12 @@ describe('findSecretsInCollection', () => {
   });
 
   describe('environments', () => {
-    const env = (variables: any[]) => collection({ environments: [{ name: 'dev', variables }] });
+    const env = (variables: any[]) => collection({ environments: [{ uid: 'env-uid', name: 'dev', variables }] });
 
     it('flags a sensitive-looking variable that is not marked secret', () => {
       const found = findSecretsInCollection(env([{ name: 'apiKey', value: 'k_live_1234567', secret: false, enabled: true }]));
 
-      expect(found).toEqual([{ kind: 'unmarked-environment-secret', severity: 'medium', path: ['Environment', 'dev'], field: 'apiKey' }]);
+      expect(found).toEqual([{ kind: 'unmarked-environment-secret', severity: 'medium', location: { type: 'environment', uid: 'env-uid' }, path: ['Environment', 'dev'], field: 'apiKey' }]);
     });
 
     it('does not flag a variable already marked secret, even with a token-shaped value', () => {
@@ -124,6 +125,13 @@ describe('findSecretsInCollection', () => {
     const found = findSecretsInCollection(collection({ items: [folder] }));
 
     expect(found.map((f) => f.path)).toEqual([['users'], ['users', 'list']]);
+    expect(found.map((f) => f.location.type)).toEqual(['folder', 'request']);
+  });
+
+  it('reports collection-level settings as the collection', () => {
+    const found = findSecretsInCollection(collection({ root: { request: { auth: { mode: 'bearer', bearer: { token: 'abc123def456' } } } } }));
+
+    expect(found).toEqual([expect.objectContaining({ location: { type: 'collection' }, path: ['Collection settings'] })]);
   });
 
   it('never repeats the value in a finding', () => {
