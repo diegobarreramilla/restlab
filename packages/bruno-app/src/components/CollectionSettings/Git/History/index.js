@@ -5,7 +5,7 @@ import { describeRepositoryFile, layoutCommitGraph } from 'utils/git-collection'
 import useGitQuery from 'hooks/useGitQuery';
 import FileRow from '../FileRow';
 import FileDiff from '../FileDiff';
-import CommitGraphCell from './CommitGraphCell';
+import CommitGraphCell, { graphWidth } from './CommitGraphCell';
 import CommitTooltip from './CommitTooltip';
 import StyledWrapper from './StyledWrapper';
 
@@ -119,7 +119,8 @@ const History = ({ collection, git }) => {
                 <span className="commit-meta" title={commit.date}>{relativeDate(commit.date)}</span>
                 <span className="commit-meta commit-hash">{commit.hash.slice(0, 7)}</span>
               </div>
-              {isGraph && hoveredHash === commit.hash && <CommitTooltip commit={commit} left={0} />}
+              {/* Beside the graph, not over it: the lines around the node stay visible while reading. */}
+              {isGraph && hoveredHash === commit.hash && <CommitTooltip commit={commit} left={graphWidth(laneCount) + 8} />}
             </div>
             {openHash === commit.hash && <CommitFiles collection={collection} git={git} commitHash={commit.hash} />}
           </div>

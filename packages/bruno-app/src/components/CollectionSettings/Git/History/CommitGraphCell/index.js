@@ -6,6 +6,9 @@ const PADDING = 10;
 const MIDDLE = ROW_HEIGHT / 2;
 
 const laneX = (lane) => PADDING + lane * LANE_WIDTH;
+
+/** How wide the graph column is for a history that needs `laneCount` lanes. */
+export const graphWidth = (laneCount) => PADDING * 2 + Math.max(laneCount - 1, 0) * LANE_WIDTH;
 const laneClass = (lane) => `lane-${lane % LANE_COLOR_COUNT}`;
 
 // A line between two lanes bends smoothly; within one lane it is straight.
@@ -20,15 +23,16 @@ const CommitGraphCell = ({ row, laneCount, onHoverChange }) => {
   const nodeX = laneX(row.lane);
 
   return (
-    <StyledWrapper width={PADDING * 2 + Math.max(laneCount - 1, 0) * LANE_WIDTH} height={ROW_HEIGHT} data-testid="git-graph-cell">
+    <StyledWrapper width={graphWidth(laneCount)} height={ROW_HEIGHT} data-testid="git-graph-cell">
       {row.through.map((lane) => (
         <path key={`through-${lane}`} className={laneClass(lane)} d={curve(laneX(lane), 0, laneX(lane), ROW_HEIGHT)} />
       ))}
       {row.from.map((lane) => (
         <path key={`from-${lane}`} className={laneClass(lane)} d={curve(laneX(lane), 0, nodeX, MIDDLE)} />
       ))}
+      {/* A line between two lanes belongs to the side branch, the outer of the two, whether it leaves or joins. */}
       {row.to.map((lane) => (
-        <path key={`to-${lane}`} className={laneClass(lane === row.lane ? row.lane : lane)} d={curve(nodeX, MIDDLE, laneX(lane), ROW_HEIGHT)} />
+        <path key={`to-${lane}`} className={laneClass(Math.max(lane, row.lane))} d={curve(nodeX, MIDDLE, laneX(lane), ROW_HEIGHT)} />
       ))}
       <circle
         className={laneClass(row.lane)}

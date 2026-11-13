@@ -8,5 +8,6 @@ Una nota por día de trabajo, con lo que se hizo, por qué, cómo se comprobó y
 | [2026-11-08](2026-11-08.md) | Metas 5.3: «Todo está en tu disco», copia de seguridad de la migración (con borrado y caducidad), petición rápida, valores por defecto vigilados por prueba, informe de importación | 17 |
 | [2026-11-09](2026-11-09.md) | Rendimiento (4.1): línea base en esta máquina, el «salto» de montaje resulta ser del build de desarrollo, diagnóstico de la respuesta grande; incidente con el perfil real; 13 ideas nuevas para el fork | 18+ |
 | [2026-11-12](2026-11-12.md) | Rendimiento (4.2): decodificación nativa de la respuesta y sin lint en el visor; 5 MB pasa de 303 a 150 ms de bloqueo | 1+ |
+| [2026-11-13](2026-11-13.md) | Git: historial como grafo con tarjeta al pasar el puntero, resumen de lo que entra en el commit y proyecto remoto conectado | 2 |
 
 **Cómo mantenerla:** al terminar cada sesión se crea `AAAA-MM-DD.md` con las secciones *Qué se hizo*, *Cómo se comprobó*, *Decisiones*, *Problemas encontrados* y *Pendiente*, y se añade una fila a esta tabla. Se redacta a partir de `git log` y de lo que se ejecutó de verdad, sin inventar resultados.
