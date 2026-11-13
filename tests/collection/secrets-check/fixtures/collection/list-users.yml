@@ -1,0 +1,20 @@
+info:
+  name: list users
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: https://api.example.com/users
+  headers:
+    - name: X-Trace
+      value: ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8
+    - name: Accept
+      value: "*/*"
+  auth: none
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

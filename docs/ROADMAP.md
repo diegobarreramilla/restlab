@@ -570,7 +570,7 @@ Trece ideas nuevas, todas de nivel **P/C** (propuestas, sin demanda comprobada e
 |---|---|---|---|
 | 1 | Explicar el fallo sin IA | M | Tras la v1-base |
 | 2 | Modo estricto de red | M | Antes de publicar |
-| 3 | Detector de secretos antes de commit o exportación | M | Tras 5.3 |
+| 3 | Detector de secretos antes de commit o exportación ✅ parcial (2026-11-12) | M | Tras 5.3 |
 | 4 | Doctor de colección (`bru check`) | M | Tras 5.2 |
 | 5 | Comprobador de integridad de formato (`verify`) | S–M | Con 8.3 |
 | 6 | Documentación incluida en la app | M | Con 8.4 |
@@ -581,5 +581,13 @@ Trece ideas nuevas, todas de nivel **P/C** (propuestas, sin demanda comprobada e
 | 11 | Primer arranque «vengo de Postman/Insomnia» | S | Con 7.1 |
 | 12 | Descargas verificables (sumas y SBOM) | S | Con 8.2 |
 | 13 | **Control de versiones gráfico (estilo GitLens)**: cambios, commit, ramas, historial y diff por petición | L (4 fases) | Hito propio tras 4.x y 5.2 |
+
+**Idea 3, detector de secretos (2026-11-12) — hecha la parte local.** Decisión de prioridad: de las opciones disponibles es la que más refuerza la promesa local-first, ayuda a cualquier usuario con colecciones en Git y es el primer paso natural hacia la versión de empresa (políticas por organización, 11.4). Se prefirió a la importación OpenAPI fiel (5.2), cuya demanda es modesta (evidencia B) y poco visible.
+- **Motor:** `@usebruno/common` → `findSecretsInCollection` (`src/secrets/`), función pura y sin dependencias que respeta el DAG. Devuelve **dónde** está el valor y **qué parece**, nunca el valor. Reconoce valores con forma de credencial (JWT, claves privadas, tokens de GitHub/AWS/Slack/Google/Stripe/GitLab, contraseña en la URL), campos de autenticación y cabeceras con valor literal, y variables de entorno con nombre sensible que no están marcadas como secretas. No marca `{{variables}}`, valores vacíos ni marcadores como `<token>` o `changeme`, ni nombres como `access_token_url`.
+- **Falsos positivos medidos:** se ejecutó sobre 265 peticiones y 49 entornos reales del repositorio (`bruno-tests` y `tests/environments`). La primera pasada marcó `access_token_url` y similares (nombres que mencionan un token sin serlo); se corrigió con una prueba. Los hallazgos que quedan son credenciales reales en texto plano de los servidores de prueba.
+- **Interfaz, sin ruido:** en la pestaña Overview de la colección aparece una línea atenuada («2 values look like secrets stored in plain text») **solo si hay algo**; desplegada, lista ruta, campo y tipo, con el consejo de usar una variable o marcarla como secreta. El diálogo de compartir añade un aviso con el recuento. No bloquea nada.
+- **Pruebas:** 22 del motor (mutación: quitar el filtro de marcadores hace fallar una), 3 del componente, e2e `tests/collection/secrets-check/` (dos pasadas seguidas), `bruno-common` completo en verde (766).
+- **Correcciones de paso:** `GenerateApiDocsOptions` no declaraba `inlineAssets` y `bruno-common` no compilaba (`b8c33e81c`); se vio al reconstruirlo y no tenía relación con este cambio.
+- **No hecho:** aviso al haber cambios en un repositorio Git (espera al control de versiones gráfico, idea 13), botón «marcar como secreto» desde el hallazgo, comando de la CLI (`bru check`, idea 4) y reutilizar los patrones desde `ipc/ai/context.js` (hoy son dos listas, con la misma intención; unificarlas es una tarea aparte). Las reglas por organización serían la versión de pago.
 
 Orden sugerido si se elige solo una parte: **2, 3, 5 y 1**. La **13** es la más grande: el motor de Git ya está escrito pero sin conectar (verificado el 2026-11-09), así que el trabajo es el IPC y la interfaz. Ninguna entra en la v1 sin pasar su paso *Verificar primero*.

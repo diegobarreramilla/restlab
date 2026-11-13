@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux';
 import { findCollectionByUid, areItemsLoading } from 'utils/collections/index';
 import toast from 'react-hot-toast';
 import { APP_NAME } from 'utils/branding';
+import useSecretFindings from 'hooks/useSecretFindings';
 
 const EXPORT_FORMATS = {
   ZIP: 'zip',
@@ -24,6 +25,7 @@ const ShareCollection = ({ onClose, collectionUid }) => {
   const [selectedFormat, setSelectedFormat] = useState(EXPORT_FORMATS.ZIP);
   const [isExporting, setIsExporting] = useState(false);
   const [showPostmanExportModal, setShowPostmanExportModal] = useState(false);
+  const secretFindings = useSecretFindings(collection);
 
   const hasNonExportableRequestTypes = useMemo(() => {
     let types = new Set();
@@ -206,6 +208,15 @@ const ShareCollection = ({ onClose, collectionUid }) => {
               <IconAlertTriangle size={16} className="mr-2 flex-shrink-0" style={{ color: '#f59e0b' }} />
               <span className="text-sm" style={{ color: '#f59e0b' }}>
                 Note: {hasNonExportableRequestTypes.types.join(', ')} requests in this collection will not be exported
+              </span>
+            </div>
+          )}
+
+          {secretFindings.length > 0 && (
+            <div className="flex items-center mt-4 p-3 rounded" style={{ backgroundColor: 'rgba(251, 191, 36, 0.1)' }} data-testid="export-secrets-notice">
+              <IconAlertTriangle size={16} className="mr-2 flex-shrink-0" style={{ color: '#f59e0b' }} />
+              <span className="text-sm" style={{ color: '#f59e0b' }}>
+                {secretFindings.length === 1 ? '1 value looks' : `${secretFindings.length} values look`} like a secret stored in plain text and will be included. You can review {secretFindings.length === 1 ? 'it' : 'them'} in the collection overview.
               </span>
             </div>
           )}

@@ -3,6 +3,7 @@ import Docs from '../Docs';
 import Info from './Info';
 import { IconBox } from '@tabler/icons';
 import RequestsNotLoaded from './RequestsNotLoaded';
+import SecretsCheck from './SecretsCheck';
 
 const Overview = ({ collection }) => {
   return (
@@ -16,6 +17,7 @@ const Overview = ({ collection }) => {
             </span>
           </div>
           <Info collection={collection} />
+          <SecretsCheck collection={collection} />
           <RequestsNotLoaded collection={collection} />
         </div>
         <div className="col-span-3 overflow-hidden">

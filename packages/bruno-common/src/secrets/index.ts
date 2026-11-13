@@ -4,13 +4,13 @@
  * WHERE a value is and WHAT it looks like - never the value itself.
  */
 
-export type SecretFindingKind =
-  | 'private-key'
-  | 'jwt'
-  | 'provider-token'
-  | 'password-in-url'
-  | 'unmarked-environment-secret'
-  | 'plain-credential';
+export type SecretFindingKind
+  = | 'private-key'
+    | 'jwt'
+    | 'provider-token'
+    | 'password-in-url'
+    | 'unmarked-environment-secret'
+    | 'plain-credential';
 
 export type SecretFindingSeverity = 'high' | 'medium';
 

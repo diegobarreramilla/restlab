@@ -1,0 +1,6 @@
+name: dev
+variables:
+  - name: baseUrl
+    value: http://localhost:3000
+  - name: password
+    value: correct-horse-battery
