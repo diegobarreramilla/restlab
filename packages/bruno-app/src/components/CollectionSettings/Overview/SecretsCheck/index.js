@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { IconKey, IconChevronDown, IconChevronRight } from '@tabler/icons';
 import useSecretFindings from 'hooks/useSecretFindings';
 import { addTab } from 'providers/ReduxStore/slices/tabs';
-import { markEnvironmentVariablesAsSecret } from 'providers/ReduxStore/slices/collections/actions';
+import { markEnvironmentVariablesAsSecret, moveRequestValueToSecretVariable } from 'providers/ReduxStore/slices/collections/actions';
 import { findItemInCollection, getDefaultRequestPaneTab } from 'utils/collections/index';
 import StyledWrapper from './StyledWrapper';
 
@@ -65,6 +65,18 @@ const SecretsCheck = ({ collection }) => {
     }
   };
 
+  const hasEnvironments = (collection.environments || []).length > 0;
+  const canMoveToVariable = Boolean(collection.activeEnvironmentUid);
+  const moveHint = hasEnvironments ? 'Select an environment first: the secret is stored in it' : 'Create an environment first: the secret is stored in it';
+
+  const moveToSecretVariable = async (finding) => {
+    try {
+      await dispatch(moveRequestValueToSecretVariable({ collectionUid: collection.uid, itemUid: finding.location.uid, source: finding.source }));
+    } catch (error) {
+      toast.error(error.message || 'Could not move the value to a variable');
+    }
+  };
+
   const markAsSecret = async (groups) => {
     try {
       for (const [environmentUid, names] of groups) {
@@ -98,6 +110,18 @@ const SecretsCheck = ({ collection }) => {
               </button>
               {' · '}
               <span className="secrets-field">{finding.field}</span> · {KIND_LABELS[finding.kind]}
+              {finding.source && finding.location.uid && (
+                <button
+                  type="button"
+                  className="secrets-action"
+                  onClick={() => moveToSecretVariable(finding)}
+                  disabled={!canMoveToVariable}
+                  title={canMoveToVariable ? undefined : moveHint}
+                  data-testid="secrets-check-move"
+                >
+                  Move to secret variable
+                </button>
+              )}
               {isEnvironmentFinding(finding) && (
                 <button
                   type="button"
@@ -122,7 +146,7 @@ const SecretsCheck = ({ collection }) => {
             </button>
           )}
           <div className="secrets-advice">
-            Use a <code>{'{{variable}}'}</code> instead, or mark the environment variable as secret so its value stays out of the collection files.
+            A secret variable keeps its value in the secret store instead of the collection files, so it is not shared or committed with them.
           </div>
         </div>
       )}

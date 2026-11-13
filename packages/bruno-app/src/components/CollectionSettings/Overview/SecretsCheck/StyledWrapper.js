@@ -55,6 +55,12 @@ const StyledWrapper = styled.div`
     }
   }
 
+  .secrets-action:disabled {
+    color: ${(props) => props.theme.colors.text.muted};
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+
   .secrets-action-all {
     display: block;
     margin: 0.5rem 0 0;

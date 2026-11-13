@@ -31,6 +31,7 @@ import {
   isPutObjectPresignedUrl
 } from 'utils/collections';
 import { uuid, waitForNextTick } from 'utils/common';
+import { readSourceValue, writeSourceValue, splitSchemePrefix, suggestSecretVariableName, uniqueVariableName } from 'utils/secret-variables';
 import { cancelNetworkRequest, connectWS, sendGrpcRequest, sendNetworkRequest, sendWsRequest } from 'utils/network/index';
 import { callIpc } from 'utils/common/ipc';
 import brunoClipboard from 'utils/bruno-clipboard';
@@ -2231,6 +2232,57 @@ export const markEnvironmentVariablesAsSecret = ({ collectionUid, environmentUid
   const namesToMark = new Set(names);
   const variables = environment.variables.map((variable) => (namesToMark.has(variable.name) ? { ...variable, secret: true } : variable));
   return dispatch(saveEnvironment(variables, environmentUid, collectionUid));
+};
+
+// Takes a credential typed into a request header, parameter or auth field, stores it as a secret variable in the
+// active environment and puts `{{variable}}` in its place. An identical value already stored as a secret there is
+// reused, so one token pasted into many requests ends up in one variable.
+export const moveRequestValueToSecretVariable = ({ collectionUid, itemUid, source }) => async (dispatch, getState) => {
+  const collection = findCollectionByUid(getState().collections.collections, collectionUid);
+  if (!collection) {
+    throw new Error('Collection not found');
+  }
+
+  const environment = collection.activeEnvironmentUid ? findEnvironmentInCollection(collection, collection.activeEnvironmentUid) : null;
+  if (!environment) {
+    throw new Error('Select an environment to store the secret in first');
+  }
+  if (collection.environmentsDraft?.environmentUid === environment.uid) {
+    throw new Error('Save or discard the unsaved changes in the environment first');
+  }
+
+  const item = findItemInCollection(cloneDeep(collection), itemUid);
+  if (!item?.request) {
+    throw new Error('Not able to locate the request');
+  }
+  if (item.draft) {
+    throw new Error('Save or discard the unsaved changes in this request first');
+  }
+  const tempDirectory = getState().collections.tempDirectories?.[collectionUid];
+  if (tempDirectory && item.pathname.startsWith(tempDirectory)) {
+    throw new Error('Save this request to the collection first');
+  }
+
+  const currentValue = readSourceValue(item.request, source);
+  if (currentValue === null) {
+    throw new Error('The value is not in the request any more');
+  }
+
+  const { prefix, secret } = splitSchemePrefix(currentValue);
+  const reusable = environment.variables.find((variable) => variable.secret && variable.value === secret);
+  const variableName = reusable ? reusable.name : uniqueVariableName(suggestSecretVariableName(source), environment.variables);
+
+  if (!reusable) {
+    const variables = [...environment.variables, { uid: uuid(), name: variableName, value: secret, type: 'text', enabled: true, secret: true }];
+    await dispatch(saveEnvironment(variables, environment.uid, collectionUid));
+  }
+
+  writeSourceValue(item.request, source, `${prefix}{{${variableName}}}`);
+  const itemToSave = transformRequestToSaveToFilesystem(item);
+  const validatedItem = await itemSchema.validate(itemToSave);
+  await window.ipcRenderer.invoke('renderer:save-request', item.pathname, validatedItem, collection.format);
+
+  return variableName;
 };
 
 export const updateEnvironmentColor = (environmentUid, color, collectionUid) => (dispatch, getState) => {

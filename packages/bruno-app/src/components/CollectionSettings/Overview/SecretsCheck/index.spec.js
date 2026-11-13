@@ -9,8 +9,10 @@ import tabsReducer from 'providers/ReduxStore/slices/tabs';
 import SecretsCheck from './index';
 
 const mockMarkAsSecret = jest.fn();
+const mockMoveToVariable = jest.fn();
 jest.mock('providers/ReduxStore/slices/collections/actions', () => ({
-  markEnvironmentVariablesAsSecret: (payload) => () => mockMarkAsSecret(payload)
+  markEnvironmentVariablesAsSecret: (payload) => () => mockMarkAsSecret(payload),
+  moveRequestValueToSecretVariable: (payload) => () => mockMoveToVariable(payload)
 }));
 
 jest.mock('react-hot-toast', () => ({ error: jest.fn(), success: jest.fn() }));
@@ -40,7 +42,10 @@ const environment = (uid, name, variables) => ({ uid, name, variables });
 const plain = (name, value) => ({ name, value, secret: false, enabled: true });
 
 describe('SecretsCheck', () => {
-  beforeEach(() => mockMarkAsSecret.mockReset().mockResolvedValue(undefined));
+  beforeEach(() => {
+    mockMarkAsSecret.mockReset().mockResolvedValue(undefined);
+    mockMoveToVariable.mockReset().mockResolvedValue('xTrace');
+  });
 
   it('renders nothing for a collection without plain-text secrets', () => {
     const { container } = render(
@@ -70,6 +75,47 @@ describe('SecretsCheck', () => {
     expect(row).toHaveTextContent('list users');
     expect(row).toHaveTextContent('X-Trace');
     expect(screen.getByTestId('secrets-check')).not.toHaveTextContent(TOKEN);
+  });
+
+  it('moves a value typed into a request to a secret variable', async () => {
+    renderCheck({
+      uid: 'col-1',
+      activeEnvironmentUid: 'env-1',
+      environments: [environment('env-1', 'dev', [])],
+      items: [request([{ name: 'X-Trace', value: TOKEN, enabled: true }])],
+      root: {}
+    });
+    fireEvent.click(screen.getByTestId('secrets-check-toggle'));
+
+    fireEvent.click(screen.getByTestId('secrets-check-move'));
+
+    await waitFor(() => expect(mockMoveToVariable).toHaveBeenCalledTimes(1));
+    expect(mockMoveToVariable).toHaveBeenCalledWith({
+      collectionUid: 'col-1',
+      itemUid: 'req-1',
+      source: { section: 'headers', name: 'X-Trace' }
+    });
+  });
+
+  it('disables the move and explains why while no environment is selected', () => {
+    renderCheck({
+      uid: 'col-1',
+      environments: [environment('env-1', 'dev', [])],
+      items: [request([{ name: 'X-Trace', value: TOKEN, enabled: true }])],
+      root: {}
+    });
+    fireEvent.click(screen.getByTestId('secrets-check-toggle'));
+
+    const button = screen.getByTestId('secrets-check-move');
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title', expect.stringContaining('Select an environment'));
+  });
+
+  it('asks for an environment to be created when the collection has none', () => {
+    renderCheck({ uid: 'col-1', environments: [], items: [request([{ name: 'X-Trace', value: TOKEN, enabled: true }])], root: {} });
+    fireEvent.click(screen.getByTestId('secrets-check-toggle'));
+
+    expect(screen.getByTestId('secrets-check-move')).toHaveAttribute('title', expect.stringContaining('Create an environment'));
   });
 
   it('offers no "mark as secret" for a value in a request, which is not an environment variable', () => {

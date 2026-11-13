@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { test, expect } from '../../../playwright';
-import { openCollectionSettings, openShareCollectionModal } from '../../utils/page';
+import { openCollectionSettings, openShareCollectionModal, selectEnvironment } from '../../utils/page';
 
 const COLLECTION_NAME = 'secrets-check-collection';
 const PLANTED_TOKEN = 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8';
@@ -45,9 +45,33 @@ test.describe('Plain-text secrets in a collection', () => {
       expect(fs.readFileSync(environmentFile, 'utf8')).toContain('secret: true');
     });
 
+    await test.step('Moving a value out of a request needs an environment to keep the secret in', async () => {
+      const move = page.getByTestId('secrets-check-row').filter({ hasText: 'X-Trace' }).getByTestId('secrets-check-move');
+      await expect(move).toBeDisabled();
+
+      await selectEnvironment(page, 'dev');
+      await expect(move).toBeEnabled();
+    });
+
     await test.step('Sharing the collection mentions what is left', async () => {
       await openShareCollectionModal(page, COLLECTION_NAME);
       await expect(page.getByTestId('export-secrets-notice')).toContainText('1 value looks like a secret');
+      await page.keyboard.press('Escape');
+    });
+
+    await test.step('Moving the header value puts a variable in the request and the secret in the environment', async () => {
+      const requestFile = path.join(collectionFixturePath!, 'list-users.yml');
+      const environmentFile = path.join(collectionFixturePath!, 'environments', 'dev.yml');
+      expect(fs.readFileSync(requestFile, 'utf8')).toContain(PLANTED_TOKEN);
+
+      await page.getByTestId('secrets-check-row').filter({ hasText: 'X-Trace' }).getByTestId('secrets-check-move').click();
+
+      await expect.poll(() => fs.readFileSync(requestFile, 'utf8')).not.toContain(PLANTED_TOKEN);
+      expect(fs.readFileSync(requestFile, 'utf8')).toContain('{{xTrace}}');
+      const environment = fs.readFileSync(environmentFile, 'utf8');
+      expect(environment).toContain('xTrace');
+      expect(environment).not.toContain(PLANTED_TOKEN);
+      await expect(page.getByTestId('secrets-check')).toHaveCount(0);
     });
   });
 });
