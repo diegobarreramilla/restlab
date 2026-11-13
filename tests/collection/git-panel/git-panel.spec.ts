@@ -10,7 +10,7 @@ const REQUEST_NAME = 'ping';
 const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, stdio: 'pipe' }).toString();
 
 test.describe('Git panel of a collection', () => {
-  test('tracks, commits, shows history and blame, branches and puts changes aside', async ({ page, createTmpDir }) => {
+  test('tracks, commits, shows history as a list and a graph, blame, branches, stashes and the remote', async ({ page, createTmpDir }) => {
     const dir = await createTmpDir('git-panel');
     const collectionPath = path.join(dir, COLLECTION_NAME);
     const requestFile = path.join(collectionPath, `${REQUEST_NAME}.yml`);
@@ -26,6 +26,7 @@ test.describe('Git panel of a collection', () => {
       await expect(page.getByTestId('git-not-a-repository')).toBeVisible();
       await page.getByTestId('git-init').click();
       await expect(page.getByTestId('git-branch')).toContainText('main');
+      await expect(page.getByTestId('git-connection')).toHaveText('Only on this computer');
       expect(fs.existsSync(path.join(collectionPath, '.git'))).toBe(true);
       // The commits below must not depend on a git identity being configured on the machine.
       git(collectionPath, 'config', 'user.name', 'Ana');
@@ -40,6 +41,8 @@ test.describe('Git panel of a collection', () => {
       await page.getByTestId('git-stage-all').click();
       await expect(page.getByTestId('git-staged-list').getByTestId('git-file-row').first()).toBeVisible();
       await expect(page.getByTestId('git-commit')).toBeDisabled();
+      await expect(page.getByTestId('git-commit-summary')).toContainText('This commit will save');
+      await expect(page.getByTestId('git-commit-summary')).toContainText(REQUEST_NAME);
 
       await page.getByTestId('git-commit-message').fill('first version');
       await page.getByTestId('git-commit').click();
@@ -111,6 +114,36 @@ test.describe('Git panel of a collection', () => {
 
       await page.getByTestId('git-stash-apply').click();
       await expect.poll(() => fs.readFileSync(requestFile, 'utf8')).toContain('c.example.com');
+    });
+    await test.step('The graph draws both branches and describes a commit on hover', async () => {
+      // Two branches that went different ways, made with git itself.
+      git(collectionPath, 'commit', '-q', '-am', 'on feature');
+      git(collectionPath, 'checkout', '-q', 'main');
+      fs.writeFileSync(path.join(collectionPath, 'notes.txt'), 'notes\n');
+      git(collectionPath, 'add', 'notes.txt');
+      git(collectionPath, 'commit', '-q', '-m', 'on main');
+      await page.getByTestId('git-refresh').click();
+
+      await page.getByTestId('git-view-history').click();
+      await expect(page.getByTestId('git-commit-row')).toHaveCount(3);
+
+      await page.getByTestId('git-history-mode-graph').click();
+      await expect(page.getByTestId('git-graph-node')).toHaveCount(4);
+      await expect(page.getByTestId('git-commit-ref').filter({ hasText: 'feature/retry' })).toBeVisible();
+
+      await page.getByTestId('git-graph-node').first().hover();
+      const tooltip = page.getByTestId('git-commit-tooltip');
+      // Both tips were committed within the same second, so either one can come first.
+      await expect(tooltip).toContainText(/on (main|feature)/);
+      await expect(tooltip).toContainText('Ana');
+    });
+
+    await test.step('The project of the remote is named in the panel', async () => {
+      git(collectionPath, 'remote', 'add', 'origin', 'https://github.com/acme/billing-api.git');
+      await page.getByTestId('git-refresh').click();
+
+      await expect(page.getByTestId('git-connection')).toContainText('acme/billing-api');
+      await expect(page.getByTestId('git-connection')).toContainText('on GitHub');
     });
   });
 });

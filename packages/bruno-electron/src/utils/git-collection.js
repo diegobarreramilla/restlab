@@ -50,6 +50,9 @@ const resolveFile = (repository, repositoryPath) => {
 
 const repositoryPathOf = (repository, absolutePath) => toPosix(path.relative(repository.gitRootPath, absolutePath));
 
+// A remote URL can carry a user name or a token (`https://user:token@host/...`). They never leave this process.
+const withoutCredentials = (url) => url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^@/]+@/i, '$1');
+
 const describeChange = (file, list) => {
   const code = list === 'staged' ? file.fileIndex : file.working_dir;
   if (file.type === 'renamed') return 'renamed';
@@ -104,6 +107,7 @@ const getOverview = async (collectionPath) => {
     hasCommits: branches.length > 0,
     hasRemote,
     remoteName: hasRemote ? remotes[0].name : null,
+    remoteUrl: hasRemote ? withoutCredentials(remotes[0].refs?.fetch || remotes[0].refs?.push || '') : null,
     ahead,
     behind,
     tooManyFiles: Boolean(changed.tooManyFiles),
@@ -157,21 +161,40 @@ const checkoutBranch = async (win, collectionPath, { branchName, create = false 
   await git.checkoutGitBranch(win, { gitRootPath: repository.gitRootPath, branchName, processUid: uuid(), shouldCreate: create });
 };
 
+// `HEAD -> main, origin/main, tag: v1` becomes the names a person would point at: branches and tags.
+const parseRefs = (decoration) =>
+  String(decoration || '')
+    .split(',')
+    .map((ref) => ref.trim().replace(/^HEAD -> /, '').replace(/^tag: /, ''))
+    .filter((ref) => ref && ref !== 'HEAD' && !ref.endsWith('/HEAD'));
+
 const parseHistory = (output) =>
   String(output || '')
     .split('\n')
     .filter(Boolean)
     .map((line) => {
-      const [hash, message, author, date] = line.split(FIELD_SEPARATOR);
-      return { hash, message, author, date };
+      const [hash, parents, message, author, date, decoration] = line.split(FIELD_SEPARATOR);
+      return { hash, parents: parents ? parents.split(' ') : [], message, author, date, refs: parseRefs(decoration) };
     });
 
-/** Commits that touched the collection, or one file of it when `filePath` is given. Newest first. */
-const getHistory = async (collectionPath, { filePath } = {}) => {
+const HISTORY_FORMAT = ['%H', '%P', '%s', '%an', '%aI', '%D'].join(FIELD_SEPARATOR);
+
+/**
+ * Commits that touched the collection, or one file of it when `filePath` is given. Newest first.
+ * `allBranches` includes every branch, which is what a graph needs; each commit carries its parents, rewritten
+ * by git to the nearest commits that also touched the collection, so the lines of the graph stay connected.
+ */
+const getHistory = async (collectionPath, { filePath, allBranches = false } = {}) => {
   const repository = requireRepository(collectionPath);
   const target = filePath ? repositoryPathOf(repository, resolveFile(repository, filePath)) : repository.prefix || '.';
-  const args = ['log', `--format=%H${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI`, '-n', String(HISTORY_LIMIT)];
-  if (filePath) args.push('--follow');
+  const args = ['log', `--format=${HISTORY_FORMAT}`, '-n', String(HISTORY_LIMIT)];
+  if (filePath) {
+    args.push('--follow');
+  } else {
+    args.push('--parents', '--date-order');
+    // Not `--all`: that also walks `refs/stash`, and changes put aside are not part of the history.
+    if (allBranches) args.push('--branches', '--remotes', '--tags');
+  }
   args.push('--', target);
   // A repository without commits makes `git log` fail; that is an empty history, not an error.
   const output = await git.getSimpleGitInstanceForPath(repository.gitRootPath).raw(args).catch(() => '');

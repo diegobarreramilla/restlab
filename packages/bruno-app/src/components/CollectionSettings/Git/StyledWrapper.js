@@ -58,6 +58,24 @@ const StyledWrapper = styled.div`
     }
   }
 
+  .connection {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
+  .connection-project {
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    color: ${(props) => props.theme.text};
+  }
+
   .bar-spacer {
     flex: 1;
   }

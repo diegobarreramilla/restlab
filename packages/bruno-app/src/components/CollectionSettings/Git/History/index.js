@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import classnames from 'classnames';
 import { relativeDate } from 'utils/common';
-import { describeRepositoryFile } from 'utils/git-collection';
+import { describeRepositoryFile, layoutCommitGraph } from 'utils/git-collection';
 import useGitQuery from 'hooks/useGitQuery';
 import FileRow from '../FileRow';
 import FileDiff from '../FileDiff';
+import CommitGraphCell from './CommitGraphCell';
+import CommitTooltip from './CommitTooltip';
 import StyledWrapper from './StyledWrapper';
 
 const CommitFiles = ({ collection, git, commitHash }) => {
@@ -45,10 +47,26 @@ const CommitFiles = ({ collection, git, commitHash }) => {
   );
 };
 
-/** The commits that touched this collection, newest first. Opening one lists what it changed here. */
+const MODES = [
+  { id: 'list', label: 'List' },
+  { id: 'graph', label: 'Graph' }
+];
+
+/**
+ * The commits that touched this collection, newest first. As a list it follows the current branch; as a graph
+ * it shows every branch with the lines that connect them. Opening a commit lists what it changed here.
+ */
 const History = ({ collection, git }) => {
-  const { data: commits, loading } = useGitQuery({ invoke: git.invoke, action: 'history', version: git.version });
+  const [mode, setMode] = useState('list');
+  const isGraph = mode === 'graph';
+  const { data: commits, loading } = useGitQuery({
+    invoke: git.invoke,
+    action: 'history',
+    payload: { allBranches: isGraph },
+    version: git.version
+  });
   const [openHash, setOpenHash] = useState(null);
+  const [hoveredHash, setHoveredHash] = useState(null);
 
   if (!commits) {
     return <StyledWrapper>{!loading && <div className="empty">The history could not be loaded.</div>}</StyledWrapper>;
@@ -62,23 +80,51 @@ const History = ({ collection, git }) => {
     );
   }
 
+  const { rows, laneCount } = layoutCommitGraph(commits);
+
   return (
     <StyledWrapper data-testid="git-history">
-      {commits.map((commit) => (
-        <div key={commit.hash}>
-          <div
-            className={classnames('commit', { open: openHash === commit.hash })}
-            onClick={() => setOpenHash(openHash === commit.hash ? null : commit.hash)}
-            data-testid="git-commit-row"
+      <div className="modes" role="tablist">
+        {MODES.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={mode === id}
+            className={classnames('mode', { active: mode === id })}
+            onClick={() => setMode(id)}
+            data-testid={`git-history-mode-${id}`}
           >
-            <span className="commit-message">{commit.message}</span>
-            <span className="commit-meta">{commit.author}</span>
-            <span className="commit-meta" title={commit.date}>{relativeDate(commit.date)}</span>
-            <span className="commit-meta commit-hash">{commit.hash.slice(0, 7)}</span>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {rows.map((row) => {
+        const { commit } = row;
+        return (
+          <div key={commit.hash}>
+            <div className="commit-line">
+              {isGraph && (
+                <CommitGraphCell row={row} laneCount={laneCount} onHoverChange={(isHovered) => setHoveredHash(isHovered ? commit.hash : null)} />
+              )}
+              <div
+                className={classnames('commit', { open: openHash === commit.hash })}
+                onClick={() => setOpenHash(openHash === commit.hash ? null : commit.hash)}
+                data-testid="git-commit-row"
+              >
+                <span className="commit-message">{commit.message}</span>
+                {isGraph && commit.refs.map((ref) => <span key={ref} className="commit-ref" data-testid="git-commit-ref">{ref}</span>)}
+                <span className="commit-meta">{commit.author}</span>
+                <span className="commit-meta" title={commit.date}>{relativeDate(commit.date)}</span>
+                <span className="commit-meta commit-hash">{commit.hash.slice(0, 7)}</span>
+              </div>
+              {isGraph && hoveredHash === commit.hash && <CommitTooltip commit={commit} left={0} />}
+            </div>
+            {openHash === commit.hash && <CommitFiles collection={collection} git={git} commitHash={commit.hash} />}
           </div>
-          {openHash === commit.hash && <CommitFiles collection={collection} git={git} commitHash={commit.hash} />}
-        </div>
-      ))}
+        );
+      })}
     </StyledWrapper>
   );
 };

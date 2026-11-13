@@ -1,11 +1,51 @@
 import styled from 'styled-components';
 
 const StyledWrapper = styled.div`
-  .commit {
+  .modes {
     display: flex;
-    align-items: baseline;
+    gap: 2px;
+    margin: 0.5rem 0 0.25rem;
+    padding: 0 8px;
+  }
+
+  .mode {
+    padding: 2px 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: ${(props) => props.theme.colors.text.muted};
+    font-size: 12px;
+    cursor: pointer;
+
+    &.active {
+      color: ${(props) => props.theme.text};
+      background: ${(props) => props.theme.sidebar.collection.item.hoverBg};
+    }
+  }
+
+  .commit-line {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .commit-ref {
+    flex-shrink: 0;
+    padding: 0 6px;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: 999px;
+    font-size: 11px;
+    color: ${(props) => props.theme.colors.text.muted};
+  }
+
+  .commit {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    display: flex;
+    align-items: center;
     gap: 8px;
-    padding: 4px 8px;
+    padding: 0 8px;
     border-radius: 6px;
     font-size: 13px;
     cursor: pointer;

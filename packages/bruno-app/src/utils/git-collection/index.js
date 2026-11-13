@@ -68,3 +68,69 @@ export const describeBlameField = (field) => {
  */
 export const leafBlameFields = (fields) =>
   fields.filter(({ field }) => !fields.some((other) => other.field !== field && (other.field.startsWith(`${field}.`) || other.field.startsWith(`${field}[`))));
+
+/**
+ * Places commits (newest first, each with its parents) on lanes, the way a Git graph is drawn. For each commit:
+ * - `lane`: the column of its node;
+ * - `from`: lanes whose line arrives at the node from the row above;
+ * - `through`: lanes whose line passes this row without touching the node;
+ * - `to`: lanes its lines leave towards, one per parent, in the row below.
+ * A lane keeps its column for as long as it is alive, so the lines only bend at a branch or a merge.
+ */
+export const layoutCommitGraph = (commits) => {
+  const lanes = [];
+  let laneCount = 0;
+
+  const freeLane = () => {
+    const free = lanes.indexOf(null);
+    return free === -1 ? lanes.length : free;
+  };
+
+  const rows = commits.map((commit) => {
+    const from = lanes.reduce((found, hash, index) => (hash === commit.hash ? [...found, index] : found), []);
+    const lane = from.length ? from[0] : freeLane();
+    const through = lanes.reduce((found, hash, index) => (hash && hash !== commit.hash ? [...found, index] : found), []);
+
+    from.forEach((index) => {
+      lanes[index] = null;
+    });
+
+    const to = commit.parents.map((parent, parentIndex) => {
+      const existing = lanes.indexOf(parent);
+      if (existing !== -1) {
+        return existing;
+      }
+      // The first parent continues in the commit's own lane; any other parent opens a lane of its own.
+      const target = parentIndex === 0 ? lane : freeLane();
+      lanes[target] = parent;
+      return target;
+    });
+
+    while (lanes.length && lanes[lanes.length - 1] === null) {
+      lanes.pop();
+    }
+    laneCount = Math.max(laneCount, lane + 1, ...through.map((index) => index + 1), ...to.map((index) => index + 1));
+
+    return { commit, lane, from, through, to };
+  });
+
+  return { rows, laneCount };
+};
+
+const HOST_NAMES = { 'github.com': 'GitHub', 'gitlab.com': 'GitLab', 'bitbucket.org': 'Bitbucket', 'dev.azure.com': 'Azure DevOps' };
+
+/**
+ * The project a remote address points at, for showing where the collection is connected: the service, and the
+ * owner and repository. An address that is not a hosted repository (a folder, a private server) is shown as is.
+ */
+export const describeRemote = (remoteUrl) => {
+  if (!remoteUrl) {
+    return null;
+  }
+  const hosted = /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^@/]+@)?([^/:]+\.[^/:]+)[/:](.+?)(?:\.git)?\/?$/i.exec(remoteUrl);
+  if (!hosted) {
+    return { service: null, host: null, project: remoteUrl };
+  }
+  const host = hosted[1].toLowerCase();
+  return { service: HOST_NAMES[host] || host, host, project: hosted[2] };
+};

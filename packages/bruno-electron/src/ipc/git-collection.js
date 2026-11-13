@@ -13,7 +13,9 @@ const registerGitCollectionIpc = (mainWindow) => {
   ipcMain.handle('renderer:git-checkout-branch', (event, { collectionPath, branchName, create }) =>
     gitCollection.checkoutBranch(mainWindow, collectionPath, { branchName, create })
   );
-  ipcMain.handle('renderer:git-history', (event, { collectionPath, filePath }) => gitCollection.getHistory(collectionPath, { filePath }));
+  ipcMain.handle('renderer:git-history', (event, { collectionPath, filePath, allBranches }) =>
+    gitCollection.getHistory(collectionPath, { filePath, allBranches })
+  );
   ipcMain.handle('renderer:git-commit-files', (event, { collectionPath, commitHash }) =>
     gitCollection.getCommitFiles(collectionPath, commitHash)
   );

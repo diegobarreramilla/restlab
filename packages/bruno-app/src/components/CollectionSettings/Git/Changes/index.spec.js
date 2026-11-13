@@ -95,6 +95,24 @@ describe('Git changes', () => {
     expect(screen.getByTestId('git-staged-outside')).toHaveTextContent('2 files staged elsewhere');
   });
 
+  it('says what the commit will save and what stays out of it', () => {
+    renderChanges({
+      staged: [{ path: 'list.yml', status: 'modified' }, { path: 'opencollection.yml', status: 'modified' }],
+      unstaged: [{ path: 'other.yml', status: 'new' }]
+    });
+
+    const summary = screen.getByTestId('git-commit-summary');
+    expect(summary).toHaveTextContent('This commit will save 2 files: List users, opencollection.yml.');
+    expect(summary).toHaveTextContent('1 other change is not staged and will stay out of it.');
+  });
+
+  it('shortens a long list of files in the summary', () => {
+    const staged = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name) => ({ path: `${name}.yml`, status: 'new' }));
+    renderChanges({ staged });
+
+    expect(screen.getByTestId('git-commit-summary')).toHaveTextContent('a.yml, b.yml, c.yml, d.yml, e.yml and 2 more.');
+  });
+
   it('offers to abort a merge that left conflicts', () => {
     const run = renderChanges({ conflicted: [{ path: 'list.yml', status: 'modified' }] });
 

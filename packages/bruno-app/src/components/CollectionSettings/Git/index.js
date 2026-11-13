@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import classnames from 'classnames';
-import { IconGitBranch, IconCaretDown, IconArrowDown, IconArrowUp, IconRefresh, IconCloudDownload } from '@tabler/icons';
+import { IconGitBranch, IconCaretDown, IconArrowDown, IconArrowUp, IconRefresh, IconCloudDownload, IconBrandGithub, IconBrandGitlab, IconWorld, IconDeviceDesktop } from '@tabler/icons';
 import MenuDropdown from 'ui/MenuDropdown';
 import Button from 'ui/Button';
 import useGitRepository from 'hooks/useGitRepository';
+import { describeRemote } from 'utils/git-collection';
 import Changes from './Changes';
 import History from './History';
 import Blame from './Blame';
@@ -11,6 +12,29 @@ import Stashes from './Stashes';
 import StyledWrapper from './StyledWrapper';
 
 const NEW_BRANCH_ID = 'git-new-branch';
+
+const SERVICE_ICONS = { GitHub: IconBrandGithub, GitLab: IconBrandGitlab };
+
+// Where the collection is connected: the project on the hosting service, or nothing but this computer.
+const Connection = ({ remoteUrl }) => {
+  const remote = describeRemote(remoteUrl);
+  if (!remote) {
+    return (
+      <span className="connection" title="This repository has no remote: its history is only on this computer" data-testid="git-connection">
+        <IconDeviceDesktop size={14} strokeWidth={1.5} />
+        <span>Only on this computer</span>
+      </span>
+    );
+  }
+  const Icon = SERVICE_ICONS[remote.service] || IconWorld;
+  return (
+    <span className="connection" title={remoteUrl} data-testid="git-connection">
+      <Icon size={14} strokeWidth={1.5} />
+      <span className="connection-project">{remote.project}</span>
+      {remote.service && <span>on {remote.service}</span>}
+    </span>
+  );
+};
 
 /**
  * Version control for this collection. It only ever shows and touches the collection's own folder, even when
@@ -98,6 +122,8 @@ const Git = ({ collection }) => {
             <IconCaretDown size={12} strokeWidth={2} />
           </button>
         </MenuDropdown>
+
+        <Connection remoteUrl={overview.remoteUrl} />
 
         {overview.hasRemote && (
           <>

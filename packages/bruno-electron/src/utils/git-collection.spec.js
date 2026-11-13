@@ -253,6 +253,58 @@ describe('history, diff and blame', () => {
   });
 });
 
+describe('history for a graph', () => {
+  it('carries the parents of every commit and the branches that point at it', async () => {
+    const collectionPath = await makeCommittedCollection();
+    await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'feature', create: true });
+    write(collectionPath, 'extra.yml', requestFile('https://f.example.com'));
+    await gitCollection.stage(collectionPath, ['extra.yml']);
+    await gitCollection.commit(collectionPath, 'on feature');
+    await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'main' });
+    write(collectionPath, 'list.yml', requestFile('https://m.example.com'));
+    await gitCollection.stage(collectionPath, ['list.yml']);
+    await gitCollection.commit(collectionPath, 'on main');
+    runGit(collectionPath, 'merge', '-q', '--no-ff', '-m', 'merge feature', 'feature');
+
+    const all = await gitCollection.getHistory(collectionPath, { allBranches: true });
+    const byMessage = Object.fromEntries(all.map((entry) => [entry.message, entry]));
+
+    expect(all).toHaveLength(4);
+    expect(byMessage['first'].parents).toEqual([]);
+    expect(byMessage['on feature'].parents).toEqual([byMessage['first'].hash]);
+    expect(byMessage['merge feature'].parents).toEqual([byMessage['on main'].hash, byMessage['on feature'].hash]);
+    expect(byMessage['merge feature'].refs).toContain('main');
+    expect(byMessage['on feature'].refs).toEqual(['feature']);
+  });
+
+  it('leaves out the other branches unless asked', async () => {
+    const collectionPath = await makeCommittedCollection();
+    await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'feature', create: true });
+    write(collectionPath, 'extra.yml', requestFile('https://f.example.com'));
+    await gitCollection.stage(collectionPath, ['extra.yml']);
+    await gitCollection.commit(collectionPath, 'on feature');
+    await gitCollection.checkoutBranch(fakeWindow, collectionPath, { branchName: 'main' });
+
+    expect((await gitCollection.getHistory(collectionPath)).map((entry) => entry.message)).toEqual(['first']);
+    expect((await gitCollection.getHistory(collectionPath, { allBranches: true })).map((entry) => entry.message).sort()).toEqual(['first', 'on feature']);
+  });
+});
+
+describe('the remote in the overview', () => {
+  it('gives the address of the remote without any credentials in it', async () => {
+    const collectionPath = await makeCommittedCollection();
+    runGit(collectionPath, 'remote', 'add', 'origin', 'https://ana:ghp_secretsecretsecret@github.com/acme/billing-api.git');
+
+    const overview = await gitCollection.getOverview(collectionPath);
+
+    expect(overview.remoteUrl).toBe('https://github.com/acme/billing-api.git');
+  });
+
+  it('has no address when there is no remote', async () => {
+    expect((await gitCollection.getOverview(await makeCommittedCollection())).remoteUrl).toBeNull();
+  });
+});
+
 describe('branches', () => {
   it('creates a branch, switches to it and back', async () => {
     const collectionPath = await makeCommittedCollection();

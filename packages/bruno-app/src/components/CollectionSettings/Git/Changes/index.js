@@ -8,6 +8,14 @@ import StyledWrapper from './StyledWrapper';
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
+const MAX_NAMES_IN_SUMMARY = 5;
+
+// "ping, list users and 3 more": enough to recognize the commit without repeating the whole list.
+const listNames = (names) => {
+  const shown = names.slice(0, MAX_NAMES_IN_SUMMARY).join(', ');
+  return names.length > MAX_NAMES_IN_SUMMARY ? `${shown} and ${names.length - MAX_NAMES_IN_SUMMARY} more` : shown;
+};
+
 /**
  * What is different from the last commit, in two lists like any Git client: what will go into the next commit
  * and what will not yet. Selecting a file shows its change below.
@@ -127,6 +135,10 @@ const Changes = ({ collection, git }) => {
 
       {staged.length > 0 && (
         <>
+          <div className="note commit-summary" data-testid="git-commit-summary">
+            This commit will save {plural(staged.length, 'file')}: {listNames(staged.map((file) => describe(file).name))}.
+            {unstaged.length > 0 && ` ${plural(unstaged.length, 'other change')} ${unstaged.length === 1 ? 'is' : 'are'} not staged and will stay out of it.`}
+          </div>
           <div className="commit-box">
             <textarea
               className="commit-message"

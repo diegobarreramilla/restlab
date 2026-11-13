@@ -47,6 +47,11 @@ const StyledWrapper = styled.div`
     margin-top: 0.5rem;
   }
 
+  .note.commit-summary {
+    margin-top: 1rem;
+    color: ${(props) => props.theme.text};
+  }
+
   .note.warning {
     color: ${(props) => props.theme.colors.text.warning};
   }
