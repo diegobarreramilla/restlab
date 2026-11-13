@@ -6,6 +6,7 @@ import themes from 'themes/index';
 import Changes from './index';
 
 jest.mock('../FileDiff', () => ({ filePath, source }) => <div data-testid="git-file-diff">{`${source}:${filePath}`}</div>);
+jest.mock('../ConflictMixer', () => ({ filePath }) => <div data-testid="git-conflict-mixer">{filePath}</div>);
 
 const TOKEN = 'ghp_a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8';
 
@@ -137,6 +138,7 @@ describe('Git changes', () => {
       fireEvent.click(screen.getByTestId('git-file-row'));
 
       expect(screen.getByTestId('git-file-diff')).toHaveTextContent('conflict:list.yml');
+      expect(screen.getByTestId('git-conflict-mixer')).toHaveTextContent('list.yml');
     });
 
     it('cannot finish while something is in conflict, and can abort', () => {

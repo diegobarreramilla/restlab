@@ -137,3 +137,19 @@ describe('describeRemote', () => {
     expect(describeRemote(null)).toBeNull();
   });
 });
+
+describe('conflict parts', () => {
+  const { describeConflictPart, suggestConflictChoices } = require('./index');
+
+  it('names the parts as the app does and falls back to the key', () => {
+    expect(describeConflictPart('request.url')).toBe('URL');
+    expect(describeConflictPart('request.script')).toBe('Scripts');
+    expect(describeConflictPart('something.new')).toBe('something.new');
+  });
+
+  it('suggests the only side that changed a part and nothing for a part both changed', () => {
+    const parts = [{ key: 'request.url', changedBy: 'both' }, { key: 'request.headers', changedBy: 'theirs' }, { key: 'name', changedBy: 'ours' }];
+
+    expect(suggestConflictChoices(parts)).toEqual({ 'request.headers': 'theirs', 'name': 'ours' });
+  });
+});

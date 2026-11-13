@@ -4,6 +4,7 @@ import useSecretFindings from 'hooks/useSecretFindings';
 import { describeRepositoryFile } from 'utils/git-collection';
 import FileRow from '../FileRow';
 import FileDiff from '../FileDiff';
+import ConflictMixer from '../ConflictMixer';
 import StyledWrapper from './StyledWrapper';
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -104,7 +105,12 @@ const Changes = ({ collection, git }) => {
               );
             })}
           </div>
-          {selectedConflict && <FileDiff git={git} filePath={selected.path} title={selected.title} source="conflict" />}
+          {selectedConflict && (
+            <>
+              <FileDiff git={git} filePath={selected.path} title={selected.title} source="conflict" />
+              <ConflictMixer git={git} filePath={selected.path} />
+            </>
+          )}
         </>
       )}
 

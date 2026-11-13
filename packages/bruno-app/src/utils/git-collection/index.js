@@ -134,3 +134,32 @@ export const describeRemote = (remoteUrl) => {
   const host = hosted[1].toLowerCase();
   return { service: HOST_NAMES[host] || host, host, project: hosted[2] };
 };
+
+const CONFLICT_PART_NAMES = {
+  'name': 'Name',
+  'seq': 'Position in the list',
+  'tags': 'Tags',
+  'request.method': 'Method',
+  'request.url': 'URL',
+  'request.params': 'Parameters',
+  'request.headers': 'Headers',
+  'request.auth': 'Auth',
+  'request.body': 'Body',
+  'request.vars': 'Variables',
+  'request.script': 'Scripts',
+  'request.assertions': 'Assertions',
+  'request.tests': 'Tests',
+  'request.docs': 'Docs',
+  'settings': 'Settings',
+  'examples': 'Examples'
+};
+
+/** The name of a request part as the app calls it elsewhere. */
+export const describeConflictPart = (key) => CONFLICT_PART_NAMES[key] || key;
+
+/**
+ * The side to start each part on: a part only one side changed takes that side, a part both changed is left
+ * for the user to decide.
+ */
+export const suggestConflictChoices = (parts) =>
+  Object.fromEntries(parts.filter((part) => part.changedBy !== 'both').map((part) => [part.key, part.changedBy]));
