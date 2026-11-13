@@ -179,7 +179,8 @@ export const addGlobalEnvironment = ({ name, variables = [], color, extends: inh
   });
 };
 
-export const copyGlobalEnvironment = ({ name, environmentUid: baseEnvUid }) => (dispatch, getState) => {
+// With `inherit`, the copy starts empty and extends the source environment instead of duplicating its variables.
+export const copyGlobalEnvironment = ({ name, environmentUid: baseEnvUid, inherit = false }) => (dispatch, getState) => {
   return new Promise((resolve, reject) => {
     const state = getState();
     const { workspaceUid, workspacePath } = getWorkspaceContext(state);
@@ -189,17 +190,18 @@ export const copyGlobalEnvironment = ({ name, environmentUid: baseEnvUid }) => (
       return reject(new Error('Base environment not found'));
     }
     const uid = uuid();
-    const inheritedGlobalEnvironmentName = baseEnv.extends;
-    const environment = { uid, name, variables: baseEnv.variables, extends: inheritedGlobalEnvironmentName };
+    const inheritedGlobalEnvironmentName = inherit ? baseEnv.name : baseEnv.extends;
+    const variablesToCopy = inherit ? [] : baseEnv.variables;
+    const environment = { uid, name, variables: variablesToCopy, extends: inheritedGlobalEnvironmentName };
     const { ipcRenderer } = window;
 
     environmentSchema
       .validate(environment)
-      .then(() => ipcRenderer.invoke('renderer:create-global-environment', { uid, name, variables: baseEnv.variables, extends: inheritedGlobalEnvironmentName, workspaceUid, workspacePath }))
+      .then(() => ipcRenderer.invoke('renderer:create-global-environment', { uid, name, variables: variablesToCopy, extends: inheritedGlobalEnvironmentName, workspaceUid, workspacePath }))
       .then((result) => {
         const finalUid = result?.uid || uid;
         const finalName = result?.name || name;
-        const finalVariables = result?.variables || baseEnv.variables;
+        const finalVariables = result?.variables || variablesToCopy;
         dispatch(_copyGlobalEnvironment({ name: finalName, uid: finalUid, variables: finalVariables, extends: inheritedGlobalEnvironmentName }));
       })
       .then(resolve)

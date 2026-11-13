@@ -13,7 +13,7 @@ jest.mock('react-hot-toast', () => ({
 }));
 
 const collectionsReducer = require('providers/ReduxStore/slices/collections').default;
-const { importEnvironment } = require('providers/ReduxStore/slices/collections/actions');
+const { importEnvironment, copyEnvironment } = require('providers/ReduxStore/slices/collections/actions');
 
 const COLLECTION_UID = 'col-1';
 const COLLECTION_PATH = '/workspace/collections/MyCollection';
@@ -59,5 +59,49 @@ describe('importEnvironment — inheritance', () => {
     const [, , , , , inheritedEnvironmentName] = await importIntoCollection({ name: 'dev', variables: [] });
 
     expect(inheritedEnvironmentName).toBeUndefined();
+  });
+});
+
+describe('copyEnvironment — inherit option', () => {
+  const copyInCollection = async (options) => {
+    const invoke = jest.fn().mockResolvedValue(null);
+    window.ipcRenderer = { invoke };
+    const store = configureStore({
+      reducer: { collections: collectionsReducer },
+      preloadedState: {
+        collections: {
+          collectionSortOrder: 'default',
+          collections: [{
+            uid: COLLECTION_UID,
+            pathname: COLLECTION_PATH,
+            environments: [{ uid: 'src', name: 'Base', variables: [{ name: 'host', value: 'a' }], extends: 'Root' }],
+            collapsed: false,
+            items: []
+          }],
+          tempDirectories: {}
+        }
+      }
+    });
+
+    await store.dispatch(copyEnvironment('Copy', 'src', COLLECTION_UID, options));
+
+    const [, , , variables, , inheritedEnvironmentName] = invoke.mock.calls.find(
+      ([channel]) => channel === 'renderer:create-environment'
+    );
+    return { variables, inheritedEnvironmentName };
+  };
+
+  it('a plain copy duplicates the variables and keeps the source parent', async () => {
+    const { variables, inheritedEnvironmentName } = await copyInCollection();
+
+    expect(variables).toHaveLength(1);
+    expect(inheritedEnvironmentName).toBe('Root');
+  });
+
+  it('with inherit the copy starts empty and extends the source', async () => {
+    const { variables, inheritedEnvironmentName } = await copyInCollection({ inherit: true });
+
+    expect(variables).toEqual([]);
+    expect(inheritedEnvironmentName).toBe('Base');
   });
 });

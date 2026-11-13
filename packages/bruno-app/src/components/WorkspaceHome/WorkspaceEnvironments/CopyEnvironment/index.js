@@ -3,6 +3,7 @@ import Portal from 'components/Portal/index';
 import { useFormik } from 'formik';
 import { copyGlobalEnvironment } from 'providers/ReduxStore/slices/global-environments';
 import { useEffect, useRef } from 'react';
+import InheritOption from 'components/Environments/Common/InheritOption';
 import toast from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import * as Yup from 'yup';
@@ -13,7 +14,8 @@ const CopyEnvironment = ({ environment, onClose }) => {
   const formik = useFormik({
     enableReinitialize: true,
     initialValues: {
-      name: environment.name + ' - Copy'
+      name: environment.name + ' - Copy',
+      inherit: false
     },
     validationSchema: Yup.object({
       name: Yup.string()
@@ -22,7 +24,7 @@ const CopyEnvironment = ({ environment, onClose }) => {
         .required('name is required')
     }),
     onSubmit: (values) => {
-      dispatch(copyGlobalEnvironment({ name: values.name, environmentUid: environment.uid }))
+      dispatch(copyGlobalEnvironment({ name: values.name, environmentUid: environment.uid, inherit: values.inherit }))
         .then(() => {
           toast.success('Environment created!');
           onClose();
@@ -76,6 +78,11 @@ const CopyEnvironment = ({ environment, onClose }) => {
             {formik.touched.name && formik.errors.name ? (
               <div className="text-red-500">{formik.errors.name}</div>
             ) : null}
+            <InheritOption
+              sourceName={environment.name}
+              checked={formik.values.inherit}
+              onChange={(checked) => formik.setFieldValue('inherit', checked)}
+            />
           </div>
         </form>
       </Modal>

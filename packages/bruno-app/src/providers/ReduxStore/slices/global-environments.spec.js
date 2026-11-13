@@ -9,6 +9,7 @@ jest.mock('@usebruno/schema', () => ({
 import { configureStore } from '@reduxjs/toolkit';
 import globalEnvironmentsReducer, {
   addGlobalEnvironment,
+  copyGlobalEnvironment,
   globalEnvironmentsUpdateEvent,
   _clearScriptGlobalEnvBaseline,
   updateGlobalEnvironments
@@ -574,5 +575,45 @@ describe('updateGlobalEnvironments — activeGlobalEnvironmentUid resolution', (
       null
     );
     expect(result).toBeNull();
+  });
+});
+
+describe('copyGlobalEnvironment — inherit option', () => {
+  const copy = async (options) => {
+    const invoke = jest.fn().mockResolvedValue({});
+    window.ipcRenderer = { invoke };
+    const store = configureStore({
+      reducer: { globalEnvironments: globalEnvironmentsReducer },
+      preloadedState: {
+        globalEnvironments: {
+          globalEnvironments: [
+            { uid: 'src', name: 'Base', variables: [makeVar('host', 'a')], extends: 'Root' }
+          ],
+          activeGlobalEnvironmentUid: null
+        }
+      }
+    });
+
+    await store.dispatch(copyGlobalEnvironment({ name: 'Copy', environmentUid: 'src', ...options }));
+
+    const [, createArgs] = invoke.mock.calls.find(([channel]) => channel === 'renderer:create-global-environment');
+    return { createArgs, copied: store.getState().globalEnvironments.globalEnvironments.find((e) => e.name === 'Copy') };
+  };
+
+  test('a plain copy duplicates the variables and keeps the source parent', async () => {
+    const { createArgs, copied } = await copy({});
+
+    expect(createArgs.variables).toHaveLength(1);
+    expect(createArgs.extends).toBe('Root');
+    expect(copied.extends).toBe('Root');
+  });
+
+  test('with inherit the copy starts empty and extends the source', async () => {
+    const { createArgs, copied } = await copy({ inherit: true });
+
+    expect(createArgs.variables).toEqual([]);
+    expect(createArgs.extends).toBe('Base');
+    expect(copied.variables).toEqual([]);
+    expect(copied.extends).toBe('Base');
   });
 });

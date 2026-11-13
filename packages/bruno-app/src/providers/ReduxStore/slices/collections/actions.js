@@ -2086,7 +2086,8 @@ export const importEnvironment = ({ name, variables, color, extends: inheritedEn
   });
 };
 
-export const copyEnvironment = (name, baseEnvUid, collectionUid) => (dispatch, getState) => {
+// With `inherit`, the copy starts empty and extends the source environment instead of duplicating its variables.
+export const copyEnvironment = (name, baseEnvUid, collectionUid, { inherit = false } = {}) => (dispatch, getState) => {
   return new Promise((resolve, reject) => {
     const state = getState();
     const collection = findCollectionByUid(state.collections.collections, collectionUid);
@@ -2103,10 +2104,11 @@ export const copyEnvironment = (name, baseEnvUid, collectionUid) => (dispatch, g
 
     const { ipcRenderer } = window;
 
-    const variablesToCopy = baseEnv.variables || [];
+    const variablesToCopy = inherit ? [] : baseEnv.variables || [];
+    const inheritedEnvironmentName = inherit ? baseEnv.name : baseEnv.extends;
 
     ipcRenderer
-      .invoke('renderer:create-environment', collection.pathname, sanitizedName, variablesToCopy, undefined, baseEnv.extends)
+      .invoke('renderer:create-environment', collection.pathname, sanitizedName, variablesToCopy, undefined, inheritedEnvironmentName)
       .then(
         dispatch(
           updateLastAction({

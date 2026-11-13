@@ -131,10 +131,17 @@ Todas las metas de esta etapa son pequeñas o medianas. **Antes de cada una, ver
 
 | Meta | Referencia | Verificar primero | Tamaño |
 |---|---|---|---|
-| Entornos anidados | Bruno #292 (49 reacciones) | El esquema ya admite `extends` entre entornos (`packages/bruno-schema/src/collections/index.js`). Probarlo en la app antes de tocar nada; puede que solo falte descubribilidad en la interfaz | S |
+| Entornos anidados ✅ (2026-11-12) | Bruno #292 (49 reacciones) | El esquema ya admite `extends` entre entornos (`packages/bruno-schema/src/collections/index.js`). Probarlo en la app antes de tocar nada; puede que solo falte descubribilidad en la interfaz | S |
 | OAuth2: reinicio del token | #4392 | Reproducir en la app: ¿se pierde el token al reiniciar? | M |
 | Certificados autofirmados | #4949 | Reproducir con un servidor HTTPS de prueba con certificado propio | M |
 | Pestañas desactivables | Bruno #1739, Insomnia #8488 | `components/Tabs` y `RequestTabs`; ver si hay ajuste ya | S–M |
+
+**Entornos anidados (2026-11-12) — resultado de «Verificar primero».** El fork **ya trae la función completa** y con pruebas: elegir el padre en la cabecera del entorno (`InheritsFrom`), variables heredadas en solo lectura, aviso si el padre falta, cadenas de varios niveles, secretos, en colección y en espacio de trabajo, y lectura en la CLI (`bruno-cli/src/utils/environment.js`). Cuatro especificaciones e2e en `tests/environments/environment-inheritance/`. Lo que faltaba era **descubribilidad**, no función. Se añadió sin anuncios y con la misma estética de la lista:
+- **Marcador discreto en la lista** de entornos (colección y espacio de trabajo): un icono pequeño y atenuado junto al nombre; el tooltip dice «Inherits variables from X». Solo aparece en los que heredan.
+- **Opción al copiar un entorno**: casilla «Inherit variables from X instead of copying them», **desmarcada por defecto** (la copia normal no cambia). Si se marca, la copia nace vacía y con `extends: X`. Es el momento natural en que alguien piensa «quiero uno parecido a este».
+- Código: `Environments/Common/InheritanceHint` e `InheritOption`; `copyEnvironment(..., { inherit })` y `copyGlobalEnvironment({ inherit })`. Sin cambios de formato en disco (`extends` ya existía) ni de CLI.
+- Pruebas: 6 de componentes, 4 de las acciones, e2e `collection-env-inherit-on-copy.spec.ts` (pasa dos veces seguidas). Revisado a ojo en la app real (tema claro).
+- Pendiente: ver el tema oscuro; e2e del espacio de trabajo (cubierto solo por pruebas unitarias); textos en `react-i18next` (5.3 de internacionalización).
 
 **Cómo ejecutar cada una:** (1) reproducir y escribir una prueba que falle, (2) corregir, (3) la prueba pasa, (4) abrir la app y verlo, (5) registrar el commit de Bruno si el arreglo viene de allí (regla de sincronización selectiva), (6) revisar el gemelo en la CLI.
 

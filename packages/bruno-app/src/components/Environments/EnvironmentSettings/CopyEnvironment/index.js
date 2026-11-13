@@ -3,6 +3,7 @@ import Portal from 'components/Portal/index';
 import { useFormik } from 'formik';
 import { copyEnvironment } from 'providers/ReduxStore/slices/collections/actions';
 import { useEffect, useRef } from 'react';
+import InheritOption from 'components/Environments/Common/InheritOption';
 import toast from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import * as Yup from 'yup';
@@ -13,7 +14,8 @@ const CopyEnvironment = ({ collection, environment, onClose }) => {
   const formik = useFormik({
     enableReinitialize: true,
     initialValues: {
-      name: environment.name + ' - Copy'
+      name: environment.name + ' - Copy',
+      inherit: false
     },
     validationSchema: Yup.object({
       name: Yup.string()
@@ -22,7 +24,7 @@ const CopyEnvironment = ({ collection, environment, onClose }) => {
         .required('name is required')
     }),
     onSubmit: (values) => {
-      dispatch(copyEnvironment(values.name, environment.uid, collection.uid))
+      dispatch(copyEnvironment(values.name, environment.uid, collection.uid, { inherit: values.inherit }))
         .then(() => {
           toast.success('Environment created in collection');
           onClose();
@@ -73,6 +75,11 @@ const CopyEnvironment = ({ collection, environment, onClose }) => {
             {formik.touched.name && formik.errors.name ? (
               <div className="text-red-500">{formik.errors.name}</div>
             ) : null}
+            <InheritOption
+              sourceName={environment.name}
+              checked={formik.values.inherit}
+              onChange={(checked) => formik.setFieldValue('inherit', checked)}
+            />
           </div>
         </form>
       </Modal>

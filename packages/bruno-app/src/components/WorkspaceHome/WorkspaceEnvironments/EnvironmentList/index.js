@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import InheritanceHint from 'components/Environments/Common/InheritanceHint';
 import usePrevious from 'hooks/usePrevious';
 import useOnClickOutside from 'hooks/useOnClickOutside';
 import useDebounce from 'hooks/useDebounce';
@@ -839,6 +840,7 @@ const EnvironmentList = ({
                         <>
                           <ColorBadge color={env.color} size={8} />
                           <span className="environment-name" data-testid="workspace-env-name">{env.name}</span>
+                          <InheritanceHint environment={env} />
                           <div className="environment-actions">
                             {!isEnvMultiSelected && (
                               <RowActionsMenu
