@@ -246,6 +246,33 @@ const applyJSONPathFilter = (data, filter) => {
   }
 };
 
+// Size of the decoded bytes, computed from the base64 text without decoding it.
+const getBase64DecodedSize = (base64) => {
+  const length = base64.length;
+  if (length === 0) return 0;
+  let padding = 0;
+  if (base64.charCodeAt(length - 1) === 61) padding++;
+  if (length > 1 && base64.charCodeAt(length - 2) === 61) padding++;
+  return Math.floor((length * 3) / 4) - padding;
+};
+
+// Decodes base64 to a UTF-8 string with the browser's native APIs. The `Buffer` polyfill does the same work in
+// JavaScript and was ~220 ms of an 850 ms main-thread block on a 10 MB response (docs/perf/README.md 6.6).
+// `ignoreBOM: true` keeps a leading BOM, as `Buffer#toString` does. Input that `atob` rejects (whitespace,
+// URL-safe alphabet) goes through `Buffer`, which is lenient.
+const decodeBase64Utf8 = (base64) => {
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+  } catch (error) {
+    return Buffer.from(base64, 'base64').toString();
+  }
+};
+
 export const formatResponse = (data, dataBufferString, mode, filter, bufferThreshold = LARGE_BUFFER_THRESHOLD) => {
   if (data === undefined || !dataBufferString || !mode) {
     return '';
@@ -253,11 +280,10 @@ export const formatResponse = (data, dataBufferString, mode, filter, bufferThres
 
   let bufferSize = 0, rawData = '', isVeryLargeResponse = false;
   try {
-    const dataBuffer = Buffer.from(dataBufferString, 'base64');
-    bufferSize = dataBuffer.length;
+    bufferSize = getBase64DecodedSize(dataBufferString);
     isVeryLargeResponse = bufferSize > bufferThreshold;
     if (!isVeryLargeResponse) {
-      rawData = dataBuffer.toString();
+      rawData = decodeBase64Utf8(dataBufferString);
     }
   } catch (error) {
     console.warn('Failed to calculate buffer size:', error);

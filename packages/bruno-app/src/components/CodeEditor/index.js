@@ -76,7 +76,7 @@ const buildCodeMirrorOptions = ({
     showCursorWhenSelecting: true,
     foldGutter: !degraded,
     gutters: degraded ? [] : NORMAL_GUTTERS,
-    lint: degraded ? false : lintOptions,
+    lint: degraded || readOnly ? false : lintOptions,
     readOnly,
     scrollbarStyle: 'overlay',
     theme: props.theme === 'dark' ? 'monokai' : 'default',
@@ -115,7 +115,7 @@ const applyEditorProfile = (
   enableEnhancedFeatures?.();
   editor.setOption(
     'lint',
-    props.mode && String(value ?? '').trim().length > 0 ? lintOptions : false
+    !props.readOnly && props.mode && String(value ?? '').trim().length > 0 ? lintOptions : false
   );
 };
 
@@ -305,7 +305,7 @@ class CodeEditor extends React.Component {
 
       editor.setOption(
         'lint',
-        !longLineMode && this.props.mode && editor.getValue().trim().length > 0 ? this.lintOptions : false
+        !longLineMode && !this.props.readOnly && this.props.mode && editor.getValue().trim().length > 0 ? this.lintOptions : false
       );
       editor.on('beforeChange', this._onBeforeChange);
       editor.on('change', this._onEdit);
@@ -485,7 +485,7 @@ class CodeEditor extends React.Component {
 
     this.editor.setOption(
       'lint',
-      !this.longLineMode && this.props.mode && this.editor.getValue().trim().length > 0
+      !this.longLineMode && !this.props.readOnly && this.props.mode && this.editor.getValue().trim().length > 0
         ? this.lintOptions
         : false
     );

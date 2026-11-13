@@ -138,4 +138,28 @@ describe('formatResponse', () => {
       });
     });
   });
+  describe('native base64 decoding', () => {
+    it('keeps multibyte UTF-8 characters', () => {
+      const text = '{"name":"añejo","emoji":"🚀","zh":"你好"}';
+      expect(formatResponse(JSON.parse(text), createBase64Buffer(text), 'application/json')).toContain('🚀');
+    });
+
+    it('keeps a leading BOM like Buffer#toString does', () => {
+      const raw = '\uFEFFplain text';
+      const out = formatResponse(raw, createBase64Buffer(raw), 'text/plain');
+      expect(out.charCodeAt(0)).toBe(0xfeff);
+    });
+
+    it('falls back to Buffer for base64 that atob rejects (URL-safe alphabet)', () => {
+      const text = '{"a":"???>>>"}';
+      const urlSafe = Buffer.from(text).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
+      expect(formatResponse(JSON.parse(text), urlSafe, 'application/json')).toContain('???>>>');
+    });
+
+    it('detects a very large response from the base64 length without decoding it', () => {
+      const text = JSON.stringify({ a: 'x'.repeat(100) });
+      const out = formatResponse(JSON.parse(text), createBase64Buffer(text), 'application/json', undefined, 10);
+      expect(out).toBe(JSON.stringify(JSON.parse(text)));
+    });
+  });
 });
