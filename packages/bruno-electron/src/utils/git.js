@@ -54,7 +54,9 @@ const findGitRootPath = (collectionPath) => {
   const gitPath = path.join(collectionPath, '.git');
   try {
     if (fs.existsSync(gitPath)) {
-      return gitPath?.split('.git')?.[0];
+      // The root is the folder that holds `.git`. Cutting the path at the first ".git" would also cut a folder
+      // such as `.github` or `api.git` and point at the wrong place.
+      return collectionPath.endsWith(path.sep) ? collectionPath : collectionPath + path.sep;
     } else {
       const parentDir = path.dirname(collectionPath);
       if (parentDir === collectionPath) {
@@ -1810,6 +1812,7 @@ const getGitGraph = async (gitRootPath, branchName, limit = 50) => {
 };
 
 module.exports = {
+  getSimpleGitInstanceForPath,
   getCollectionGitRootPath,
   getCollectionGitRepoUrl,
   stageChanges,
