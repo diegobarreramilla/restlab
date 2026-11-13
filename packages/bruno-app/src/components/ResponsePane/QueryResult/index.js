@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { formatResponse, getContentType } from 'utils/common';
 import { getDefaultResponseFormat, detectContentTypeFromBase64 } from 'utils/response';
 import LargeResponseWarning from '../LargeResponseWarning';
+import CertificateErrorHint from './CertificateErrorHint';
 import QueryResultFilter from './QueryResultFilter';
 import QueryResultPreview from './QueryResultPreview';
 import StyledWrapper from './StyledWrapper';
@@ -187,12 +188,7 @@ const QueryResult = ({
             <div className="error" style={{ whiteSpace: 'pre-line' }}>{formatErrorMessage(error)}</div>
           )}
 
-          {error && typeof error === 'string' && error.toLowerCase().includes('self signed certificate') ? (
-            <div className="mt-6 muted text-xs">
-              You can disable SSL verification in the Preferences. <br />
-              To open the Preferences, click on the gear icon in the bottom left corner.
-            </div>
-          ) : null}
+          <CertificateErrorHint error={error} />
         </div>
       ) : isLargeResponse && !showLargeResponse ? (
         <LargeResponseWarning

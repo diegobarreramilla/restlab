@@ -133,7 +133,7 @@ Todas las metas de esta etapa son pequeñas o medianas. **Antes de cada una, ver
 |---|---|---|---|
 | Entornos anidados ✅ (2026-11-12) | Bruno #292 (49 reacciones) | El esquema ya admite `extends` entre entornos (`packages/bruno-schema/src/collections/index.js`). Probarlo en la app antes de tocar nada; puede que solo falte descubribilidad en la interfaz | S |
 | OAuth2: reinicio del token | #4392 | Reproducir en la app: ¿se pierde el token al reiniciar? | M |
-| Certificados autofirmados | #4949 | Reproducir con un servidor HTTPS de prueba con certificado propio | M |
+| Certificados autofirmados ✅ parcial (2026-11-12) | #4949 | Reproducir con un servidor HTTPS de prueba con certificado propio | M |
 | Pestañas desactivables | Bruno #1739, Insomnia #8488 | `components/Tabs` y `RequestTabs`; ver si hay ajuste ya | S–M |
 
 **Entornos anidados (2026-11-12) — resultado de «Verificar primero».** El fork **ya trae la función completa** y con pruebas: elegir el padre en la cabecera del entorno (`InheritsFrom`), variables heredadas en solo lectura, aviso si el padre falta, cadenas de varios niveles, secretos, en colección y en espacio de trabajo, y lectura en la CLI (`bruno-cli/src/utils/environment.js`). Cuatro especificaciones e2e en `tests/environments/environment-inheritance/`. Lo que faltaba era **descubribilidad**, no función. Se añadió sin anuncios y con la misma estética de la lista:
@@ -142,6 +142,11 @@ Todas las metas de esta etapa son pequeñas o medianas. **Antes de cada una, ver
 - Código: `Environments/Common/InheritanceHint` e `InheritOption`; `copyEnvironment(..., { inherit })` y `copyGlobalEnvironment({ inherit })`. Sin cambios de formato en disco (`extends` ya existía) ni de CLI.
 - Pruebas: 6 de componentes, 4 de las acciones, e2e `collection-env-inherit-on-copy.spec.ts` (pasa dos veces seguidas). Revisado a ojo en la app real (tema claro).
 - Pendiente: ver el tema oscuro; e2e del espacio de trabajo (cubierto solo por pruebas unitarias); textos en `react-i18next` (5.3 de internacionalización).
+
+**Certificados autofirmados (2026-11-12) — resultado de «Verificar primero».** El fork ya permite lo esencial: apagar «SSL/TLS Certificate Verification» y cargar un CA propio («Use Custom CA Certificate») en Preferencias, con suite `tests/ssl/` (autofirmado rechazado, aceptado con la verificación apagada, CA propio, certificados de cliente). **Fallo reproducido:** el aviso que guiaba al usuario nunca salía, porque buscaba el texto `self signed certificate` y Node/OpenSSL actuales escriben `self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca` (verificado con Node v26). Sin aviso, el usuario no sabía qué hacer, y el texto original solo ofrecía lo menos seguro (apagar todo).
+- **Corrección:** `utils/certificate-errors` reconoce las variantes (autofirmado, sin emisor local, primer certificado, caducado o aún no válido, nombre de host que no coincide) y `QueryResult/CertificateErrorHint` explica la causa, ofrece primero el CA propio, avisa de que apagar la verificación afecta a todas las peticiones y abre Preferencias con un botón (antes: «haz clic en el engranaje abajo a la izquierda»).
+- **Pruebas:** 17 del reconocedor (mutación: volver a la expresión antigua hace fallar 3), 3 del componente, e2e `tests/ssl/self-signed-hint/` con servidor HTTPS local y certificado generado con `openssl` (sin red; proyecto `ssl`; pasa dos veces seguidas).
+- **No hecho (decisión de producto):** «confiar en este certificado» por servidor, con huella guardada, sin apagar la verificación global. Es lo que más pedirían las empresas con servidores internos, pero introduce una lista de confianza en disco y es una decisión de seguridad; ver sección de decisiones. Tampoco se probó la CLI (`bru run` con `--insecure`/`--cacert` ya existen).
 
 **Cómo ejecutar cada una:** (1) reproducir y escribir una prueba que falle, (2) corregir, (3) la prueba pasa, (4) abrir la app y verlo, (5) registrar el commit de Bruno si el arreglo viene de allí (regla de sincronización selectiva), (6) revisar el gemelo en la CLI.
 
