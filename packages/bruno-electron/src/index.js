@@ -50,6 +50,7 @@ const registerFilesystemIpc = require('./ipc/filesystem');
 const registerPreferencesIpc = require('./ipc/preferences');
 const registerImportReportIpc = require('./ipc/import-report');
 const registerSnapshotIpc = require('./ipc/snapshot');
+const registerUnsavedDraftsIpc = require('./ipc/unsaved-drafts');
 const registerSystemMonitorIpc = require('./ipc/system-monitor');
 const registerWorkspaceIpc = require('./ipc/workspace');
 const registerApiSpecIpc = require('./ipc/apiSpec');
@@ -557,6 +558,7 @@ app.on('ready', async () => {
   registerPreferencesIpc(mainWindow, collectionWatcher);
   registerImportReportIpc(mainWindow);
   registerSnapshotIpc();
+  registerUnsavedDraftsIpc();
   registerWorkspaceIpc(mainWindow, workspaceWatcher);
   registerApiSpecIpc(mainWindow, apiSpecWatcher);
   registerNotificationsIpc(mainWindow, collectionWatcher);
