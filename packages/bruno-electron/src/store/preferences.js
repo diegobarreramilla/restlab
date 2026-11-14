@@ -65,7 +65,8 @@ const defaultPreferences = {
   general: {
     defaultLocation: '',
     defaultWorkspacePath: '',
-    fetchNotifications: false
+    fetchNotifications: false,
+    strictNetwork: false
   },
   autoSave: {
     enabled: false,
@@ -189,7 +190,8 @@ const preferencesSchema = Yup.object().shape({
   general: Yup.object({
     defaultLocation: Yup.string().max(1024).nullable(),
     defaultWorkspacePath: Yup.string().max(1024).nullable(),
-    fetchNotifications: Yup.boolean()
+    fetchNotifications: Yup.boolean(),
+    strictNetwork: Yup.boolean()
   }),
   autoSave: Yup.object({
     enabled: Yup.boolean(),
@@ -442,7 +444,10 @@ const preferencesUtil = {
     return get(getPreferences(), `beta.${featureName}`, false);
   },
   shouldFetchNotifications: () => {
-    return get(getPreferences(), 'general.fetchNotifications', false);
+    return get(getPreferences(), 'general.fetchNotifications', false) && !get(getPreferences(), 'general.strictNetwork', false);
+  },
+  isStrictNetworkEnabled: () => {
+    return get(getPreferences(), 'general.strictNetwork', false);
   },
   getZoomPercentage: () => {
     return get(getPreferences(), 'display.zoomPercentage', 100);

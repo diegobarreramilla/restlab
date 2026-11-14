@@ -72,6 +72,7 @@ const { loadWindowState, saveBounds, saveMaximized } = require('./utils/window')
 const { preferencesUtil, getPreferences, savePreferences } = require('./store/preferences');
 const { globalEnvironmentsManager } = require('./store/workspace-environments');
 const registerNotificationsIpc = require('./ipc/notifications');
+const { registerStrictNetwork } = require('./app/strict-network');
 const registerNetworkStatusIpc = require('./ipc/network-status');
 const registerApiDocsAssetsIpc = require('./ipc/api-docs-assets');
 const { APP_NAME } = require('./branding');
@@ -559,6 +560,7 @@ app.on('ready', async () => {
   registerWorkspaceIpc(mainWindow, workspaceWatcher);
   registerApiSpecIpc(mainWindow, apiSpecWatcher);
   registerNotificationsIpc(mainWindow, collectionWatcher);
+  registerStrictNetwork();
   registerNetworkStatusIpc();
   registerApiDocsAssetsIpc();
   registerFilesystemIpc(mainWindow);
