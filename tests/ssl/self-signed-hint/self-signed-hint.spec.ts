@@ -41,12 +41,12 @@ test.describe('Request to a server with a self-signed certificate', () => {
 
       await test.step('Send it and read the explanation', async () => {
         await page.getByTestId('send-arrow-icon').click();
-        await expect(page.getByTestId('certificate-error-hint')).toBeVisible({ timeout: 30000 });
-        await expect(page.getByTestId('certificate-error-hint')).toContainText('Use Custom CA Certificate');
+        await expect(page.getByTestId('failure-explanation')).toBeVisible({ timeout: 30000 });
+        await expect(page.getByTestId('failure-explanation')).toContainText('Use Custom CA Certificate');
       });
 
       await test.step('Open Preferences from the hint', async () => {
-        await page.getByTestId('certificate-error-open-preferences').click();
+        await page.getByTestId('failure-explanation-action').click();
         await expect(page.getByText('SSL/TLS Certificate Verification').first()).toBeVisible();
       });
     } finally {

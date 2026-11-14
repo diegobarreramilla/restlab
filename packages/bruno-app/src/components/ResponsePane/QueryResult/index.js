@@ -4,7 +4,8 @@ import React, { useMemo, useState } from 'react';
 import { formatResponse, getContentType } from 'utils/common';
 import { getDefaultResponseFormat, detectContentTypeFromBase64 } from 'utils/response';
 import LargeResponseWarning from '../LargeResponseWarning';
-import CertificateErrorHint from './CertificateErrorHint';
+import FailureExplanation from '../FailureExplanation';
+import { explainRequestFailure } from 'utils/request-failures';
 import QueryResultFilter from './QueryResultFilter';
 import QueryResultPreview from './QueryResultPreview';
 import StyledWrapper from './StyledWrapper';
@@ -176,6 +177,9 @@ const QueryResult = ({
 
   const queryFilterEnabled = useMemo(() => codeMirrorMode.includes('json') && selectedFormat === 'json' && selectedTab === 'editor', [codeMirrorMode, selectedFormat, selectedTab]);
   const hasScriptError = item.preRequestScriptErrorMessage || item.postResponseScriptErrorMessage;
+  const failureExplanation = error && !hasScriptError
+    ? explainRequestFailure({ error, hasUnresolvedVariables: item.unresolvedVariables?.length > 0 })
+    : null;
 
   return (
     <StyledWrapper
@@ -188,7 +192,11 @@ const QueryResult = ({
             <div className="error" style={{ whiteSpace: 'pre-line' }}>{formatErrorMessage(error)}</div>
           )}
 
-          <CertificateErrorHint error={error} />
+          {failureExplanation ? (
+            <div className="mt-6">
+              <FailureExplanation explanation={failureExplanation} item={item} collection={collection} />
+            </div>
+          ) : null}
         </div>
       ) : isLargeResponse && !showLargeResponse ? (
         <LargeResponseWarning

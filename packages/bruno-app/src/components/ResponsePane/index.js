@@ -233,7 +233,7 @@ const ResponsePane = ({ item, collection }) => {
   }
 
   const alertsSection = !isLoading && isResponseTabActive ? (
-    <ResponseAlertsSection item={item} collection={collection} responsePaneErrors={responsePaneErrors} />
+    <ResponseAlertsSection item={item} collection={collection} responsePaneErrors={responsePaneErrors} explainsFailingStatus />
   ) : null;
 
   const errorsIcon = responsePaneErrors.isCardClosed ? (
