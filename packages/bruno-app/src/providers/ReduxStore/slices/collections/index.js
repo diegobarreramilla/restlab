@@ -996,6 +996,18 @@ export const collectionsSlice = createSlice({
         }
       }
     },
+    restoreRequestDraft: (state, action) => {
+      const { collectionUid, itemUid, draft } = action.payload;
+      const collection = findCollectionByUid(state.collections, collectionUid);
+      const item = collection && findItemInCollection(collection, itemUid);
+      if (!item || !isItemARequest(item) || item.draft) return;
+
+      item.draft = cloneDeep(item);
+      item.draft.request = draft.request;
+      if (draft.settings) {
+        item.draft.settings = draft.settings;
+      }
+    },
     saveCollectionDraft: (state, action) => {
       const collection = findCollectionByUid(state.collections, action.payload.collectionUid);
 
@@ -4364,6 +4376,7 @@ export const {
   clearRequestTimeline,
   saveRequest,
   deleteRequestDraft,
+  restoreRequestDraft,
   saveCollectionDraft,
   saveFolderDraft,
   deleteCollectionDraft,
