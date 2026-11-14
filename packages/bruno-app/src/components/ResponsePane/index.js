@@ -14,6 +14,8 @@ import Timeline from './Timeline';
 import TestResults from './TestResults';
 import TestResultsLabel from './TestResultsLabel';
 import ResponseAlertsSection from './ResponseAlertsSection';
+import ResponseCompare from './ResponseCompare';
+import { listComparableSends } from 'utils/response-compare';
 import ResponseErrorsIcon from './ResponseErrorsIcon';
 import StyledWrapper from './StyledWrapper';
 import ResponsePaneActions from './ResponsePaneActions';
@@ -119,6 +121,9 @@ const ResponsePane = ({ item, collection }) => {
   }, [response.size, response.dataBuffer]);
   const responseHeadersCount = typeof response.headers === 'object' ? Object.entries(response.headers).length : 0;
 
+  // Comparing needs two answers, so the tab only exists once this request has been answered twice.
+  const canCompare = useMemo(() => listComparableSends(collection.timeline, item.uid).length > 1, [collection.timeline, item.uid]);
+
   const allTabs = useMemo(() => {
     return [
       {
@@ -147,9 +152,10 @@ const ResponsePane = ({ item, collection }) => {
           />
         ),
         indicator: null
-      }
+      },
+      ...(canCompare ? [{ key: 'compare', label: 'Compare', indicator: null }] : [])
     ];
-  }, [responseHeadersCount, item.testResults, item.assertionResults, item.preRequestTestResults, item.postResponseTestResults]);
+  }, [canCompare, responseHeadersCount, item.testResults, item.assertionResults, item.preRequestTestResults, item.postResponseTestResults]);
 
   const getTabPanel = (tab) => {
     switch (tab) {
@@ -181,6 +187,9 @@ const ResponsePane = ({ item, collection }) => {
       }
       case 'timeline': {
         return <Timeline collection={collection} item={item} activeTabUid={activeTabUid} />;
+      }
+      case 'compare': {
+        return <ResponseCompare collection={collection} item={item} />;
       }
       case 'tests': {
         return (
