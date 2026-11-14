@@ -56,6 +56,9 @@ Todo se limita a la carpeta de la colección, aunque el repositorio contenga má
 | `1ce5a9beb`, `15c39cc40` | **Conflictos**: comparar «Yours» / «Theirs», *Keep mine* / *Take theirs*, *Finish merge*. **Remoto**: conectar, cambiar o desconectar desde el panel. |
 | `0277f2d44`, `ae5677140` | **Mezclar un conflicto parte por parte**: la URL de un lado y las cabeceras del otro. |
 
+### 1.7 Explicar por qué falló una petición
+Commit `feat(app): explain why a request failed`. Cuando una petición falla, la app dice la causa probable y, si hay un ajuste que lo arregla, lo abre con un botón. Son reglas locales: no usa IA ni red. Si no reconoce una causa concreta, no dice nada. Sustituye al aviso anterior, que solo cubría certificados.
+
 ### 1.6 Documentación
 
 `92bff2b96`, `61085ed75`, `5769a241f`: roadmap, bitácoras y decisiones aplazadas.
@@ -148,6 +151,15 @@ Para provocar uno: en dos ramas, cambia la URL de la misma petición con valores
 - [ ] «Bring back». **Esperado:** vuelven.
 
 ---
+
+### 2.11 Explicar por qué falló una petición
+- [ ] Envía a `http://localhost:1/`. Bajo el error debe decir que nada escucha en ese puerto y sugerir arrancar tu servidor.
+- [ ] Envía a `http://no-existe.invalid/`. Debe decir que el nombre no lleva a ningún servidor.
+- [ ] Envía con `https://` a un servidor local que solo habla HTTP. Debe sugerir probar `http://`.
+- [ ] En *Settings* de una petición pon un tiempo de espera de 1 ms y envía. Debe decir que se agotó el tiempo, y *Open Settings* debe abrir esa pestaña.
+- [ ] Envía a una API real sin credenciales que responda 401. Encima del cuerpo debe salir una tarjeta con el tipo de autenticación que pide; *Open Auth* abre la pestaña Auth; la X la cierra y no vuelve hasta el siguiente envío.
+- [ ] Envía algo que responda 404 o 500. **No** debe salir ninguna tarjeta.
+- [ ] Míralo en tema oscuro.
 
 ## 3. Lo que no está hecho o no pude comprobar
 
