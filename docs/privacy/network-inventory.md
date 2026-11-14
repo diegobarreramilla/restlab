@@ -48,6 +48,18 @@ La dirección de retorno por defecto es `http://127.0.0.1:47831/oauth2/callback`
 - **Dirección personalizada que no es local:** se comporta como antes (la página del usuario redirige a `bruno://app/oauth2/callback`).
 - **Límite conocido:** el servidor temporal solo atiende direcciones `http://127.0.0.1:<puerto>`; `localhost` no se trata como local.
 
+## 6. Modo estricto de red (2026-11-13)
+
+Interruptor en Preferencias > General > Privacy (`general.strictNetwork`, apagado por defecto). Con él activo:
+
+- **Las ventanas de la app no pueden cargar nada de otra máquina.** Un filtro en el proceso principal (`bruno-electron/src/app/strict-network.js`, `webRequest.onBeforeRequest`) cancela toda petición `http`, `https`, `ws`, `wss` o `ftp` de la sesión principal y de la sesión de las apps incrustadas cuyo destino no sea esta máquina (`localhost`, `*.localhost`, `127.x.x.x`, `::1`). Cubre, por ejemplo, una imagen remota en la documentación, los recursos de una respuesta HTML vista como página o una llamada desde una app incrustada.
+- **Se pausan las comprobaciones en segundo plano:** el sondeo de OpenAPI sync (categoría 2) y los anuncios (categoría 3), aunque sus propios interruptores estén activos. «Check now» sigue funcionando porque lo pulsa el usuario.
+- **Cada intento bloqueado se cuenta** y Privacy muestra cuántos y a qué direcciones desde que arrancó la app. Lo normal es cero.
+
+**Lo que no bloquea, a propósito:** las peticiones que el usuario envía, las peticiones de token OAuth2 (la ventana integrada usa su propia sesión), git y los proveedores de IA si el usuario los activó. Todas salen del proceso principal por acción del usuario. Límite conocido: el modo no es un cortafuegos; no cubre lo que haga un script del usuario ni un proceso externo como `git`.
+
+Pruebas: `strict-network.spec.js` (qué direcciones pasan y cuáles no, y el contador) y el e2e `tests/preferences/strict-network/`, que con el modo activo intenta cargar una imagen de `203.0.113.7` (rango reservado, nunca enrutado) y comprueba que se cancela y se cuenta.
+
 ## Comprobado y sin hallazgos
 
 - No hay actualizador automático (`autoUpdater`, `electron-updater`).

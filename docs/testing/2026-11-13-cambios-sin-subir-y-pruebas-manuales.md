@@ -59,6 +59,15 @@ Todo se limita a la carpeta de la colección, aunque el repositorio contenga má
 ### 1.7 Explicar por qué falló una petición
 Commit `feat(app): explain why a request failed`. Cuando una petición falla, la app dice la causa probable y, si hay un ajuste que lo arregla, lo abre con un botón. Son reglas locales: no usa IA ni red. Si no reconoce una causa concreta, no dice nada. Sustituye al aviso anterior, que solo cubría certificados.
 
+### 1.8 Comparar dos respuestas
+Pestaña **Compare** en el panel de respuesta. Aparece cuando la petición ya tiene dos respuestas y muestra qué cambió en estado, cabeceras y cuerpo.
+
+### 1.9 Doctor de colección
+Línea «N things to review in this collection» en la vista general de la colección: variables que nada define, variables que faltan en algún entorno, peticiones sin URL y nombres repetidos.
+
+### 1.10 Modo estricto de red
+Interruptor en Preferencias > General > Privacy. Con él activo las ventanas de la app no cargan nada de otra máquina, se pausan OpenAPI sync y anuncios, y se cuenta lo bloqueado. De paso se corrigió que una opción de esa página activada y vuelta a apagar no se guardaba.
+
 ### 1.6 Documentación
 
 `92bff2b96`, `61085ed75`, `5769a241f`: roadmap, bitácoras y decisiones aplazadas.
@@ -160,6 +169,25 @@ Para provocar uno: en dos ramas, cambia la URL de la misma petición con valores
 - [ ] Envía a una API real sin credenciales que responda 401. Encima del cuerpo debe salir una tarjeta con el tipo de autenticación que pide; *Open Auth* abre la pestaña Auth; la X la cierra y no vuelve hasta el siguiente envío.
 - [ ] Envía algo que responda 404 o 500. **No** debe salir ninguna tarjeta.
 - [ ] Míralo en tema oscuro.
+
+### 2.12 Comparar dos respuestas
+- [ ] Envía una petición una vez: no debe haber pestaña Compare. Envíala otra vez: aparece (puede estar tras el botón » si el panel es estrecho).
+- [ ] Cambia de entorno (dev a prod) y envía de nuevo. Compare debe mostrar lo que cambia entre ambas respuestas.
+- [ ] Elige en los dos desplegables otros envíos anteriores. La comparación cambia.
+- [ ] Envía dos veces algo que responda igual. Debe decir que ambas respuestas son iguales.
+- [ ] Prueba con una respuesta grande (miles de líneas) y con una imagen.
+
+### 2.13 Doctor de colección
+- [ ] Abre la vista general de una colección real tuya. Si sale la línea, revisa cada fila: **¿alguna es un aviso falso?** Esto es lo más importante de probar.
+- [ ] Escribe `{{noExiste}}` en la URL de una petición y guarda. Debe aparecer una fila; al pulsarla se abre la petición.
+- [ ] Define una variable solo en un entorno y úsala. Debe decir en qué entornos falta.
+- [ ] Una variable que fijas en un script con `bru.setVar("x", ...)` **no** debe salir como sin definir.
+
+### 2.14 Modo estricto de red
+- [ ] Preferencias > General > Privacy: activa «Strict network mode». Debe decir que no se ha bloqueado nada.
+- [ ] Con el modo activo, envía peticiones, pide un token OAuth2 y haz Fetch en Git. Todo debe seguir funcionando.
+- [ ] Abre una respuesta HTML de una web real en vista previa. Las imágenes remotas no deben cargar y el contador debe subir.
+- [ ] Apaga el modo, cierra Preferencias y vuelve a abrirlas: debe seguir apagado.
 
 ## 3. Lo que no está hecho o no pude comprobar
 
