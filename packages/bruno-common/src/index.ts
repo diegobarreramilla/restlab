@@ -61,3 +61,6 @@ export * from './constants';
 
 export { findSecretsInCollection } from './secrets';
 export type { SecretFinding, SecretFindingKind, SecretFindingSeverity, SecretFindingLocation, SecretFindingLocationType, SecretFindingSource } from './secrets';
+
+export { checkCollection } from './collection-check';
+export type { CollectionCheckFinding, CollectionCheckKind, CollectionCheckLocationType, CollectionCheckOptions } from './collection-check';
