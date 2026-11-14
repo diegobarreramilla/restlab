@@ -136,6 +136,10 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.muted};
   }
 
+  .strict-network-status {
+    padding-left: 1.5rem;
+  }
+
   .privacy-path {
     font-size: ${(props) => props.theme.font.size.xs};
     color: ${(props) => props.theme.colors.text.muted};

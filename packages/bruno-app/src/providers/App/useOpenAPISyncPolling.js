@@ -9,7 +9,9 @@ const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const useOpenAPISyncPolling = () => {
   const dispatch = useDispatch();
 
-  const pollingEnabled = useSelector((state) => state.openapiSync?.pollingEnabled ?? true);
+  // Strict network mode pauses every check the user did not just ask for; "Check now" still works.
+  const strictNetwork = useSelector((state) => state.app.preferences?.general?.strictNetwork ?? false);
+  const pollingEnabled = useSelector((state) => state.openapiSync?.pollingEnabled ?? true) && !strictNetwork;
   const collections = useSelector((state) => state.collections?.collections || []);
   const { workspaces, activeWorkspaceUid } = useSelector((state) => state.workspaces);
   const activeWorkspace = workspaces.find((w) => w.uid === activeWorkspaceUid);

@@ -215,4 +215,18 @@ describe('Preferences — General: Privacy "Where your data lives"', () => {
 
     expect(screen.getByTestId('privacy-inventory-note')).toHaveTextContent('docs/privacy/network-inventory.md');
   });
+
+  it('saves a setting that is switched on and back off without leaving the page', async () => {
+    const { savePreferences } = require('providers/ReduxStore/slices/app');
+    renderGeneralPreferences();
+    const toggle = screen.getByTestId('general-strict-network');
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect(savePreferences).toHaveBeenCalledTimes(1));
+    expect(savePreferences.mock.calls[0][0].general.strictNetwork).toBe(true);
+
+    fireEvent.click(toggle);
+    await waitFor(() => expect(savePreferences).toHaveBeenCalledTimes(2));
+    expect(savePreferences.mock.calls[1][0].general.strictNetwork).toBe(false);
+  });
 });

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import get from 'lodash/get';
 import debounce from 'lodash/debounce';
+import isEqual from 'lodash/isEqual';
 import { useFormik } from 'formik';
 import { useSelector, useDispatch } from 'react-redux';
 import { savePreferences } from 'providers/ReduxStore/slices/app';
@@ -13,6 +14,7 @@ import path from 'utils/common/path';
 import { getRevealInFolderLabel } from 'utils/common/platform';
 import { REPOSITORY_URL } from 'utils/branding';
 import { SettingsGroup, CheckboxSetting, SettingsField } from '../SettingsLayout';
+import StrictNetworkStatus from './StrictNetworkStatus';
 
 const General = () => {
   const preferences = useSelector((state) => state.app.preferences);
@@ -79,7 +81,8 @@ const General = () => {
       useSystemBrowser: Yup.boolean()
     }),
     defaultLocation: Yup.string().max(1024),
-    fetchNotifications: Yup.boolean()
+    fetchNotifications: Yup.boolean(),
+    strictNetwork: Yup.boolean()
   });
 
   const formik = useFormik({
@@ -103,7 +106,8 @@ const General = () => {
         useSystemBrowser: get(preferences, 'request.oauth2.useSystemBrowser', false)
       },
       defaultLocation: get(preferences, 'general.defaultLocation', ''),
-      fetchNotifications: get(preferences, 'general.fetchNotifications', false)
+      fetchNotifications: get(preferences, 'general.fetchNotifications', false),
+      strictNetwork: get(preferences, 'general.strictNetwork', false)
     },
     validationSchema: preferencesSchema,
     onSubmit: async (values) => {
@@ -144,7 +148,8 @@ const General = () => {
         general: {
           ...preferences.general,
           defaultLocation: newPreferences.defaultLocation,
-          fetchNotifications: newPreferences.fetchNotifications
+          fetchNotifications: newPreferences.fetchNotifications,
+          strictNetwork: newPreferences.strictNetwork
         }
       }))
       .catch((err) => console.log(err) && toast.error('Failed to update preferences'));
@@ -165,14 +170,19 @@ const General = () => {
     []
   );
 
+  // Compared with what was last sent to be saved, not with the values the form opened with: a setting
+  // switched on and back off again equals its opening value and still has to be saved.
+  const lastSubmittedValuesRef = useRef(formik.initialValues);
+
   useEffect(() => {
-    if (formik.dirty && formik.isValid) {
+    if (formik.isValid && !isEqual(formik.values, lastSubmittedValuesRef.current)) {
+      lastSubmittedValuesRef.current = formik.values;
       debouncedSave(formik.values);
     }
     return () => {
       debouncedSave.flush();
     };
-  }, [formik.values, formik.dirty, formik.isValid, debouncedSave]);
+  }, [formik.values, formik.isValid, debouncedSave]);
 
   const addCaCertificate = (e) => {
     const filePath = window?.ipcRenderer?.getFilePath(e?.target?.files?.[0]);
@@ -314,6 +324,17 @@ const General = () => {
             checked={formik.values.fetchNotifications}
             onChange={formik.handleChange}
           />
+
+          <CheckboxSetting
+            id="strictNetwork"
+            name="strictNetwork"
+            label="Strict network mode"
+            description="RestLab's windows cannot load anything from another machine, and background checks (OpenAPI sync, announcements) are paused. The requests you send, token requests and git keep working."
+            data-testid="general-strict-network"
+            checked={formik.values.strictNetwork}
+            onChange={formik.handleChange}
+          />
+          <StrictNetworkStatus enabled={get(preferences, 'general.strictNetwork', false)} />
 
           <div className="privacy-data-lives" data-testid="privacy-data-lives">
             <div className="privacy-block-title">Where your data lives</div>
