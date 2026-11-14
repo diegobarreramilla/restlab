@@ -571,7 +571,7 @@ Trece ideas nuevas, todas de nivel **P/C** (propuestas, sin demanda comprobada e
 | 1 | Explicar el fallo sin IA — **hecho (2026-11-13)** | M | Tras la v1-base |
 | 2 | Modo estricto de red — **hecho (2026-11-13)** | M | Antes de publicar |
 | 3 | Detector de secretos antes de commit o exportación ✅ parcial (2026-11-12) | M | Tras 5.3 |
-| 4 | Doctor de colección (`bru check`) | M | Tras 5.2 |
+| 4 | Doctor de colección (`bru check`) — **hecho en la app (2026-11-13)** | M | Tras 5.2 |
 | 5 | Comprobador de integridad de formato (`verify`) | S–M | Con 8.3 |
 | 6 | Documentación incluida en la app | M | Con 8.4 |
 | 7 | Modo portátil | S | Con 8.2 |
