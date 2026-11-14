@@ -169,6 +169,28 @@ Como hito propio **después del rendimiento (4.x) y de la importación OpenAPI (
 
 ---
 
+## Oportunidades leídas del informe (2026-11-14)
+
+Añadidas tras repasar `reports/Debilidades de Bruno Postman Insomnia.md`. El informe dice que la gente cambia de cliente por confianza, no por funciones; estas son las áreas con hueco, de más a menos respaldo. Estado a 2026-11-14.
+
+| # | Área | Qué dice el informe | Idea | Estado |
+|---|---|---|---|---|
+| 14 | Miedo a perder datos | Insomnia ocultó o borró peticiones al actualizar (#6585, 74 reacciones) | **Recuperar cambios sin guardar** tras un cierre inesperado | **Hecho** para peticiones ya guardadas en una colección; falta para peticiones nunca guardadas |
+| 15 | Miedo a perder datos | Igual | **Historial local por petición**: volver a una versión anterior de una petición aunque no se use Git | Pendiente |
+| 16 | Idioma | Issue abierto más votado de Bruno (#322, 58) | **Traducción**, empezando por español (roadmap 5.3) | Pendiente; todo lo nuevo está en inglés y escrito en el código |
+| 17 | Modo vim | Segundo issue más votado de Bruno (#2373, 57) | **Atajos vim en los editores** | Pendiente; tamaño sin comprobar |
+| 18 | Gente que deja Postman e Insomnia | Es el flujo principal de usuarios nuevos | **Primer arranque «vengo de Postman»** con informe de lo que no se pudo traducir (idea 11) | Pendiente |
+| 19 | IA | Nadie pide IA dentro del cliente; lo defendible es dar contexto a agentes externos | **Servidor MCP local, opcional**, para que un agente lea y ejecute colecciones | Pendiente; es la más grande |
+| 20 | OpenAPI | Importar OpenAPI llegó a 132 reacciones (#81); las variables de servidor se importan mal | **Importación fiel** (roadmap 5.2) y **rutas sugeridas al escribir la URL** (roadmap 6.1) | Rutas sugeridas: **hecho** en su primera versión; importación fiel: pendiente |
+| 21 | Pestañas | Pedido en Bruno (#1739, 17) e Insomnia (#8488, unas 40) | **Poder ocultar la barra de pestañas** | Pendiente |
+| 22 | Extensiones | #1529, 49 reacciones, coste alto | Solo una API interna mínima, sin tienda | Aplazado |
+
+Dos puntos que no son funciones pero pesan en la decisión de quien elige cliente:
+- **El miedo a que el proyecto «siga el camino de Postman»** aparece en casi todos los hilos. Conviene publicar por escrito qué será siempre gratis antes de decidir qué se cobra.
+- **Bruno limita en su plan gratuito lo que RestLab ya da**: Git solo con repositorios públicos y 5 sincronizaciones OpenAPI al mes.
+
+Orden propuesto: 16, 17, 15 y 18. La 19 es la más diferenciadora y la más grande.
+
 ## Cosas que se descartaron (y por qué)
 - **Historial de peticiones en la nube:** contradice la promesa. Si algún día se hace, solo local y con tope de tamaño.
 - **Telemetría «anónima y opcional»:** rompe la regla de que no hay nada que anunciar ni medir sobre el usuario; lo cubre la idea 8 sin recolectar.

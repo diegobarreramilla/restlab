@@ -68,6 +68,12 @@ Línea «N things to review in this collection» en la vista general de la colec
 ### 1.10 Modo estricto de red
 Interruptor en Preferencias > General > Privacy. Con él activo las ventanas de la app no cargan nada de otra máquina, se pausan OpenAPI sync y anuncios, y se cuenta lo bloqueado. De paso se corrigió que una opción de esa página activada y vuelta a apagar no se guardaba.
 
+### 1.11 Rutas sugeridas desde OpenAPI
+Al escribir una ruta en la barra de URL salen las rutas de la descripción OpenAPI o Swagger que tengas a mano (la sincronizada con la colección o las abiertas en «API Specs»). Elegir una completa la ruta, el método, los parámetros y el cuerpo.
+
+### 1.12 Recuperar cambios sin guardar
+Si la app se cierra de golpe, los cambios sin guardar de las peticiones vuelven al reabrirla.
+
 ### 1.6 Documentación
 
 `92bff2b96`, `61085ed75`, `5769a241f`: roadmap, bitácoras y decisiones aplazadas.
@@ -188,6 +194,20 @@ Para provocar uno: en dos ramas, cambia la URL de la misma petición con valores
 - [ ] Con el modo activo, envía peticiones, pide un token OAuth2 y haz Fetch en Git. Todo debe seguir funcionando.
 - [ ] Abre una respuesta HTML de una web real en vista previa. Las imágenes remotas no deben cargar y el contador debe subir.
 - [ ] Apaga el modo, cierra Preferencias y vuelve a abrirlas: debe seguir apagado.
+
+### 2.15 Rutas sugeridas desde OpenAPI
+- [ ] Abre un archivo OpenAPI o Swagger tuyo en «API Specs» (barra lateral, abajo).
+- [ ] En una petición HTTP escribe `http://localhost:3000/` en la URL. Debe salir la lista de rutas; sigue escribiendo y se va reduciendo.
+- [ ] Elige una ruta POST con cuerpo en una petición nueva. Deben quedar la ruta, el método POST y el cuerpo de ejemplo.
+- [ ] Elige una ruta con `{id}`. Debe quedar `:id` y aparecer el parámetro en Params › Path.
+- [ ] En una petición que ya tiene cuerpo, elige otra ruta. **Tu cuerpo no debe cambiar.**
+- [ ] Escribe `{{` en la URL: deben seguir saliendo las variables, no las rutas.
+- [ ] Prueba con una especificación grande tuya y mira si la barra de URL se siente lenta la primera vez.
+
+### 2.16 Recuperar cambios sin guardar
+- [ ] Edita una petición guardada sin guardarla, espera dos segundos y mata la app (`kill -9` o cierra la terminal de `npm run dev`). Al reabrir, la petición debe tener tus cambios, marcada como sin guardar, y un aviso «Recovered the unsaved changes of 1 request».
+- [ ] Repite, pero cierra la app normalmente y elige «Don't save». Al reabrir **no** debe recuperar nada.
+- [ ] Edita sin guardar, mata la app, cambia el archivo de la petición a mano y reabre. No debe recuperar el cambio viejo.
 
 ## 3. Lo que no está hecho o no pude comprobar
 
