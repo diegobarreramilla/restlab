@@ -16,6 +16,9 @@ import {
 } from 'providers/ReduxStore/slices/collections';
 import { saveRequest, cancelRequest } from 'providers/ReduxStore/slices/collections/actions';
 import { getRequestFromCurlCommand } from 'utils/curl';
+import { requestChangesFor } from 'utils/openapi-routes';
+import useOpenApiRoutes from 'hooks/useOpenApiRoutes';
+import useRouteSuggestions from 'hooks/useRouteSuggestions';
 import HttpMethodSelector from './HttpMethodSelector';
 import { useTheme } from 'providers/Theme';
 import { IconDeviceFloppy, IconCode } from '@tabler/icons';
@@ -27,6 +30,8 @@ import StyledWrapper from './StyledWrapper';
 import GenerateCodeItem from 'components/Sidebar/Collections/Collection/CollectionItem/GenerateCodeItem/index';
 import ToolHint from 'components/ToolHint';
 import toast from 'react-hot-toast';
+
+const NO_ROUTES = [];
 
 const QueryUrl = ({ item, collection, handleRun }) => {
   const { theme, storedTheme } = useTheme();
@@ -75,6 +80,39 @@ const QueryUrl = ({ item, collection, handleRun }) => {
       }, 0);
     }
   };
+
+  // Choosing a suggested route completes the request from the OpenAPI description: path, method, required
+  // query parameters and, for a request that has no body yet, the body.
+  const applyRoute = (route, typedUrl) => {
+    const target = { itemUid: item.uid, collectionUid: collection.uid };
+    const currentRequest = item.draft ? item.draft.request : item.request;
+    const changes = requestChangesFor(route, { typedUrl, currentRequest });
+
+    dispatch(requestUrlChanged({ ...target, url: changes.url }));
+    dispatch(updateRequestMethod({ ...target, method: changes.method }));
+
+    if (changes.body) {
+      const { mode } = changes.body;
+      dispatch(updateRequestBodyMode({ ...target, mode }));
+      if (['json', 'text', 'xml'].includes(mode) && changes.body[mode]) {
+        dispatch(updateRequestBody({ ...target, content: changes.body[mode] }));
+      } else if (mode === 'formUrlEncoded') {
+        dispatch(setFormUrlEncodedParams({ ...target, params: changes.body.formUrlEncoded }));
+      } else if (mode === 'multipartForm') {
+        dispatch(setMultipartFormParams({ ...target, params: changes.body.multipartForm }));
+      }
+    }
+
+    setTimeout(() => editorRef.current?.editor?.setCursor(0, changes.url.length), 0);
+  };
+
+  const openApiRoutes = useOpenApiRoutes(collection);
+  useRouteSuggestions({
+    editorRef,
+    routes: item.type === 'http-request' ? openApiRoutes : NO_ROUTES,
+    method,
+    onPick: applyRoute
+  });
 
   const onMethodSelect = (verb) => {
     dispatch(

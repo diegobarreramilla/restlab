@@ -347,6 +347,51 @@ const GlobalStyle = createGlobalStyle`
     background: ${(props) => props.theme.dropdown.hoverBg};
   }
 
+  .CodeMirror-hints:has(.CodeMirror-hint-route) {
+    width: 460px;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .CodeMirror-hint-route {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .CodeMirror-hint-route-method {
+    flex: 0 0 3.25rem;
+    font-size: 11px;
+    font-weight: 600;
+    color: ${(props) => props.theme.dropdown.mutedText};
+  }
+
+  .CodeMirror-hint-route-method[data-method='GET'] { color: ${(props) => props.theme.request.methods.get}; }
+  .CodeMirror-hint-route-method[data-method='POST'] { color: ${(props) => props.theme.request.methods.post}; }
+  .CodeMirror-hint-route-method[data-method='PUT'] { color: ${(props) => props.theme.request.methods.put}; }
+  .CodeMirror-hint-route-method[data-method='PATCH'] { color: ${(props) => props.theme.request.methods.patch}; }
+  .CodeMirror-hint-route-method[data-method='DELETE'] { color: ${(props) => props.theme.request.methods.delete}; }
+
+  .CodeMirror-hint-route-path {
+    flex-shrink: 0;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ${(props) => props.theme.font?.codeFont || 'monospace'};
+  }
+
+  .CodeMirror-hint-route-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+    color: ${(props) => props.theme.dropdown.mutedText};
+  }
+
   .CodeMirror-hint-variable {
     display: flex;
     align-items: center;
